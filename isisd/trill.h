@@ -120,6 +120,7 @@ void trill_exit(void);
 void install_trill_elements (void);
 void trill_nickname_gen(struct isis_area *area);
 void trill_lspdb_acquire_event(struct isis_circuit *, lspdbacq_state);
+void trill_create_nickfwdtable(struct isis_area *);
 
 /* trill_nodedb.c */
 extern void trill_nickdb_update (struct isis_area *area,
@@ -131,6 +132,7 @@ extern void trill_dict_delete_nodes(dict_t *, dict_t *,void *, bool);
 extern nickdb_search_result trill_search_rbridge (struct isis_area *,
 								  struct nickinfo *,
 								  dnode_t **);
+u_int16_t sysid_to_nick(struct isis_area *area, u_char *sysid);
 /* trill_bpdu.c */
 extern int send_trill_hello (struct isis_circuit *);
 extern int send_trill_hello_thread (struct thread *);

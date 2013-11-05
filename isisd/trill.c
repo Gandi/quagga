@@ -23,6 +23,7 @@
 #include "isisd/isis_csm.h"
 #include "isisd/netlink.h"
 #include "isisd/nickname.h"
+#include "isisd/isis_spf.h"
 #include "command.h"
 #include "privs.h"
 
@@ -396,6 +397,68 @@ void trill_lspdb_acquire_event(struct isis_circuit *circuit,
        }
     }
 }
+
+static void trill_destroy_nickfwdtable(void *obj)
+{
+  XFREE (MTYPE_ISIS_TRILL_FWDTBL_NODE, obj);
+}
+void trill_create_nickfwdtable(struct isis_area *area)
+{
+  struct listnode *node;
+  struct isis_vertex *vertex;
+  struct isis_adjacency *adj;
+  struct list *fwdlist = NULL;
+  struct list *oldfwdlist;
+  struct nickfwdtable_node *fwdnode;
+  struct isis_spftree *rdtree;
+  oldfwdlist = area->trill->fwdtbl;
+  int firstnode = true;
+  /* forwarding table is based on spftree rooted at local node */
+  rdtree = area->spftree[TRILL_LEVEL - 1];
+
+  for (ALL_LIST_ELEMENTS_RO (rdtree->paths, node, vertex))
+  {
+    if (firstnode)
+    {
+	/* first node in path list is local node */
+	fwdlist = list_new();
+	fwdlist->del = trill_destroy_nickfwdtable;
+	firstnode = false;
+	continue;
+    }
+    if (vertex->type != VTYPE_NONPSEUDO_IS &&
+	vertex->type != VTYPE_NONPSEUDO_TE_IS)
+    {
+	continue;
+    }
+    /* Adj_N: {Adj(N)} next hop or neighbor list */
+    if (listhead (vertex->Adj_N) &&
+	(adj = listgetdata (listhead (vertex->Adj_N))))
+    {
+	fwdnode = XCALLOC (MTYPE_ISIS_TRILL_FWDTBL_NODE,
+				 sizeof(struct nickfwdtable_node));
+	fwdnode->dest_nick = sysid_to_nick (area, vertex->N.id);
+	memcpy(fwdnode->adj_snpa, adj->snpa, sizeof(fwdnode->adj_snpa));
+	fwdnode->interface = adj->circuit->interface;
+	listnode_add (fwdlist, fwdnode);
+    }
+    else
+    {
+	zlog_warn("nickfwdtable: node %s is unreachable",
+		    print_sys_hostname (vertex->N.id));
+	/* if a node is unreachable delete it from nickdb */
+	trill_dict_delete_nodes (area->trill->sysidtonickdb,
+					 area->trill->nickdb,
+					 vertex->N.id,
+					 true);
+    }
+  }
+
+  area->trill->fwdtbl = fwdlist;
+  if (oldfwdlist != NULL)
+    list_delete (oldfwdlist);
+}
+
 
 void trill_init(int argc, char **argv)
 {

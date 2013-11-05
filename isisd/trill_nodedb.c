@@ -208,3 +208,17 @@ void trill_nickdb_update (struct isis_area *area,
         }
     }
 }
+
+/* Lookup nickname when given a system ID */
+u_int16_t sysid_to_nick(struct isis_area *area, u_char *sysid)
+{
+  dnode_t *dnode;
+  struct trill_nickdb_node *tnode;
+
+  dnode = dict_lookup (area->trill->sysidtonickdb, sysid);
+  if (dnode == NULL)
+    return 0;
+  tnode = (struct trill_nickdb_node *) dnode_get (dnode);
+  return tnode->info.nick.name;
+}
+

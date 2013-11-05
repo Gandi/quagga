@@ -1,5 +1,6 @@
 #include <zebra.h>
 
+#include <libtrill.h>
 #include "thread.h"
 #include "linklist.h"
 #include "vty.h"
@@ -27,6 +28,9 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_csm.h"
 #include "isisd/trill.h"
+#include "isisd/nickname.h"
+
+void trill_process_spf (struct isis_area *);
 static int
 trill_complete_spf(struct isis_area *area)
 {
@@ -60,9 +64,10 @@ trill_complete_spf(struct isis_area *area)
                         print_sys_hostname (tnode->info.sysid), retval);
     }
   /*
-   * TODO Process computed SPF trees to create TRILL
+   * Process computed SPF trees to create TRILL
    * forwarding and adjacency tables.
    */
+  trill_process_spf(area);
   return retval;
 }
 
@@ -122,4 +127,23 @@ int isis_spf_schedule_trill (struct isis_area *area)
     }
 
   return retval;
+}
+
+
+/*
+ * Called upon computing the SPF trees to create the forwarding
+ * and adjacency lists for TRILL.
+ */
+void trill_process_spf (struct isis_area *area)
+{
+  /* Nothing to do if we don't have a nick yet */
+  if (area->trill->nick.name == RBRIDGE_NICKNAME_NONE)
+	  return;
+  /* compute forwarding table */
+  trill_create_nickfwdtable(area);
+  /* compute adjacency list for each node */
+
+ /* Once spf tree computing adjacency list and forwading table are completed,
+  * these information have to be exposed to control plan
+  */
 }
