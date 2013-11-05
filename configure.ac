@@ -222,6 +222,8 @@ AC_ARG_ENABLE(watchquagga,
 [  --disable-watchquagga   do not build watchquagga])
 AC_ARG_ENABLE(isisd,
 [  --enable-isisd          build isisd])
+AC_ARG_ENABLE(trilld,
+[  --enable-trilld          build trilld])
 AC_ARG_ENABLE(solaris,
 [  --enable-solaris          build solaris])
 AC_ARG_ENABLE(bgp-announce,
@@ -347,6 +349,10 @@ if test "${enable_isisd}" = "yes" && test "${enable_isis_topology}" = yes; then
   ISIS_TOPOLOGY_INCLUDES="-I\$(srcdir)/topology"
   ISIS_TOPOLOGY_DIR="topology"
   ISIS_TOPOLOGY_LIB="./topology/libtopology.a"
+fi
+
+if test "${enable_trilld}" = "yes"; then
+  AC_DEFINE(HAVE_TRILL,,Enable TRILL code)
 fi
 
 AC_SUBST(ISIS_TOPOLOGY_INCLUDES)
@@ -1354,6 +1360,13 @@ case "${enable_isisd}" in
 esac
 AM_CONDITIONAL(ISISD, test "x$ISISD" = "xisisd")
 
+case "${enable_trilld}" in
+  "yes") TRILLD="trilld";;
+  "no" ) TRILLD="";;
+  *    ) ;;
+esac
+AM_CONDITIONAL(TRILLD, test "x$TRILLD" = "xtrilld")
+
 # XXX Perhaps auto-enable on Solaris, but that's messy for cross builds.
 case "${enable_solaris}" in
   "yes") SOLARIS="solaris";;
@@ -1669,6 +1682,7 @@ AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$quagga_statedir/ospfd.pid",ospfd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$quagga_statedir/ospf6d.pid",ospf6d PID)
 AC_DEFINE_UNQUOTED(PATH_BABELD_PID, "$quagga_statedir/babeld.pid",babeld PID)
 AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$quagga_statedir/isisd.pid",isisd PID)
+AC_DEFINE_UNQUOTED(PATH_TRILLD_PID, "$quagga_statedir/trilld.pid",trilld PID)
 AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$quagga_statedir/watchquagga.pid",watchquagga PID)
 AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$quagga_statedir/zserv.api",zebra api socket)
 AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$quagga_statedir/zebra.vty",zebra vty socket)
@@ -1679,6 +1693,7 @@ AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$quagga_statedir/ospfd.vty",ospfd vty socke
 AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$quagga_statedir/ospf6d.vty",ospf6d vty socket)
 AC_DEFINE_UNQUOTED(BABEL_VTYSH_PATH, "$quagga_statedir/babeld.vty",babeld vty socket)
 AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$quagga_statedir/isisd.vty",isisd vty socket)
+AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$quagga_statedir/trilld.vty",trilld vty socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$quagga_statedir",daemon vty directory)
 
 dnl -------------------------------
