@@ -51,6 +51,10 @@
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_spf.h"
 
+#ifdef HAVE_TRILL
+#include "isisd/trill.h"
+#endif
+
 #ifdef TOPOLOGY_GENERATE
 #include "spgrid.h"
 #endif
@@ -60,8 +64,12 @@ char lsp_bits_string[200];     /* FIXME: enough ? */
 
 static int lsp_l1_refresh (struct thread *thread);
 static int lsp_l2_refresh (struct thread *thread);
+static int lsp_trill_refresh (struct thread *thread);
 static int lsp_l1_refresh_pseudo (struct thread *thread);
 static int lsp_l2_refresh_pseudo (struct thread *thread);
+#ifdef HAVE_TRILL
+static int lsp_trill_refresh_pseudo (struct thread *thread);
+#endif
 
 int
 lsp_id_cmp (u_char * id1, u_char * id2)
@@ -447,6 +455,10 @@ lsp_bits_generate (int level, int overload_bit)
   u_int8_t lsp_bits = 0;
   if (level == IS_LEVEL_1)
     lsp_bits = IS_LEVEL_1;
+#ifdef HAVE_TRILL
+  else if(level == TRILL_LEVEL)
+    lsp_bits = IS_LEVEL_1;
+#endif
   else
     lsp_bits = IS_LEVEL_1_AND_2;
   if (overload_bit)
@@ -474,7 +486,7 @@ lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
   lsp->lsp_header = (struct isis_link_state_hdr *) (STREAM_DATA (lsp->pdu) +
 						    ISIS_FIXED_HDR_LEN);
   lsp->area = area;
-  lsp->level = level;
+  lsp->level = TRILL_LEVEL_TO_L1(level);
   lsp->age_out = ZERO_AGE_LIFETIME;
   lsp->installed = time (NULL);
   /*
@@ -594,8 +606,9 @@ lsp_new (u_char * lsp_id, u_int16_t rem_lifetime, u_int32_t seq_num,
     (STREAM_DATA (lsp->pdu) + ISIS_FIXED_HDR_LEN);
 
   /* at first we fill the FIXED HEADER */
-  (level == IS_LEVEL_1) ? fill_fixed_hdr (lsp->isis_header, L1_LINK_STATE) :
-    fill_fixed_hdr (lsp->isis_header, L2_LINK_STATE);
+  (level == IS_LEVEL_1 || level == TRILL_LEVEL ) ?
+       fill_fixed_hdr (lsp->isis_header, L1_LINK_STATE) :
+       fill_fixed_hdr (lsp->isis_header, L2_LINK_STATE);
 
   /* now for the LSP HEADER */
   /* Minimal LSP PDU size */
@@ -604,8 +617,8 @@ lsp_new (u_char * lsp_id, u_int16_t rem_lifetime, u_int32_t seq_num,
   lsp->lsp_header->checksum = checksum;	/* Provided in network order */
   lsp->lsp_header->seq_num = htonl (seq_num);
   lsp->lsp_header->rem_lifetime = htons (rem_lifetime);
-  lsp->lsp_header->lsp_bits = lsp_bits;
-  lsp->level = level;
+  lsp->lsp_header->lsp_bits = TRILL_LEVEL_TO_L1(lsp_bits);
+  lsp->level = TRILL_LEVEL_TO_L1(level);
   lsp->age_out = ZERO_AGE_LIFETIME;
 
   stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
@@ -1099,7 +1112,7 @@ static u_int16_t
 lsp_refresh_time (struct isis_lsp *lsp, u_int16_t rem_lifetime)
 {
   struct isis_area *area = lsp->area;
-  int level = lsp->level;
+  int level = LSP_TO_TRILL_LEVEL(lsp, area->isis->trill_active);
   u_int16_t refresh_time;
 
   /* Add jitter to LSP refresh time */
@@ -1154,7 +1167,7 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
   struct is_neigh *is_neigh;
   struct te_is_neigh *te_is_neigh;
   struct listnode *node, *ipnode;
-  int level = lsp->level;
+  int level = LSP_TO_TRILL_LEVEL(lsp, area->isis->trill_active);
   struct isis_circuit *circuit;
   struct prefix_ipv4 *ipv4;
   struct ipv4_reachability *ipreach;
@@ -1235,6 +1248,20 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
       lsp->tlv_data.hostname->namelen = strlen (unix_hostname ());
       tlv_add_dynamic_hostname (lsp->tlv_data.hostname, lsp->pdu);
     }
+#ifdef HAVE_TRILL
+  /* once trill is activated and nickname is set, append nickname information
+   * to LSP messages on a specific TLV field
+   * considering that trill is activated al ip information have to be excluded
+   * from LSP messages
+   */
+  if (isis->trill_active && CHECK_FLAG (area->trill->status, TRILL_NICK_SET)){
+      tlv_add_trill_nickname (&(area->trill->nick), lsp->pdu, area);
+	/* ensure that lsp will not contain any ip information*/
+  }
+  else{
+    zlog_err("error :cannot add nickname on lsp \n");
+  }
+#endif
 
   /* IPv4 address and TE router ID TLVs. In case of the first one we don't
    * follow "C" vendor, but "J" vendor behavior - one IPv4 address is put into
@@ -1270,6 +1297,9 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
   /* If topology exists (and we create topology for level 1 only), create
    * (hardcoded) link to topology. */
   if (area->topology && level == IS_LEVEL_1)
+#ifdef HAVE_TRILL
+     || (area->topology && level == TRILL_LEVEL)
+#endif
     {
       if (tlv_data.is_neighs == NULL)
 	{
@@ -1399,6 +1429,11 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		  if (level == IS_LEVEL_1)
 		    memcpy (is_neigh->neigh_id,
 			    circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
+#ifdef HAVE_TRILL
+              else if (level == TRILL_LEVEL)
+                  memcpy (is_neigh->neigh_id,
+                       circuit->u.bc.trill_desig_is, ISIS_SYS_ID_LEN + 1);
+#endif
 		  else
 		    memcpy (is_neigh->neigh_id,
 			    circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
@@ -1421,6 +1456,11 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		  if (level == IS_LEVEL_1)
 		    memcpy (te_is_neigh->neigh_id,
 			    circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
+#ifdef HAVE_TRILL
+              else if (level == TRILL_LEVEL)
+                memcpy (te_is_neigh->neigh_id,
+                      circuit->u.bc.trill_desig_is, ISIS_SYS_ID_LEN + 1);
+#endif
 		  else
 		    memcpy (te_is_neigh->neigh_id,
 			    circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
@@ -1572,7 +1612,7 @@ lsp_generate (struct isis_area *area, int level)
   u_char lspid[ISIS_SYS_ID_LEN + 2];
   u_int16_t rem_lifetime, refresh_time;
 
-  if ((area == NULL) || (area->is_type & level) != level)
+  if (area == NULL)
     return ISIS_ERROR;
 
   memset (&lspid, 0, ISIS_SYS_ID_LEN + 2);
@@ -1601,13 +1641,17 @@ lsp_generate (struct isis_area *area, int level)
   lsp_set_all_srmflags (newlsp);
 
   refresh_time = lsp_refresh_time (newlsp, rem_lifetime);
-  THREAD_TIMER_OFF (area->t_lsp_refresh[level - 1]);
   if (level == IS_LEVEL_1)
     THREAD_TIMER_ON (master, area->t_lsp_refresh[level - 1],
                      lsp_l1_refresh, area, refresh_time);
   else if (level == IS_LEVEL_2)
     THREAD_TIMER_ON (master, area->t_lsp_refresh[level - 1],
                      lsp_l2_refresh, area, refresh_time);
+#ifdef HAVE_TRILL
+  else if (level == TRILL_LEVEL)
+    THREAD_TIMER_ON (master, area->t_lsp_refresh[level - 1],
+                     lsp_trill_refresh, area, refresh_time);
+#endif
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
@@ -1681,6 +1725,11 @@ lsp_regenerate (struct isis_area *area, int level)
   else if (level == IS_LEVEL_2)
     THREAD_TIMER_ON (master, area->t_lsp_refresh[level - 1],
                      lsp_l2_refresh, area, refresh_time);
+#ifdef HAVE_TRILL
+  else if (level == TRILL_LEVEL)
+    THREAD_TIMER_ON (master, area->t_lsp_refresh[level - 1],
+                     lsp_trill_refresh, area, refresh_time);
+#endif
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
@@ -1735,6 +1784,25 @@ lsp_l2_refresh (struct thread *thread)
   return lsp_regenerate (area, IS_LEVEL_2);
 }
 
+#ifdef HAVE_TRILL
+static int
+lsp_trill_refresh (struct thread *thread)
+{
+  struct isis_area *area;
+
+  area = THREAD_ARG (thread);
+  assert (area);
+
+  area->t_lsp_refresh[TRILL_LEVEL - 1] = NULL;
+  area->lsp_regenerate_pending[TRILL_LEVEL - 1] = 0;
+
+  if ((area->is_type & TRILL_LEVEL) == 0)
+    return ISIS_ERROR;
+
+  return lsp_regenerate (area, TRILL_LEVEL);
+}
+#endif
+
 int
 lsp_regenerate_schedule (struct isis_area *area, int level, int all_pseudo)
 {
@@ -1752,7 +1820,7 @@ lsp_regenerate_schedule (struct isis_area *area, int level, int all_pseudo)
   LSP_PSEUDO_ID (id) = LSP_FRAGMENT (id) = 0;
   now = time (NULL);
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++)
+  for (lvl = IS_LEVEL_1; lvl <= ISIS_LEVELS; lvl++)
     {
       if (!((level & lvl) && (area->is_type & lvl)))
         continue;
@@ -1780,6 +1848,12 @@ lsp_regenerate_schedule (struct isis_area *area, int level, int all_pseudo)
             THREAD_TIMER_ON (master, area->t_lsp_refresh[lvl - 1],
                              lsp_l2_refresh, area,
                              area->lsp_gen_interval[lvl - 1] - diff);
+#ifdef HAVE_TRILL
+          else if (lvl == TRILL_LEVEL)
+            THREAD_TIMER_ON (master, area->t_lsp_refresh[lvl - 1],
+                             lsp_trill_refresh, area,
+                             area->lsp_gen_interval[lvl - 1] - diff);
+#endif
         }
       else
         {
@@ -1814,7 +1888,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
   struct list *adj_list;
   struct listnode *node;
 
-  lsp->level = level;
+  lsp->level = TRILL_LEVEL_TO_L1(level);
   /* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
   lsp->lsp_header->lsp_bits = lsp_bits_generate (level, 0);
 
@@ -1851,12 +1925,16 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 
   for (ALL_LIST_ELEMENTS_RO (adj_list, node, adj))
     {
-      if (adj->level & level)
+      if (adj->level == level)
 	{
 	  if ((level == IS_LEVEL_1 && adj->sys_type == ISIS_SYSTYPE_L1_IS) ||
 	      (level == IS_LEVEL_1 && adj->sys_type == ISIS_SYSTYPE_L2_IS &&
 	      adj->adj_usage == ISIS_ADJ_LEVEL1AND2) ||
-	      (level == IS_LEVEL_2 && adj->sys_type == ISIS_SYSTYPE_L2_IS))
+	      (level == IS_LEVEL_2 && adj->sys_type == ISIS_SYSTYPE_L2_IS)
+#ifdef HAVE_TRILL
+            || (level == TRILL_LEVEL && adj->sys_type == ISIS_SYSTYPE_L1_IS)
+#endif
+           )
 	    {
 	      /* an IS neighbour -> add it */
 	      if (circuit->area->oldmetric)
@@ -1874,7 +1952,8 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 		  listnode_add (lsp->tlv_data.te_is_neighs, te_is_neigh);
 		}
 	    }
-	  else if (level == IS_LEVEL_1 && adj->sys_type == ISIS_SYSTYPE_ES)
+         else if ((level == IS_LEVEL_1 && adj->sys_type == ISIS_SYSTYPE_ES)
+                 ||(level == TRILL_LEVEL && adj->sys_type == ISIS_SYSTYPE_ES))
 	    {
 	      /* an ES neigbour add it, if we are building level 1 LSP */
 	      /* FIXME: the tlv-format is hard to use here */
@@ -1884,7 +1963,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 		  lsp->tlv_data.es_neighs->del = free_tlv;
 		}
 	      es_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct es_neigh));
-	      
+
 	      memcpy (&es_neigh->first_es_neigh, adj->sysid, ISIS_SYS_ID_LEN);
 	      listnode_add (lsp->tlv_data.es_neighs, es_neigh);
 	    }
@@ -1964,6 +2043,11 @@ lsp_generate_pseudo (struct isis_circuit *circuit, int level)
   else if (level == IS_LEVEL_2)
     THREAD_TIMER_ON (master, circuit->u.bc.t_refresh_pseudo_lsp[level - 1],
                      lsp_l2_refresh_pseudo, circuit, refresh_time);
+#ifdef HAVE_TRILL
+  else if (level == TRILL_LEVEL)
+    THREAD_TIMER_ON (master, circuit->u.bc.t_refresh_pseudo_lsp[level - 1],
+                     lsp_trill_refresh_pseudo, circuit, refresh_time);
+#endif
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
@@ -2026,6 +2110,11 @@ lsp_regenerate_pseudo (struct isis_circuit *circuit, int level)
   else if (level == IS_LEVEL_2)
     THREAD_TIMER_ON (master, circuit->u.bc.t_refresh_pseudo_lsp[level - 1],
                      lsp_l2_refresh_pseudo, circuit, refresh_time);
+#ifdef HAVE_TRILL
+  else if (level == TRILL_LEVEL)
+    THREAD_TIMER_ON (master, circuit->u.bc.t_refresh_pseudo_lsp[level - 1],
+                     lsp_trill_refresh_pseudo, circuit, refresh_time);
+#endif
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
@@ -2094,6 +2183,29 @@ lsp_l2_refresh_pseudo (struct thread *thread)
   return lsp_regenerate_pseudo (circuit, IS_LEVEL_2);
 }
 
+#ifdef HAVE_TRILL
+static int
+lsp_trill_refresh_pseudo (struct thread *thread)
+{
+  struct isis_circuit *circuit;
+  u_char id[ISIS_SYS_ID_LEN + 2];
+  circuit = THREAD_ARG (thread);
+  circuit->u.bc.t_refresh_pseudo_lsp[TRILL_LEVEL - 1] = NULL;
+  circuit->lsp_regenerate_pending[TRILL_LEVEL - 1] = 0;
+
+  if ((circuit->u.bc.is_dr[TRILL_LEVEL - 1] == 0) ||
+      (circuit->is_type & TRILL_LEVEL) == 0)
+    {
+      memcpy (id, isis->sysid, ISIS_SYS_ID_LEN);
+      LSP_PSEUDO_ID (id) = circuit->circuit_id;
+      LSP_FRAGMENT (id) = 0;
+      lsp_purge_pseudo (id, circuit, TRILL_LEVEL);
+      return ISIS_ERROR;
+    }
+  return lsp_regenerate_pseudo (circuit, TRILL_LEVEL);
+}
+#endif
+
 int
 lsp_regenerate_schedule_pseudo (struct isis_circuit *circuit, int level)
 {
@@ -2112,7 +2224,7 @@ lsp_regenerate_schedule_pseudo (struct isis_circuit *circuit, int level)
   LSP_FRAGMENT (lsp_id) = 0;
   now = time (NULL);
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++)
+  for (lvl = IS_LEVEL_1; lvl <= ISIS_LEVELS; lvl++)
     {
       if (!((level & lvl) && (circuit->is_type & lvl)))
         continue;
@@ -2143,6 +2255,14 @@ lsp_regenerate_schedule_pseudo (struct isis_circuit *circuit, int level)
                              circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1],
                              lsp_l2_refresh_pseudo, circuit,
                              circuit->area->lsp_gen_interval[lvl - 1] - diff);
+#ifdef HAVE_TRILL
+          else if (lvl == TRILL_LEVEL)
+            THREAD_TIMER_ON (master,
+                             circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1],
+                             lsp_trill_refresh_pseudo, circuit,
+                             circuit->area->lsp_gen_interval[lvl - 1] - diff);
+#endif
+
         }
       else
         {
@@ -2249,8 +2369,10 @@ lsp_tick (struct thread *thread)
                     continue;
                   for (ALL_LIST_ELEMENTS_RO (lsp_list, lspnode, lsp))
                     {
-                      if (circuit->upadjcount[lsp->level - 1] &&
-                          ISIS_CHECK_FLAG (lsp->SRMflags, circuit))
+                      if (circuit->upadjcount[LSP_TO_TRILL_LEVEL(lsp,
+                                                area->isis->trill_active) - 1]
+                       && ISIS_CHECK_FLAG (lsp->SRMflags, circuit))
+
                         {
                           /* Add the lsp only if it is not already in lsp
                            * queue */
@@ -2298,7 +2420,7 @@ lsp_purge_pseudo (u_char * id, struct isis_circuit *circuit, int level)
   lsp->lsp_header->seq_num = seq_num;
   lsp->lsp_header->rem_lifetime = 0;
   lsp->lsp_header->lsp_bits = lsp_bits;
-  lsp->level = level;
+  lsp->level = TRILL_LEVEL_TO_L1(level);
   lsp->age_out = lsp->area->max_lsp_lifetime[level-1];
   stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
 
@@ -2336,8 +2458,10 @@ lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
   /* FIXME: Should be minimal mtu? */
   lsp->pdu = stream_new (1500);
   lsp->isis_header = (struct isis_fixed_hdr *) STREAM_DATA (lsp->pdu);
-  fill_fixed_hdr (lsp->isis_header, (lsp->level == IS_LEVEL_1) ? L1_LINK_STATE
-		  : L2_LINK_STATE);
+  fill_fixed_hdr (lsp->isis_header,
+                       (lsp->level == IS_LEVEL_1) ?
+                       L1_LINK_STATE : L2_LINK_STATE);
+
   lsp->lsp_header = (struct isis_link_state_hdr *) (STREAM_DATA (lsp->pdu) +
 						    ISIS_FIXED_HDR_LEN);
   memcpy (lsp->lsp_header, lsp_hdr, ISIS_LSP_HDR_LEN);
@@ -2362,7 +2486,9 @@ lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
   /*
    * Put the lsp into LSPdb
    */
-  lsp_insert (lsp, area->lspdb[lsp->level - 1]);
+  lsp_insert (lsp, area->lspdb[LSP_TO_TRILL_LEVEL(lsp,area->isis->trill_active)
+                               - 1]);
+
 
   /*
    * Send in to whole area
@@ -2421,6 +2547,12 @@ top_lsp_refresh (struct thread *thread)
   lsp->lsp_header->rem_lifetime = htons (rem_lifetime);
 
   refresh_time = lsp_refresh_time (lsp, rem_lifetime);
+#ifdef HAVE_TRILL
+  if(lsp->area->isis->trill_active)
+         THREAD_TIMER_ON (master, lsp->t_lsp_top_ref,top_lsp_refresh, lsp,
+                  lsp->area->lsp_refresh[TRILL_LEVEL - 1]);
+  else
+#endif
   THREAD_TIMER_ON (master, lsp->t_lsp_top_ref, top_lsp_refresh, lsp,
 		   lsp->area->lsp_refresh[0]);
 
@@ -2473,6 +2605,11 @@ generate_topology_lsps (struct isis_area *area)
       THREAD_TIMER_ON (master, lsp->t_lsp_top_ref, top_lsp_refresh, lsp,
 		       refresh_time);
       lsp_set_all_srmflags (lsp);
+#ifdef HAVE_TRILL
+       if(area->isis->trill_active)
+               lsp_insert (lsp, area->lspdb[TRILL_LEVEL - 1]);
+       else
+#endif
       lsp_insert (lsp, area->lspdb[0]);
     }
 }
@@ -2482,17 +2619,22 @@ remove_topology_lsps (struct isis_area *area)
 {
   struct isis_lsp *lsp;
   dnode_t *dnode, *dnode_next;
+  int level = 0 ;
 
-  dnode = dict_first (area->lspdb[0]);
+#ifdef HAVE_TRILL
+  if(area->isis->trill_active)
+       level = TRILL_LEVEL - 1;
+#endif
+  dnode = dict_first (area->lspdb[level]);
   while (dnode != NULL)
     {
-      dnode_next = dict_next (area->lspdb[0], dnode);
+      dnode_next = dict_next (area->lspdb[level], dnode);
       lsp = dnode_get (dnode);
       if (lsp->from_topology)
 	{
 	  THREAD_TIMER_OFF (lsp->t_lsp_top_ref);
 	  lsp_destroy (lsp);
-	  dict_delete (area->lspdb[0], dnode);
+	  dict_delete (area->lspdb[level], dnode);
 	}
       dnode = dnode_next;
     }

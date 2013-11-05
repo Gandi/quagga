@@ -75,6 +75,11 @@ isis_event_circuit_state_change (struct isis_circuit *circuit,
   /*
    * Regenerate LSPs this affects
    */
+#ifdef HAVE_TRILL
+  if(area->isis->trill_active)
+       lsp_regenerate_schedule (area, TRILL_LEVEL, 0);
+  else
+#endif
   lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 0);
 
   return;
@@ -148,6 +153,13 @@ isis_event_system_type_change (struct isis_area *area, int newtype)
     case IS_LEVEL_1_AND_2:
       if (newtype == IS_LEVEL_1)
         area_resign_level (area, IS_LEVEL_2);
+#ifdef HAVE_TRILL
+      else if(newtype == TRILL_LEVEL)
+       {
+        area_resign_level (area, IS_LEVEL_2);
+         area_resign_level (area, IS_LEVEL_1);
+       }
+#endif
       else
         area_resign_level (area, IS_LEVEL_1);
       break;
@@ -182,9 +194,23 @@ isis_event_system_type_change (struct isis_area *area, int newtype)
   spftree_area_init (area);
 
   if (newtype & IS_LEVEL_1)
+#ifdef HAVE_TRILL
+    if(area->isis->trill_active)
+	lsp_generate (area, TRILL_LEVEL);
+    else
+#endif
     lsp_generate (area, IS_LEVEL_1);
+
   if (newtype & IS_LEVEL_2)
     lsp_generate (area, IS_LEVEL_2);
+
+#ifdef HAVE_TRILL
+    if (newtype & TRILL_LEVEL)
+	lsp_generate (area, TRILL_LEVEL);
+    if(newtype & TRILL_LEVEL)
+	lsp_regenerate_schedule (area, TRILL_LEVEL, 1);
+    else
+#endif
   lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 
   return;
@@ -401,6 +427,11 @@ isis_event_adjacency_state_change (struct isis_adjacency *adj, int newstate)
 		adj->circuit->area->area_tag);
 
   /* LSP generation again */
+#ifdef HAVE_TRILL
+  if (adj->circuit->area->isis->trill_active)
+	lsp_regenerate_schedule (adj->circuit->area, TRILL_LEVEL, 0);
+  else
+#endif
   lsp_regenerate_schedule (adj->circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
 
   return;
@@ -422,6 +453,11 @@ isis_event_dis_status_change (struct thread *thread)
     zlog_debug ("ISIS-Evt (%s) DIS status change", circuit->area->area_tag);
 
   /* LSP generation again */
+  #ifdef HAVE_TRILL
+  if (circuit->area->isis->trill_active)
+	lsp_regenerate_schedule (circuit->area, TRILL_LEVEL, 0);
+  else
+#endif
   lsp_regenerate_schedule (circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
 
   return 0;

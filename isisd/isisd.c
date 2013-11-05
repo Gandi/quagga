@@ -431,6 +431,11 @@ area_net_title (struct vty *vty, const char *net_title)
         lsp_generate (area, IS_LEVEL_2);
     }
 
+#ifdef HAVE_TRILL
+      if (area->isis->trill_active)
+        lsp_generate (area, TRILL_LEVEL);
+#endif
+
   return CMD_SUCCESS;
 }
 

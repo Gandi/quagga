@@ -122,9 +122,15 @@ void build_topology_lsp_data (struct isis_lsp *lsp,
 #endif /* TOPOLOGY_GENERATE */
 
 #ifdef HAVE_TRILL
+#define LSP_TO_TRILL_LEVEL(L, T) (\
+                                       (L->level == ISIS_LEVEL1) \
+                                       && (T) ? \
+                                       TRILL_LEVEL: L->level\
+                                       )
 #define TRILL_LEVEL_TO_L1(X) ((X == TRILL_LEVEL) ? ISIS_LEVEL1: X)
 #define L1_LEVEL_TO_TRILL(X) ((X == ISIS_LEVEL1) ? TRILL_LEVEL: X)
 #else
+#define LSP_TO_TRILL_LEVEL(L, T (X->level)
 #define L1_LEVEL_TO_TRILL(X) (X)
 #define TRILL_LEVEL_TO_L1(X) (X)
 #endif

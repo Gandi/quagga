@@ -226,6 +226,7 @@ bool trill_area_nickname(struct isis_area *area, u_int16_t nickname)
       trill_nickname_gen (area);
       SET_FLAG (area->trill->status, TRILL_NICK_SET);
       SET_FLAG (area->trill->status, TRILL_AUTONICK);
+      lsp_regenerate_schedule (area,TRILL_LEVEL,1);
       return true;
     }
 

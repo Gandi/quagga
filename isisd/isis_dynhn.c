@@ -127,6 +127,9 @@ isis_dynhn_insert (u_char * id, struct hostname *hostname, int level)
   memcpy (&dyn->name, hostname, hostname->namelen + 1);
   memcpy (dyn->id, id, ISIS_SYS_ID_LEN);
   dyn->refresh = time (NULL);
+  if(isis->trill_active)
+           dyn->level = TRILL_LEVEL;
+  else
   dyn->level = level;
 
   listnode_add (dyn_cache, dyn);

@@ -111,4 +111,9 @@ extern nickdb_search_result trill_search_rbridge (struct isis_area *,
 extern int send_trill_hello (struct isis_circuit *);
 extern int send_trill_hello_thread (struct thread *);
 extern int process_trill_hello (struct isis_circuit *, u_char *);
+
+/* trill_tlv.c */
+extern int tlv_add_trill_nickname(struct trill_nickname *,
+				   struct stream *,
+				   struct  isis_area *);
 #endif

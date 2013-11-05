@@ -285,6 +285,23 @@ isis_dr_resign (struct isis_circuit *circuit, int level)
 		       isis_jitter (circuit->psnp_interval[level - 1],
 				    PSNP_JITTER));
     }
+#ifdef HAVE_TRILL
+  else if (level == TRILL_LEVEL)
+    {
+      memset (circuit->u.bc.trill_desig_is, 0, ISIS_SYS_ID_LEN + 1);
+
+      THREAD_TIMER_OFF (circuit->t_send_csnp[TRILL_LEVEL - 1]);
+
+      THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[TRILL_LEVEL - 1],
+                            isis_run_dr_trill, circuit,
+                            2 * circuit->hello_interval[TRILL_LEVEL - 1]);
+
+      THREAD_TIMER_ON (master, circuit->t_send_psnp[TRILL_LEVEL - 1],
+                            send_trill_psnp, circuit,
+                            isis_jitter (circuit->psnp_interval[level - 1],
+                                   PSNP_JITTER));
+    }
+#endif
   else
     {
       memset (circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
@@ -317,6 +334,12 @@ isis_dr_commence (struct isis_circuit *circuit, int level)
   if (level == 1)
     THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
 		     circuit, 2 * circuit->hello_interval[0]);
+#ifdef HAVE_TRILL
+  if (level == TRILL_LEVEL)
+    THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[TRILL_LEVEL - 1],
+                          isis_run_dr_trill, circuit,
+                          2 * circuit->hello_interval[TRILL_LEVEL - 1]);
+#endif
   else
     THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
 		     circuit, 2 * circuit->hello_interval[1]);
@@ -348,6 +371,36 @@ isis_dr_commence (struct isis_circuit *circuit, int level)
 				    CSNP_JITTER));
 
     }
+#ifdef HAVE_TRILL
+  else if (level == TRILL_LEVEL)
+    {
+      memcpy (old_dr, circuit->u.bc.trill_desig_is, ISIS_SYS_ID_LEN + 1);
+      LSP_FRAGMENT (old_dr) = 0;
+      if (LSP_PSEUDO_ID (old_dr))
+       {
+         /* there was a dr elected, purge its LSPs from the db */
+         lsp_purge_pseudo (old_dr, circuit, level);
+       }
+      memcpy (circuit->u.bc.trill_desig_is, isis->sysid, ISIS_SYS_ID_LEN);
+      *(circuit->u.bc.trill_desig_is + ISIS_SYS_ID_LEN) = circuit->circuit_id;
+
+      assert (circuit->circuit_id);    /* must be non-zero */
+      /*    if (circuit->t_send_l1_psnp)
+         thread_cancel (circuit->t_send_l1_psnp); */
+      lsp_generate_pseudo (circuit, TRILL_LEVEL);
+
+      THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[TRILL_LEVEL - 1]);
+      THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[TRILL_LEVEL - 1],
+                            isis_run_dr_trill,
+                      circuit, 2 * circuit->hello_interval[TRILL_LEVEL - 1]);
+
+      THREAD_TIMER_ON (master, circuit->t_send_csnp[TRILL_LEVEL - 1],
+                            send_trill_csnp, circuit,
+                            isis_jitter (circuit->csnp_interval[level - 1],
+                                               CSNP_JITTER));
+
+    }
+#endif
   else
     {
       memcpy (old_dr, circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);

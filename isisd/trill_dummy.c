@@ -22,4 +22,9 @@ int send_trill_hello_thread (struct thread *thread){return 0;}
 int process_trill_hello (struct isis_circuit *circuit, u_char * ssnpa){
   return 0;
 }
+int tlv_add_trill_nickname(struct trill_nickname *nick_info,
+				   struct stream *stream,
+				   struct  isis_area *area){
+  return 0;
+}
 

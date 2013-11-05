@@ -215,7 +215,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
-      for (level = IS_LEVEL_1; level <= IS_LEVEL_2; level++)
+      for (level = IS_LEVEL_1; level <= ISIS_LEVELS; level++)
       {
         if ((adj->level & level) == 0)
           continue;
@@ -255,7 +255,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
     }
   else if (circuit->circ_type == CIRCUIT_T_P2P)
     {
-      for (level = IS_LEVEL_1; level <= IS_LEVEL_2; level++)
+      for (level = IS_LEVEL_1; level <= ISIS_LEVELS; level++)
       {
         if ((adj->level & level) == 0)
           continue;
