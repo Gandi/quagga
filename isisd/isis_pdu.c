@@ -1021,7 +1021,13 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
    */
   if (listcount (circuit->area->area_addrs) == 0 ||
       (level == IS_LEVEL_1 &&
-       area_match (circuit->area->area_addrs, tlvs.area_addrs) == 0))
+       area_match (circuit->area->area_addrs, tlvs.area_addrs) == 0)
+#ifdef HAVE_TRILL
+      ||
+      (level == TRILL_LEVEL &&
+        area_match (circuit->area->area_addrs, tlvs.area_addrs) == 0)
+#endif
+	)
     {
       if (isis->debugs & DEBUG_ADJ_PACKETS)
 	{
@@ -1086,6 +1092,10 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
 
       if (level == IS_LEVEL_1)
           adj->sys_type = ISIS_SYSTYPE_L1_IS;
+#ifdef HAVE_TRILL
+      else if (level == TRILL_LEVEL)
+          adj->sys_type = ISIS_SYSTYPE_L1_IS;
+#endif
       else
           adj->sys_type = ISIS_SYSTYPE_L2_IS;
       list_delete_all_node (circuit->u.bc.lan_neighs[level - 1]);
@@ -1111,6 +1121,16 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
 	    memcpy (&circuit->u.bc.l2_desig_is, hdr.lan_id,
 		    ISIS_SYS_ID_LEN + 1);
 	  }
+#ifdef HAVE_TRILL
+      case TRILL_LEVEL:
+        if (memcmp (circuit->u.bc.trill_desig_is, hdr.lan_id,
+                ISIS_SYS_ID_LEN + 1))
+          {
+            thread_add_event (master, isis_event_dis_status_change, circuit, 0);
+            memcpy (&circuit->u.bc.trill_desig_is, hdr.lan_id,
+                    ISIS_SYS_ID_LEN + 1);
+          }
+#endif
 	break;
       }
 
@@ -2063,7 +2083,10 @@ isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
   switch (hdr->pdu_type)
     {
     case L1_LAN_HELLO:
-      retval = process_lan_hello (ISIS_LEVEL1, circuit, ssnpa);
+	if(isis->trill_active)
+		retval = process_trill_hello (circuit, ssnpa);
+	else
+		retval = process_lan_hello (ISIS_LEVEL1, circuit, ssnpa);
       break;
     case L2_LAN_HELLO:
       retval = process_lan_hello (ISIS_LEVEL2, circuit, ssnpa);
@@ -2078,13 +2101,18 @@ isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
       retval = process_lsp (ISIS_LEVEL2, circuit, ssnpa);
       break;
     case L1_COMPLETE_SEQ_NUM:
-      retval = process_csnp (ISIS_LEVEL1, circuit, ssnpa);
-      break;
+      if (isis->trill_active)
+            retval = process_csnp (TRILL_LEVEL, circuit, ssnpa);
+      else
+            retval = process_csnp (ISIS_LEVEL1, circuit, ssnpa);      break;
     case L2_COMPLETE_SEQ_NUM:
       retval = process_csnp (ISIS_LEVEL2, circuit, ssnpa);
       break;
     case L1_PARTIAL_SEQ_NUM:
-      retval = process_psnp (ISIS_LEVEL1, circuit, ssnpa);
+      if (isis->trill_active)
+            retval = process_psnp (TRILL_LEVEL, circuit, ssnpa);
+      else
+            retval = process_psnp (ISIS_LEVEL1, circuit, ssnpa);
       break;
     case L2_PARTIAL_SEQ_NUM:
       retval = process_psnp (ISIS_LEVEL2, circuit, ssnpa);
@@ -2307,6 +2335,13 @@ send_hello (struct isis_circuit *circuit, int level)
 	  memcpy (hello_hdr.lan_id, circuit->u.bc.l1_desig_is,
 		  ISIS_SYS_ID_LEN + 1);
 	}
+#ifdef HAVE_TRILL
+      if (level == TRILL_LEVEL)
+        {
+          memcpy (hello_hdr.lan_id, circuit->u.bc.trill_desig_is,
+                  ISIS_SYS_ID_LEN + 1);
+        }
+#endif
       else if (level == IS_LEVEL_2)
 	{
 	  memcpy (hello_hdr.lan_id, circuit->u.bc.l2_desig_is,
@@ -2538,7 +2573,7 @@ build_csnp (int level, u_char * start, u_char * stop, struct list *lsps,
   else
     stream_reset (circuit->snd_stream);
 
-  if (level == IS_LEVEL_1)
+  if (level == IS_LEVEL_1 || level == TRILL_LEVEL)
     fill_fixed_hdr_andstream (&fixed_hdr, L1_COMPLETE_SEQ_NUM,
 			      circuit->snd_stream);
   else
@@ -2847,6 +2882,33 @@ send_l2_csnp (struct thread *thread)
   return retval;
 }
 
+#ifdef HAVE_TRILL
+int
+send_trill_csnp (struct thread *thread)
+{
+  struct isis_circuit *circuit;
+  int retval = ISIS_OK;
+
+  circuit = THREAD_ARG (thread);
+  assert (circuit);
+
+  circuit->t_send_csnp[TRILL_LEVEL - 1] = NULL;
+
+  if (circuit->circ_type == CIRCUIT_T_BROADCAST &&
+         circuit->u.bc.is_dr[TRILL_LEVEL - 1])
+    {
+      send_csnp (circuit, TRILL_LEVEL);
+    }
+  /* set next timer thread */
+  THREAD_TIMER_ON (master, circuit->t_send_csnp[TRILL_LEVEL - 1],
+                        send_trill_csnp, circuit,
+                        isis_jitter (circuit->csnp_interval[TRILL_LEVEL - 1],
+                                         CSNP_JITTER));
+
+  return retval;
+}
+#endif
+
 static int
 build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
 {
@@ -2865,7 +2927,7 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
   else
     stream_reset (circuit->snd_stream);
 
-  if (level == IS_LEVEL_1)
+  if (level == IS_LEVEL_1 || level == TRILL_LEVEL)
     fill_fixed_hdr_andstream (&fixed_hdr, L1_PARTIAL_SEQ_NUM,
 			      circuit->snd_stream);
   else
@@ -3076,6 +3138,30 @@ send_l2_psnp (struct thread *thread)
 
   return retval;
 }
+
+#ifdef HAVE_TRILL
+int
+send_trill_psnp (struct thread *thread)
+{
+  struct isis_circuit *circuit;
+  int retval = ISIS_OK;
+
+  circuit = THREAD_ARG (thread);
+  assert (circuit);
+
+  circuit->t_send_psnp[TRILL_LEVEL - 1] = NULL;
+
+  send_psnp (TRILL_LEVEL, circuit);
+
+  /* set next timer thread */
+  THREAD_TIMER_ON (master, circuit->t_send_psnp[TRILL_LEVEL - 1],
+                        send_trill_psnp, circuit,
+                        isis_jitter (circuit->psnp_interval[TRILL_LEVEL - 1],
+                        PSNP_JITTER));
+
+  return retval;
+}
+#endif
 
 /*
  * ISO 10589 - 7.3.14.3

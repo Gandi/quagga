@@ -110,4 +110,5 @@ extern nickdb_search_result trill_search_rbridge (struct isis_area *,
 /* trill_bpdu.c */
 extern int send_trill_hello (struct isis_circuit *);
 extern int send_trill_hello_thread (struct thread *);
+extern int process_trill_hello (struct isis_circuit *, u_char *);
 #endif

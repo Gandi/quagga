@@ -19,3 +19,7 @@ void trill_exit(){return;}
 void install_trill_elements (void) {return;}
 int send_trill_hello (struct isis_circuit *circuit){return 0;}
 int send_trill_hello_thread (struct thread *thread){return 0;}
+int process_trill_hello (struct isis_circuit *circuit, u_char * ssnpa){
+  return 0;
+}
+
