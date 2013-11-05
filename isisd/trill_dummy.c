@@ -34,3 +34,4 @@ int tlv_add_trill_nickname(struct trill_nickname *nick_info,
 void trill_parse_router_capability_tlvs (struct isis_area *area,
 						     struct isis_lsp *lsp){return ;}
 void trill_lsp_destroy_nick(struct isis_lsp *lsp, bool lsp_parsed){return;}
+int isis_spf_schedule_trill (struct isis_area *area){return 0;}

@@ -18,7 +18,12 @@
 
 
 #define MAXLINKNAMELEN	32
-
+/* need to be defined in kernel side if no definition is present
+ * on kernel side use AF_MAX instead
+ */
+#ifndef AF_TRILL
+#define AF_TRILL        AF_MAX
+#endif
 /* trill_info status flags */
 
 /* nickname auto-generated (else user-provided) */
@@ -140,4 +145,6 @@ extern int tlv_add_trill_nickname(struct trill_nickname *,
 extern void trill_parse_router_capability_tlvs (struct isis_area *,
 							     struct isis_lsp *);
 extern void trill_lsp_destroy_nick(struct isis_lsp *, bool );
+/* trill_spf.c*/
+extern int isis_spf_schedule_trill (struct isis_area *);
 #endif

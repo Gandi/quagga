@@ -49,6 +49,9 @@
 #include "isis_spf.h"
 #include "isis_route.h"
 #include "isis_csm.h"
+#ifdef HAVE_TRILL
+#include "isisd/trill.h"
+#endif
 
 int isis_run_spf_l1 (struct thread *thread);
 int isis_run_spf_l2 (struct thread *thread);
@@ -334,7 +337,10 @@ spftree_area_init (struct isis_area *area)
       area->spftree6[1] = isis_spftree_new (area);
 #endif
   }
-
+#ifdef HAVE_TRILL
+  if (area->spftree[TRILL_LEVEL - 1] == NULL)
+    area->spftree[TRILL_LEVEL - 1] = isis_spftree_new (area);
+#endif
   return;
 }
 
@@ -372,6 +378,14 @@ spftree_area_del (struct isis_area *area)
     }
 #endif
   }
+#ifdef HAVE_TRILL
+  if(area->isis->trill_active){
+    if (area->spftree[TRILL_LEVEL - 1] != NULL){
+      isis_spftree_del (area->spftree[TRILL_LEVEL - 1]);
+      area->spftree[TRILL_LEVEL - 1] = NULL;
+    }
+  }
+#endif
 
   return;
 }
@@ -398,6 +412,10 @@ spftree_area_adj_del (struct isis_area *area, struct isis_adjacency *adj)
       isis_spftree_adj_del (area->spftree6[1], adj);
 #endif
   }
+#ifdef HAVE_TRILL
+    if (area->spftree[TRILL_LEVEL - 1] != NULL)
+      isis_spftree_adj_del (area->spftree[TRILL_LEVEL - 1], adj);
+#endif
 
   return;
 }
@@ -728,8 +746,6 @@ isis_spf_process_lsp (struct isis_spftree *spftree, struct isis_lsp *lsp,
 #endif /* HAVE_IPV6 */
   static const u_char null_sysid[ISIS_SYS_ID_LEN];
 
-  if (!speaks (lsp->tlv_data.nlpids, family))
-    return ISIS_OK;
 
 lspfragloop:
   if (lsp->lsp_header->seq_num == 0)
@@ -948,12 +964,53 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
   struct prefix_ipv6 *ipv6;
 #endif /* HAVE_IPV6 */
 
+#ifdef HAVE_TRILL
+  /*
+   * Check if computing SPF tree for another system. If computing SPF
+   * tree for another system (for TRILL) preload TENT by determining
+   * the neighboring systems of the root system by processing the root
+   * system LSP.
+   */
+  if (isis->trill_active &&
+      memcmp (root_sysid, isis->sysid, ISIS_SYS_ID_LEN) != 0)
+    {
+      dnode_t *dnode;
+
+      memcpy (lsp_id, root_sysid, ISIS_SYS_ID_LEN);
+      LSP_PSEUDO_ID (lsp_id) = 0;
+      LSP_FRAGMENT (lsp_id) = 0;
+
+      /* should add at least one */
+      retval = ISIS_WARNING;
+      for (ALL_DICT_NODES_RO(spftree->area->lspdb[level - 1], dnode, lsp))
+        {
+          if (LSP_FRAGMENT (lsp->lsp_header->lsp_id))
+            continue;
+          if (memcmp(lsp_id, lsp->lsp_header->lsp_id, ISIS_SYS_ID_LEN) != 0)
+            continue;
+          if (LSP_PSEUDO_ID (lsp->lsp_header->lsp_id)){
+            retval = isis_spf_process_pseudo_lsp (spftree, lsp,
+                            DEFAULT_CIRCUIT_METRIC, 0, AF_TRILL,
+                            root_sysid, parent);
+          }
+          else{
+            retval = isis_spf_process_lsp (spftree, lsp,
+                                           DEFAULT_CIRCUIT_METRIC, 1,
+                                           AF_TRILL, root_sysid, parent);
+          }
+        }
+      return retval;
+    }
+#endif
+
   for (ALL_LIST_ELEMENTS_RO (spftree->area->circuit_list, cnode, circuit))
     {
       if (circuit->state != C_STATE_UP)
 	continue;
+#ifndef HAVE_TRILL
       if (!(circuit->is_type & level))
 	continue;
+#endif
       if (family == AF_INET && !circuit->ip_router)
 	continue;
 #ifdef HAVE_IPV6
@@ -1007,8 +1064,10 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
 	    }
           for (ALL_LIST_ELEMENTS_RO (adj_list, anode, adj))
 	    {
+#ifndef HAVE_TRILL
 	      if (!speaks (&adj->nlpids, family))
 		  continue;
+#endif
 	      switch (adj->sys_type)
 		{
 		case ISIS_SYSTYPE_ES:
@@ -1047,6 +1106,10 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
 	   */
 	  if (level == 1)
 	    memcpy (lsp_id, circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
+#ifdef HAVE_TRILL
+         else if (level == TRILL_LEVEL)
+           memcpy (lsp_id, circuit->u.bc.trill_desig_is, ISIS_SYS_ID_LEN + 1);
+#endif
 	  else
 	    memcpy (lsp_id, circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
 	  /* can happen during DR reboot */
@@ -1095,7 +1158,9 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
 	    case ISIS_SYSTYPE_IS:
 	    case ISIS_SYSTYPE_L1_IS:
 	    case ISIS_SYSTYPE_L2_IS:
+#ifndef HAVE_TRILL
 	      if (speaks (&adj->nlpids, family))
+#endif
 		isis_spf_add_local (spftree,
 				    spftree->area->oldmetric ?
                                     VTYPE_NONPSEUDO_IS :
@@ -1145,7 +1210,11 @@ add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
 	      vertex->depth, vertex->d_N);
 #endif /* EXTREME_DEBUG */
 
+#ifdef HAVE_TRILL
+  if (!isis->trill_active && vertex->type > VTYPE_ES)
+#else
   if (vertex->type > VTYPE_ES)
+#endif
     {
       if (listcount (vertex->Adj_N) > 0)
 	isis_route_create ((struct prefix *) &vertex->N.prefix, vertex->d_N,
@@ -1171,6 +1240,18 @@ init_spt (struct isis_spftree *spftree)
 
 static int
 isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
+#ifdef HAVE_TRILL
+{
+	return isis_run_select_spf(area, level, family, sysid, NULL);
+}
+/* struct isis_spftree *remote_spftree tree node for which we compute SPF
+ * if NULL mean self
+*/
+int
+isis_run_select_spf (struct isis_area *area, int level, int family,
+		u_char *sysid, struct isis_spftree *remote_spftree)
+#endif
+
 {
   int retval = ISIS_OK;
   struct listnode *node;
@@ -1188,15 +1269,28 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
   start_time = time_now.tv_sec;
   start_time = (start_time * 1000000) + time_now.tv_usec;
 
+ #ifdef HAVE_TRILL
+  if (remote_spftree){
+    spftree = remote_spftree;
+  }
+  else if (family == AF_TRILL){
+    spftree = area->spftree[TRILL_LEVEL - 1];
+  } else
+#endif
   if (family == AF_INET)
     spftree = area->spftree[level - 1];
 #ifdef HAVE_IPV6
   else if (family == AF_INET6)
     spftree = area->spftree6[level - 1];
 #endif
+
   assert (spftree);
   assert (sysid);
 
+#ifdef HAVE_TRILL
+  if (family != AF_TRILL)
+#endif
+  {
   /* Make all routes in current route table inactive. */
   if (family == AF_INET)
     table = area->route_table[level - 1];
@@ -1206,6 +1300,7 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
 #endif
 
   isis_route_invalidate_table (area, table);
+  }
 
   /*
    * C.2.5 Step 0
@@ -1278,7 +1373,10 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
     }
 
 out:
-  isis_route_validate (area);
+#ifdef HAVE_TRILL
+  if (family != AF_TRILL)
+#endif
+	isis_route_validate (area);
   spftree->pending = 0;
   spftree->runcount++;
   spftree->last_run_timestamp = time (NULL);

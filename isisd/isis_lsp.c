@@ -169,9 +169,17 @@ lsp_destroy (struct isis_lsp *lsp
       lsp->lspu.frags = NULL;
     }
 
+#ifdef HAVE_TRILL
+  if(!lsp->area->isis->trill_active){
+#endif
   isis_spf_schedule (lsp->area, lsp->level);
 #ifdef HAVE_IPV6
   isis_spf_schedule6 (lsp->area, lsp->level);
+#endif
+#ifdef HAVE_TRILL
+  } else{
+	isis_spf_schedule_trill (lsp->area);
+  }
 #endif
 
   if (lsp->pdu)
@@ -450,9 +458,17 @@ lsp_inc_seqnum (struct isis_lsp *lsp, u_int32_t seq_num)
   fletcher_checksum(STREAM_DATA (lsp->pdu) + 12,
                     ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 
+#ifdef HAVE_TRILL
+  if(!lsp->area->isis->trill_active){
+#endif
   isis_spf_schedule (lsp->area, lsp->level);
 #ifdef HAVE_IPV6
   isis_spf_schedule6 (lsp->area, lsp->level);
+#endif
+#ifdef HAVE_TRILL
+  } else{
+	isis_spf_schedule_trill (lsp->area);
+  }
 #endif
 
   return;
@@ -672,12 +688,21 @@ lsp_insert (struct isis_lsp *lsp, dict_t * lspdb)
   dict_alloc_insert (lspdb, lsp->lsp_header->lsp_id, lsp);
   if (lsp->lsp_header->seq_num != 0)
     {
+#ifdef HAVE_TRILL
+      if(!lsp->area->isis->trill_active){
+#endif
       isis_spf_schedule (lsp->area, lsp->level);
 #ifdef HAVE_IPV6
       isis_spf_schedule6 (lsp->area, lsp->level);
 #endif
+#ifdef HAVE_TRILL
+      } else{
+		isis_spf_schedule_trill (lsp->area);
+      }
+#endif
     }
 }
+
 
 /*
  * Build a list of LSPs with non-zero ht bounded by start and stop ids

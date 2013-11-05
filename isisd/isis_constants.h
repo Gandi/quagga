@@ -111,6 +111,8 @@
 
 #define MINIMUM_SPF_INTERVAL          1
 
+#define PERIODIC_SPF_INTERVAL         60
+
 #define ISIS_MAX_PATH_SPLITS          64
 
 /*
