@@ -134,7 +134,11 @@ lsp_clear_data (struct isis_lsp *lsp)
 }
 
 static void
-lsp_destroy (struct isis_lsp *lsp)
+lsp_destroy (struct isis_lsp *lsp
+#ifdef HAVE_TRILL
+		, int clearnick
+#endif
+)
 {
   struct listnode *cnode, *lnode, *lnnode;
   struct isis_lsp *lsp_in_list;
@@ -142,7 +146,10 @@ lsp_destroy (struct isis_lsp *lsp)
 
   if (!lsp)
     return;
-
+#ifdef HAVE_TRILL
+  if (lsp->area->isis->trill_active && clearnick)
+    trill_lsp_destroy_nick(lsp, false);
+#endif
   for (ALL_LIST_ELEMENTS_RO (lsp->area->circuit_list, cnode, circuit))
     {
       if (circuit->lsp_queue == NULL)
@@ -183,7 +190,11 @@ lsp_db_destroy (dict_t * lspdb)
     {
       next = dict_next (lspdb, dnode);
       lsp = dnode_get (dnode);
+#ifdef HAVE_TRILL
+      lsp_destroy (lsp, true);
+#else
       lsp_destroy (lsp);
+#endif
       dict_delete_free (lspdb, dnode);
       dnode = next;
     }
@@ -206,7 +217,16 @@ lsp_remove_frags (struct list *frags, dict_t * lspdb)
   for (ALL_LIST_ELEMENTS (frags, lnode, lnnode, lsp))
     {
       dnode = dict_lookup (lspdb, lsp->lsp_header->lsp_id);
+#ifdef HAVE_TRILL
+	 /* lsp_remove_frags is called only for local LSP (for the moment)
+	 * for local LSP if trill is activated
+	 * local nickname is not saved on node database destroying it will
+	 * cause a segfault
+	 */
+      lsp_destroy (lsp, false);
+#else
       lsp_destroy (lsp);
+#endif
       dnode_destroy (dict_delete (lspdb, dnode));
     }
 
@@ -242,7 +262,16 @@ lsp_search_and_destroy (u_char * id, dict_t * lspdb)
 	  if (lsp->lspu.zero_lsp && lsp->lspu.zero_lsp->lspu.frags)
 	    listnode_delete (lsp->lspu.zero_lsp->lspu.frags, lsp);
 	}
+#ifdef HAVE_TRILL
+      /* lsp_search_and_destroy is called only for local LSP
+	 * for local LSP if trill is activated
+	 * local nickname is not saved on node database destroying it will
+	 * cause a segfault
+	 */
+      lsp_destroy (lsp, false);
+#else
       lsp_destroy (lsp);
+#endif
       dnode_destroy (node);
     }
 }
@@ -2352,7 +2381,11 @@ lsp_tick (struct thread *thread)
                   if (lsp->from_topology)
                     THREAD_TIMER_OFF (lsp->t_lsp_top_ref);
 #endif /* TOPOLOGY_GENERATE */
+#ifdef HAVE_TRILL
+                  lsp_destroy (lsp,true);
+#else
                   lsp_destroy (lsp);
+#endif
                   lsp = NULL;
                   dict_delete_free (area->lspdb[level], dnode);
                 }
@@ -2637,7 +2670,11 @@ remove_topology_lsps (struct isis_area *area)
       if (lsp->from_topology)
 	{
 	  THREAD_TIMER_OFF (lsp->t_lsp_top_ref);
-	  lsp_destroy (lsp);
+#ifdef HAVE_TRILL
+          lsp_destroy (lsp,true);
+#else
+          lsp_destroy (lsp);
+#endif
 	  dict_delete (area->lspdb[level], dnode);
 	}
       dnode = dnode_next;
