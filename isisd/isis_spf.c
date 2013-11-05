@@ -1583,7 +1583,7 @@ isis_spf_schedule6 (struct isis_area *area, int level)
 }
 #endif
 
-static void
+void
 isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
 {
   struct listnode *node;
@@ -1675,7 +1675,7 @@ DEFUN (show_isis_topology,
 
       for (level = 0; level < ISIS_LEVELS; level++)
 	{
-	  if (area->ip_circuits > 0 && area->spftree[level]
+	  if (area->spftree[level]
 	      && area->spftree[level]->paths->count > 0)
 	    {
 	      vty_out (vty, "IS-IS paths to level-%d routers that speak IP%s",

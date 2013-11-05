@@ -135,6 +135,7 @@ extern nickdb_search_result trill_search_rbridge (struct isis_area *,
 								  struct nickinfo *,
 								  dnode_t **);
 u_int16_t sysid_to_nick(struct isis_area *area, u_char *sysid);
+u_char * nick_to_sysid(struct isis_area *area, u_int16_t);
 /* trill_bpdu.c */
 extern int send_trill_hello (struct isis_circuit *);
 extern int send_trill_hello_thread (struct thread *);

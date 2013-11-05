@@ -88,4 +88,5 @@ void isis_spf_cmds_init (void);
 #ifdef HAVE_IPV6
 int isis_spf_schedule6 (struct isis_area *area, int level);
 #endif
+void isis_print_paths (struct vty *, struct list *, u_char *);
 #endif /* _ZEBRA_ISIS_SPF_H */

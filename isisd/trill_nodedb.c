@@ -221,3 +221,26 @@ u_int16_t sysid_to_nick(struct isis_area *area, u_char *sysid)
   tnode = (struct trill_nickdb_node *) dnode_get (dnode);
   return tnode->info.nick.name;
 }
+
+struct trill_nickdb_node * trill_nicknode_lookup(struct isis_area *area,
+								 uint16_t nick)
+{
+  dnode_t *dnode;
+  struct trill_nickdb_node *tnode;
+
+  dnode = dict_lookup (area->trill->nickdb, &nick);
+  if (dnode == NULL)
+    return (NULL);
+  tnode = (struct trill_nickdb_node *) dnode_get (dnode);
+  return (tnode);
+}
+/* Lookup system ID when given a nickname */
+u_char * nick_to_sysid(struct isis_area *area, u_int16_t nick)
+{
+  struct trill_nickdb_node *tnode;
+
+  tnode = trill_nicknode_lookup(area, nick);
+  if (tnode == NULL)
+    return (NULL);
+  return tnode->info.sysid;
+}
