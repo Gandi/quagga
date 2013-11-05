@@ -39,6 +39,10 @@
 #define IF_UP_FROM_Z   2
 #define ISIS_DISABLE   3
 #define IF_DOWN_FROM_Z 4
+#ifdef HAVE_TRILL
+#define TRILL_ENABLE   5
+#define TRILL_DISABLE  6
+#endif
 
 struct isis_circuit *isis_csm_state_change (int event,
 					    struct isis_circuit *circuit,

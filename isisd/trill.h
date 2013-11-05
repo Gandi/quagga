@@ -91,4 +91,6 @@ typedef enum
   PSNPSNDTRY,
 } lspdbacq_state;
 
+void trill_init(int argc, char **argv);
+void trill_exit(void);
 #endif

@@ -67,6 +67,10 @@ static const char *csm_eventstr[] = {
   "IF_UP_FROM_Z",
   "ISIS_DISABLE",
   "IF_DOWN_FROM_Z",
+#ifdef HAVE_TRILL
+  "TRILL_ENABLE",
+  "TRILL_DISABLE",
+#endif
 };
 
 #define EVENT2STR(E) csm_eventstr[E]
@@ -89,6 +93,9 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
       switch (event)
 	{
 	case ISIS_ENABLE:
+#ifdef HAVE_TRILL
+	case TRILL_ENABLE:
+#endif
 	  circuit = isis_circuit_new ();
 	  isis_circuit_configure (circuit, (struct isis_area *) arg);
 	  circuit->state = C_STATE_CONF;
@@ -100,6 +107,9 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	  circuit->state = C_STATE_INIT;
 	  break;
 	case ISIS_DISABLE:
+#ifdef HAVE_TRILL
+	case TRILL_DISABLE:
+#endif
 	  zlog_warn ("circuit already disabled");
 	  break;
 	case IF_DOWN_FROM_Z:
@@ -112,6 +122,9 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
       switch (event)
 	{
 	case ISIS_ENABLE:
+#ifdef HAVE_TRILL
+	case TRILL_ENABLE:
+#endif
 	  isis_circuit_configure (circuit, (struct isis_area *) arg);
 	  if (isis_circuit_up (circuit) != ISIS_OK)
 	    {
@@ -127,6 +140,9 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	  zlog_warn ("circuit already connected");
 	  break;
 	case ISIS_DISABLE:
+#ifdef HAVE_TRILL
+	case TRILL_DISABLE:
+#endif
 	  zlog_warn ("circuit already disabled");
 	  break;
 	case IF_DOWN_FROM_Z:

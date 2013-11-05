@@ -56,6 +56,9 @@
 #endif
 #define ISIS_LEVEL1                   1
 #define ISIS_LEVEL2                   2
+#ifdef HAVE_TRILL
+#define TRILL_LEVEL                   4
+#endif
 
 /*
  * Default values
@@ -172,6 +175,12 @@
 
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
+#endif
+
+#ifdef HAVE_TRILL
+#define NON_TRILL_MAC "feff.ffff.ffff"
+#define SYSFS_CLASS_NET "/sys/class/net/"
+#define SYSFS_PATH_MAX  256
 #endif
 
 #endif /* ISIS_CONSTANTS_H */

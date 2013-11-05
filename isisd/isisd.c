@@ -54,6 +54,10 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_events.h"
+#ifdef HAVE_TRILL
+#include "isisd/trill.h"
+#include "isisd/nickname.h"
+#endif
 
 #ifdef TOPOLOGY_GENERATE
 #include "spgrid.h"
@@ -143,6 +147,9 @@ isis_area_create (const char *area_tag)
   THREAD_TIMER_ON (master, area->t_tick, lsp_tick, area, 1);
   flags_initialize (&area->flags);
 
+#ifdef HAVE_TRILL
+  area->trill = XCALLOC (MTYPE_ISIS_TRILLAREA, sizeof (struct trill_info));
+#endif
   /*
    * Default values
    */

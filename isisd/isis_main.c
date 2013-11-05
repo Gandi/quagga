@@ -47,6 +47,9 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
+#ifdef HAVE_TRILL
+#include "isisd/trill.h"
+#endif
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -337,6 +340,11 @@ main (int argc, char **argv, char **envp)
   /* create the global 'isis' instance */
   isis_new (1);
 
+#ifdef HAVE_TRILL
+  trill_init(argc, argv);
+  /* we use the routing socket (zebra) only if TRILL is not enabled */
+  if(!isis->trill_active)
+#endif
   isis_zebra_init ();
 
   sort_node ();
@@ -368,5 +376,6 @@ main (int argc, char **argv, char **envp)
     thread_call (&thread);
 
   /* Not reached. */
+  trill_exit();
   exit (0);
 }
