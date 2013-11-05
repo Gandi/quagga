@@ -132,3 +132,24 @@ int sysid_cmp(const void *key1, const void *key2)
 {
   return (memcmp(key1, key2, ISIS_SYS_ID_LEN));
 }
+
+/*
+ * trill_nick_conflict: nickname conflict resolution fn
+ * Returns false when nick1 has greater priority and
+ * returns true when nick1 has lower priority and
+ * must be changed.
+ */
+int trill_nick_conflict(struct nickinfo *nick1, struct nickinfo *nick2)
+{
+  assert (nick1->nick.name == nick2->nick.name);
+
+  /* If nick1 priority is greater (or)
+   * If priorities match & nick1 sysid is greater
+   * then nick1 has higher priority
+   */
+  if ((nick1->nick.priority > nick2->nick.priority) ||
+	  (nick1->nick.priority == nick2->nick.priority &&
+	  (sysid_cmp (nick1->sysid, nick2->sysid) > 0)))
+	  return false;
+  return true;
+}

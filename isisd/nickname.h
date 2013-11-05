@@ -44,4 +44,5 @@ int  nickname_init(void);
 void trill_nickinfo_del(struct nickinfo *);
 int nick_cmp(const void *, const void *);
 int sysid_cmp(const void *, const void *);
+int trill_nick_conflict(struct nickinfo *, struct nickinfo *);
 #endif

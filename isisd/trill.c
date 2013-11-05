@@ -169,6 +169,112 @@ void trill_struct_init(struct isis_area *area)
   }
 }
 
+static void set_area_nickname(struct isis_area *area,uint16_t nickname)
+{
+  struct listnode *ifnode;
+  struct interface *ifp;
+  ifnode = listhead (iflist);
+  if (ifnode != NULL)
+    {
+      ifp = listgetdata (ifnode);
+      struct nl_msg *msg;
+      struct trill_nl_header *trnlhdr;
+      msg = nlmsg_alloc();
+      trnlhdr=genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family, sizeof(struct trill_nl_header), NLM_F_REQUEST,
+			  TRILL_CMD_SET_RBRIDGE, TRILL_NL_VERSION);
+      if(!trnlhdr)
+	abort();
+      nla_put_u16(msg, TRILL_ATTR_U16, nickname);
+      trnlhdr->ifindex=ifp->ifindex;
+      trnlhdr->total_length= sizeof(msg);
+      trnlhdr->msg_number=1;
+      nl_send_auto_complete(sock_genl, msg);
+      nlmsg_free(msg);
+    }
+}
+
+static void trill_nickname_gen(struct isis_area *area)
+{
+  u_int16_t nick;
+  nick = trill_nickname_alloc();
+  if (nick == RBRIDGE_NICKNAME_NONE)
+  {
+    zlog_err("RBridge nickname allocation failed.  No nicknames available.");
+    abort();
+  }
+  else
+  {
+    area->trill->nick.name = htons(nick);
+    set_area_nickname(area,nick);
+    if (isis->debugs & DEBUG_TRILL_EVENTS)
+      zlog_debug("ISIS TRILL generated nick:%u", nick);
+  }
+}
+
+/*
+ * Called from isisd to handle trill nickname command.
+ * Nickname is user configured and in host byte order
+ */
+bool trill_area_nickname(struct isis_area *area, u_int16_t nickname)
+{
+  int savednick;
+
+  if (nickname == RBRIDGE_NICKNAME_NONE)
+    {
+      /* Called from "no trill nickname" command */
+      trill_nickname_gen (area);
+      SET_FLAG (area->trill->status, TRILL_NICK_SET);
+      SET_FLAG (area->trill->status, TRILL_AUTONICK);
+      return true;
+    }
+
+  nickname = htons(nickname);
+  savednick = area->trill->nick.name;
+  area->trill->nick.name = nickname;
+
+  set_area_nickname(area,ntohs(area->trill->nick.name));
+  area->trill->nick.priority |= CONFIGURED_NICK_PRIORITY;
+  /*
+   * Check if we know of another RBridge already using this nickname.
+   * If yes check if it conflicts with the nickname in the database.
+   */
+  if (is_nickname_used(nickname))
+    {
+      struct nickinfo ni;
+      dnode_t *dnode;
+      struct trill_nickdb_node *tnode;
+
+      ni.nick = area->trill->nick;
+      memcpy(ni.sysid, isis->sysid, ISIS_SYS_ID_LEN);
+      if (trill_search_rbridge (area, &ni, &dnode) == FOUND)
+        {
+          assert (dnode);
+          tnode = dnode_get (dnode);
+          if (trill_nick_conflict (&(tnode->info), &ni))
+            {
+              trill_dict_delete_nodes (area->trill->nickdb,
+		     area->trill->sysidtonickdb, &nickname, false);
+	    }
+	  else
+	    {
+              /*
+	       * The other nick in our nickdb has greater priority so return
+	       * fail, restore nick and let user configure another nick.
+	       */
+               area->trill->nick.name = savednick;
+	       set_area_nickname(area,ntohs(area->trill->nick.name));
+	       area->trill->nick.priority &= ~CONFIGURED_NICK_PRIORITY;
+               return false;
+	    }
+	}
+    }
+
+  trill_nickname_reserve(nickname);
+  SET_FLAG(area->trill->status, TRILL_NICK_SET);
+  UNSET_FLAG(area->trill->status, TRILL_AUTONICK);
+  return true;
+}
+
 void trill_init(int argc, char **argv)
 {
  const char *instname;
