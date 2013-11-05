@@ -60,6 +60,7 @@
  * P2P Adjacency State      240   y   n   n  RFC3373
  * IIH Sequence Number      241   y   n   n  draft-shen-isis-iih-sequence
  * Router Capability        242   -   -   -  draft-ietf-isis-caps
+ * Port Capability          243   n   y   n  RFC 6326
  *
  *
  * IS Reachability sub-TLVs we (should) support.
@@ -85,6 +86,33 @@
  * 32bit administrative tag           1   RFC5130
  * 64bit administrative tag           2   RFC5130
  * Management prefix color          117   RFC5120
+ * Router Capability sub-TLVs we support
+ * ____________________________________________________________________________
+ * Name                           Value   Status
+ * ____________________________________________________________________________
+ * TRILL Nickname                    6    RFC 6326
+ * TRILL Distribution Tree           7    RFC 6326
+ * TRILL Distribution Tree Roots     8    RFC 6326
+ * TRILL Distribution Tree Roots IDs 9    RFC 6326
+ * TRILL INT VLANS                   10   RFC 6326
+ * TRILL VERSION                     13   RFC 6326
+ * TRILL VLAN Groups                 14   RFC 6326
+ *
+ *
+ * Port Capability sub-TLVs we support
+ * ____________________________________________________________________________
+ * Name                           Value   Status
+ * ____________________________________________________________________________
+ * TRILL Special VLANs and Flags     1    RFC 6326
+ * TRILL Enabled VLANs               2    RFC 6326
+ * TRILL Appointed Forwarders        3
+ *
+ *
+ * Reachability sub-TLVs we support
+ * ____________________________________________________________________________
+ * Name                           Value   Status
+ * ____________________________________________________________________________
+ * TRILL MTU                        28    RFC 6326
  */
 
 #define AREA_ADDRESSES            1
@@ -109,6 +137,10 @@
 #define IPV6_ADDR                 232
 #define IPV6_REACHABILITY         236
 #define WAY3_HELLO                240
+#ifdef HAVE_TRILL
+ #define ROUTER_CAPABILITY        242
+ #define PORT_CAPABILITY          243
+#endif
 
 #define AUTH_INFO_HDRLEN          3
 
@@ -118,6 +150,239 @@
 #define IPV4_REACH_LEN 12
 #define IPV6_REACH_LEN 22
 #define TE_IPV4_REACH_LEN 9
+
+#ifdef HAVE_TRILL
+/* PORT_CAPABILITY sub-TLVs for TRILL
+
+     RFC6326  2.2.1  Special VLANs and Flags
+   +-+-+-+-+-+-+-+-+
+   |     Type      |                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |   Length      |                  (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |    Port ID                    |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |     Sender Nickname           |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |AF|AC|VM|BY|    Outer.VLAN     |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |TR|R |R |R |    Desig.VLAN     |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+#define PCSTLV_VLANS              1
+/*     RFC6326  2.2.2  Enabled VLANs
+   +-+-+-+-+-+-+-+-+
+   |     Type      |                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |   Length      |                  (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | RESV  |  Start VLAN ID        |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | VLAN bit-map....              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+*/
+#define PCSTLV_ENABLEDVLANS       2
+/*     RFC6326  2.2.3   Appointed Forwarders
+   +-+-+-+-+-+-+-+-+
+   |     Type      |                          (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |   Length      |                          (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Appointment Information (1)         |  (6 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   .................                   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Appointment Information (N)         |  (6 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   where each appointment is of the form:
+
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |       Appointee Nickname              |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | RESV  |        Start.VLAN             |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | RESV  |        End.VLAN               |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+#define PCSTLV_APPFORWARDERS      3
+
+
+/* ROUTER_CAPABILITY sub-TLVs for TRILL */
+
+ #define        RCSTLV_TRILL_FLAGS        21
+
+/*     RFC6326  2.3.2
+
+   +-+-+-+-+-+-+-+-+
+   |Type = NICKNAME|                         (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |   Length      |                         (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                NICKNAME RECORDS (1)                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                   .................                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                NICKNAME RECORDS (N)                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   where each nickname record is of the form:
+
+   +-+-+-+-+-+-+-+-+
+   | Nickname.Pri  |                  (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |     Tree Root Priority        |  (2 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |           Nickname            |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+#define RCSTLV_TRILL_NICKNAME     6
+/*     RFC6326  2.3.3
+   +-+-+-+-+-+-+-+-+
+   |Type =  TREES  |                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |  Length       |                  (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Number of trees to compute    |  (2 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Maximum trees able to compute |  (2 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Number of trees to use        |  (2 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+#define RCSTLV_TRILL_TREE         7
+/*     RFC6326  2.3.4
+   +-+-+-+-+-+-+-+-+
+   |Type=TREE-RT-IDs|               (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |   Length      |                (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |Starting Tree Number         |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Nickname (K-th root)      |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Nickname (K+1 - th root)  |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Nickname (...)            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+*/
+#define RCSTLV_TRILL_TREE_ROOTS   8
+/*     RFC6326  2.3.5
+   +-+-+-+-+-+-+-+-+
+   |Type=TREE-RT-IDs|               (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |   Length      |                (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |Starting Tree Number         |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Nickname (K-th root)      |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Nickname (K+1 - th root)  |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Nickname (...)            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+
+#define RCSTLV_TRILL_TREE_ROOTS_ID      9
+/*     RFC6326  2.3.6
+   +-+-+-+-+-+-+-+-+
+   |Type = INT-VLAN|                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |   Length      |                  (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Nickname                    |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+...+-+-+-+-+
+   |   Interested VLANS                                  |  (4 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+...+-+-+-+-+
+   |   Appointed Forwarder Status Lost Counter           |  (4 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+...+-+-+
+   |         Root Bridges                                |  (6*n bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+...+-+-+
+
+   Interested VLANS:
+        0    1    2    3     4 - 15      16 - 19     20 - 31
+      +----+----+----+----+------------+----------+------------+
+      | M4 | M6 |  R |  R | VLAN.start |   RESV   |  VLAN.end  |
+      +----+----+----+----+------------+----------+------------+
+
+*/
+#define RCSTLV_TRILL_INT_VLAN   10
+/*     RFC6326  2.3.1
+   +-+-+-+-+-+-+-+-+
+   | Type          |                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+   | Length        |                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+   | Max-version   |                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+*/
+#define RCSTLV_TRILL_VERSION    13
+/*     RFC6326  2.3.7
+   +-+-+-+-+-+-+-+-+
+   |Type=VLAN-GROUP|                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |   Length      |                  (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | RESV  |  Primary VLAN ID      |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | RESV  |  Secondary VLAN ID    |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  more Secondary VLAN IDs ...     (2 bytes each)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   if working with vlan_tag (double vlan) structure will change to this one
+   +-+-+-+-+-+-+-+-+
+   |Type=VLAN-GROUP|                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |   Length      |                  (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | RESV  |  Primary VLAN ID      |  (4 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | RESV  |  Secondary VLAN ID    |  (4 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  more Secondary VLAN IDs ...     (4 bytes each)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+*/
+#define RCSTLV_TRILL_VLAN_GROUP 14
+/* Reachability sub-TLVs for TRILL */
+/* RFC6326  2.3.7   2.4
+   +-+-+-+-+-+-+-+-+
+   | Type = MTU    |                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |   Length      |                  (1 byte)
+   +-+-+-+-+-+-+-+-+
+   |F|  Reserved   |                  (1 byte)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |               MTU             |  (2 bytes)
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+#define RSTLV_TRILL_MTU         28
+
+#define TLFLDS_LEN 2                   /* Length of Type & Len 8-bit fields */
+#define ROUTER_CAPABILITY_MIN_LEN  5   /* Min len of router capability TLV */
+#define ROUTER_CAPABILITY_MAX_LEN  250 /* Max len of router capability TLV */
+
+/* TRILL Flags sub-TLV */
+#define TRILL_FLAGS_SUBTLV_MIN_LEN 1   /* Len of sub-TLV val */
+#define TRILL_FLAGS_V0  0x80
+#define TRILL_FLAGS_V1  0x40
+#define TRILL_FLAGS_V2  0x20
+#define TRILL_FLAGS_V3  0x10
+
+/* Len of TRILL nickname sub-TLV value field */
+#define TRILL_NICKNAME_SUBTLV_MIN_LEN 7
+/* Len of variable len TRILL VLANs and Bridge Roots sub-TLV value field */
+#define TRILL_VLANSNBRIROOTS_SUBTLV_MIN_LEN 4
+/* Exact len of port capability VLANs sub-TLV */
+#define PCSTLV_VLANS_LEN         4
+/* Min. len of each appointed forwarders sub-TLV */
+#define PCSTLV_VLANFWDERS_MIN_LEN 6
+/* Min. len of enabled VLANS sub-TLV */
+#define PCSTLV_ENABLEDVLANS_MIN_LEN 3
+#endif
 
 /* struct for neighbor */
 struct is_neigh
@@ -209,7 +474,46 @@ struct te_ipv4_reachability
   u_char prefix_start;		/* since this is variable length by nature it only */
 };				/* points to an approximate location */
 
+#ifdef HAVE_TRILL
+/* Router Capability TLV: used in LSPs */
+struct router_capability_tlv
+{
+  u_char router_id[4];             /* 4 octet Router ID */
+  u_int8_t flags;                  /* 1 octet flags */
+};
 
+/* internal router capability struct, includes tlv length */
+struct router_capability
+{
+  u_int8_t len;                 /* total length of the TLV */
+  struct router_capability_tlv rt_cap_tlv;
+};
+
+/* Port Capability TLV: used in Hellos */
+struct port_capability_tlv
+{
+  u_int8_t len;
+  u_int8_t value[1];
+};__attribute__ ((packed));
+
+#ifdef __SUNPRO_C
+#pragma pack(1)
+#endif
+
+/* LSP: ROUTER_CAPABILITY RCSTLV_TRILL_NICKNAME */
+struct trill_nickname_subtlv
+{
+    u_int8_t tn_priority;
+    u_int16_t tn_nickname;
+    u_int16_t tn_trootpri;
+    u_int16_t tn_treecount;
+} __attribute__ ((packed));
+
+#ifdef __SUNPRO_C
+#pragma pack()
+#endif
+
+#endif
 
 struct idrp_info
 {
@@ -261,6 +565,10 @@ struct tlvs
   struct list *ipv6_reachs;
 #endif
   struct isis_passwd auth_info;
+#ifdef HAVE_TRILL
+  struct list *router_capabilities;
+  struct list *port_capabilities;
+#endif
 };
 
 /*
@@ -289,6 +597,10 @@ struct tlvs
 #define TLVFLAG_TE_ROUTER_ID              (1<<19)
 #define TLVFLAG_CHECKSUM                  (1<<20)
 #define TLVFLAG_GRACEFUL_RESTART          (1<<21)
+#ifdef HAVE_TRILL
+#define TLVFLAG_ROUTER_CAPABILITY         (1<<22)
+#define TLVFLAG_PORT_CAPABILITY           (1<<23)
+#endif
 
 void init_tlvs (struct tlvs *tlvs, uint32_t expected);
 void free_tlvs (struct tlvs *tlvs);
