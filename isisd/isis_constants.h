@@ -22,6 +22,7 @@
 
 #ifndef ISIS_CONSTANTS_H
 #define ISIS_CONSTANTS_H
+#include <stdbool.h>
 
 /*
  * Architectural constant values from p. 35 of ISO/IEC 10589
