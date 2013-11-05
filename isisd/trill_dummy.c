@@ -16,3 +16,4 @@
 void trill_init(int argc, char **argv){return;}
 void trill_struct_init(struct isis_area *area){return;}
 void trill_exit(){return;}
+void install_trill_elements (void) {return;}

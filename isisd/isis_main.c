@@ -337,6 +337,9 @@ main (int argc, char **argv, char **envp)
   isis_circuit_init ();
   isis_spf_cmds_init ();
 
+#ifdef HAVE_TRILL
+  install_trill_elements ();
+#endif
   /* create the global 'isis' instance */
   isis_new (1);
 

@@ -95,6 +95,7 @@ typedef enum
 void trill_init(int argc, char **argv);
 void trill_struct_init(struct isis_area *);
 void trill_exit(void);
+void install_trill_elements (void);
 
 /* trill_nodedb.c */
 extern void trill_nickdb_update (struct isis_area *area,

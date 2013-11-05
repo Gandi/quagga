@@ -23,6 +23,7 @@
 #include "isisd/isis_csm.h"
 #include "isisd/netlink.h"
 #include "isisd/nickname.h"
+#include "command.h"
 #include "privs.h"
 
 int br_socket_fd = -1;
@@ -460,4 +461,171 @@ void trill_exit(void)
 {
  nl_close(sock_genl);
  close(br_socket_fd);
+}
+
+/*
+ * Enable TRILL support in IS-IS command, only one IS-IS area allowed.
+ */
+DEFUN (isis_trill,
+	 isis_trill_cmd,
+	 "isis trill",
+	 "Enable use of IS-IS as routing protocol for TRILL\n"
+	)
+{
+  if (!isis->trill_active && isis->area_list->count > 0)
+    {
+      vty_out (vty, "Cannot enable TRILL. IS-IS area already configured%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  isis->trill_active = true;
+  return CMD_SUCCESS;
+}
+
+/*
+ * Disable TRILL support in IS-IS command
+ */
+DEFUN (no_isis_trill,
+	 no_isis_trill_cmd,
+	 "no isis trill",
+	 "Disable use of IS-IS as routing protocol for TRILL\n")
+{
+  isis->trill_active = false;
+  return CMD_SUCCESS;
+}
+
+DEFUN (trill_nickname,
+	 trill_nickname_cmd,
+	 "trill nickname WORD",
+       TRILL_STR
+       TRILL_NICK_STR
+       "<1-65534>\n")
+{
+  struct isis_area *area;
+  u_int16_t nickname;
+
+  area = vty->index;
+  assert (area);
+  assert (area->isis);
+  if (!area->isis->trill_active)
+    {
+      vty_out (vty, "TRILL is not enabled%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  VTY_GET_INTEGER_RANGE ("TRILL nickname", nickname, argv[0],
+		  RBRIDGE_NICKNAME_MIN + 1, RBRIDGE_NICKNAME_MAX);
+  if (!trill_area_nickname (area, nickname))
+    {
+      vty_out (vty, "TRILL nickname conflicts with another RBridge nickname,"
+		    " must select another.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_trill_nickname,
+       no_trill_nickname_cmd,
+       "no trill nickname",
+       TRILL_STR
+       TRILL_NICK_STR)
+{
+  struct isis_area *area;
+
+  area = vty->index;
+  assert (area);
+  assert (area->isis);
+  if (!area->isis->trill_active)
+    {
+      vty_out (vty, "TRILL is not enabled%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  trill_area_nickname (area, 0);
+  return CMD_SUCCESS;
+}
+
+DEFUN (trill_nickname_priority,
+       trill_nickname_priority_cmd,
+       "trill nickname priority WORD",
+       TRILL_STR
+       TRILL_NICK_STR
+       "priority of use field\n"
+       "<1-127>\n")
+{
+  struct isis_area *area;
+  u_int8_t priority;
+
+  area = vty->index;
+  assert (area);
+  assert (area->isis);
+  if (!area->isis->trill_active)
+    {
+      vty_out (vty, "TRILL is not enabled%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  VTY_GET_INTEGER_RANGE ("TRILL nickname priority", priority, argv[0],
+		  MIN_RBRIDGE_PRIORITY, MAX_RBRIDGE_PRIORITY);
+  trill_nickname_priority_update (area, priority);
+  trill_nickname_root_priority_update (area, priority);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_trill_nickname_priority,
+       no_trill_nickname_priority_cmd,
+       "no trill nickname priority WORD",
+       TRILL_STR
+       TRILL_NICK_STR
+       "priority of use field\n")
+{
+  struct isis_area *area;
+
+  area = vty->index;
+  assert (area);
+  assert (area->isis);
+  if (!area->isis->trill_active)
+    {
+      vty_out (vty, "TRILL is not enabled%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  trill_nickname_priority_update (area, 0);
+  trill_nickname_root_priority_update (area, 0);
+  return CMD_SUCCESS;
+}
+
+DEFUN (trill_instance, trill_instance_cmd,
+       "trill instance WORD",
+       TRILL_STR
+       "TRILL instance\n"
+       "instance name\n")
+{
+  struct isis_area *area;
+
+  area = vty->index;
+  assert (area);
+  assert (area->isis);
+  if (!area->isis->trill_active)
+    {
+      vty_out (vty, "TRILL is not enabled%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  (void) strlcpy(area->trill->name, argv[0], MAXLINKNAMELEN);
+  return CMD_SUCCESS;
+}
+
+void install_trill_elements (void)
+{
+
+  install_element (CONFIG_NODE, &isis_trill_cmd);
+  install_element (CONFIG_NODE, &no_isis_trill_cmd);
+
+  install_element (ISIS_NODE, &trill_nickname_cmd);
+  install_element (ISIS_NODE, &no_trill_nickname_cmd);
+
+  install_element (ISIS_NODE, &trill_nickname_priority_cmd);
+  install_element (ISIS_NODE, &no_trill_nickname_priority_cmd);
+  install_element (ISIS_NODE, &trill_instance_cmd);
+
 }
