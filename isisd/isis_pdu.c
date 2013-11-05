@@ -53,6 +53,9 @@
 #include "isisd/iso_checksum.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
+#ifdef HAVE_TRILL
+#include "isisd/trill.h"
+#endif
 
 #define ISIS_MINIMUM_FIXED_HDR_LEN 15
 #define ISIS_MIN_PDU_LEN           13	/* partial seqnum pdu with id_len=2 */
@@ -73,7 +76,7 @@ static u_char maskbit[] = {
 /*
  * Compares two sets of area addresses
  */
-static int
+int
 area_match (struct list *left, struct list *right)
 {
   struct area_addr *addr1, *addr2;
@@ -288,7 +291,7 @@ del_addr (void *val)
   XFREE (MTYPE_ISIS_TMP, val);
 }
 
-static void
+void
 tlvs_to_adj_area_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
   struct listnode *node;
@@ -311,7 +314,7 @@ tlvs_to_adj_area_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
     }
 }
 
-static int
+int
 tlvs_to_adj_nlpids (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
   int i;
@@ -2216,7 +2219,7 @@ fill_fixed_hdr (struct isis_fixed_hdr *hdr, u_char pdu_type)
 /*
  * SEND SIDE                             
  */
-static void
+void
 fill_fixed_hdr_andstream (struct isis_fixed_hdr *hdr, u_char pdu_type,
 			  struct stream *stream)
 {
@@ -2245,6 +2248,10 @@ send_hello (struct isis_circuit *circuit, int level)
   u_int32_t interval;
   int retval;
 
+#ifdef HAVE_TRILL
+  if(isis->trill_active)
+	  return send_trill_hello(circuit);
+#endif
   if (circuit->is_passive)
     return ISIS_OK;
 
@@ -2469,6 +2476,31 @@ send_lan_l2_hello (struct thread *thread)
 
   return retval;
 }
+#ifdef HAVE_TRILL
+int
+send_lan_trill_hello (struct thread *thread)
+{
+  struct isis_circuit *circuit;
+  int retval;
+
+  circuit = THREAD_ARG (thread);
+  assert (circuit);
+  circuit->u.bc.t_send_lan_hello[TRILL_LEVEL - 1] = NULL;
+
+  if (circuit->u.bc.run_dr_elect[TRILL_LEVEL - 1])
+    retval = isis_dr_elect (circuit, TRILL_LEVEL);
+
+  retval = send_hello (circuit, TRILL_LEVEL);
+
+  /* set next timer thread */
+  THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[TRILL_LEVEL - 1],
+                  send_lan_trill_hello, circuit,
+                  isis_jitter (circuit->hello_interval[TRILL_LEVEL - 1],
+                                   IIH_JITTER));
+
+  return retval;
+}
+#endif
 
 int
 send_p2p_hello (struct thread *thread)

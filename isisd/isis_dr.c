@@ -65,6 +65,25 @@ isis_disflag2string (int disflag)
   return NULL;			/* not reached */
 }
 
+#ifdef HAVE_TRILL
+int
+isis_run_dr_trill (struct thread *thread)
+{
+  struct isis_circuit *circuit;
+
+  circuit = THREAD_ARG (thread);
+  assert (circuit);
+
+  if (circuit->u.bc.run_dr_elect[TRILL_LEVEL - 1])
+    zlog_warn ("isis_run_dr(): run_dr_elect already set for l1");
+
+  circuit->u.bc.t_run_dr[TRILL_LEVEL - 1] = NULL;
+  circuit->u.bc.run_dr_elect[TRILL_LEVEL - 1] = 1;
+
+  return ISIS_OK;
+}
+#endif
+
 int
 isis_run_dr_l1 (struct thread *thread)
 {

@@ -57,6 +57,9 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
+#ifdef HAVE_TRILL
+#include "isisd/trill.h"
+#endif
 
 /*
  * Prototypes.
@@ -84,7 +87,7 @@ isis_circuit_new ()
   circuit->is_type = IS_LEVEL_1_AND_2;
   circuit->flags = 0;
   circuit->pad_hellos = 1;
-  for (i = 0; i < 2; i++)
+  for (i = 0; i < ISIS_LEVELS; i++)
     {
       circuit->hello_interval[i] = DEFAULT_HELLO_INTERVAL;
       circuit->hello_multiplier[i] = DEFAULT_HELLO_MULTIPLIER;
@@ -552,9 +555,16 @@ isis_circuit_update_all_srmflags (struct isis_circuit *circuit, int is_set)
   assert (circuit);
   area = circuit->area;
   assert (area);
-  for (level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++)
+  for (level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
     {
-      if (level & circuit->is_type)
+      if (
+#ifdef HAVE_TRILL
+            area->isis->trill_active && level == TRILL_LEVEL
+#else
+            level & circuit->is_type
+#endif
+       )
+
         {
           if (area->lspdb[level - 1] &&
               dict_count (area->lspdb[level - 1]) > 0)
@@ -623,6 +633,9 @@ isis_circuit_up (struct isis_circuit *circuit)
 
       circuit->u.bc.adjdb[0] = list_new ();
       circuit->u.bc.adjdb[1] = list_new ();
+#ifdef HAVE_TRILL
+      circuit->u.bc.adjdb[TRILL_LEVEL -1] = list_new ();
+#endif
 
       if (circuit->area->min_bcast_mtu == 0 ||
           ISO_MTU (circuit) < circuit->area->min_bcast_mtu)
@@ -637,6 +650,12 @@ isis_circuit_up (struct isis_circuit *circuit)
 
       /* 8.4.1 a) commence sending of IIH PDUs */
 
+#ifdef HAVE_TRILL
+	if(isis->trill_active){
+		thread_add_event (master, send_trill_hello_thread, circuit, 0);
+		circuit->u.bc.lan_neighs[TRILL_LEVEL - 1] = list_new ();
+	}
+#endif
       if (circuit->is_type & IS_LEVEL_1)
         {
           thread_add_event (master, send_lan_l1_hello, circuit, 0);
@@ -660,6 +679,13 @@ isis_circuit_up (struct isis_circuit *circuit)
       if (circuit->is_type & IS_LEVEL_2)
         THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
             circuit, 2 * circuit->hello_interval[1]);
+#ifdef HAVE_TRILL
+       if(isis->trill_active)
+         THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[TRILL_LEVEL - 1],
+               isis_run_dr_trill, circuit,
+               2 * circuit->hello_interval[TRILL_LEVEL - 1]);
+#endif
+
     }
   else
     {
@@ -678,6 +704,13 @@ isis_circuit_up (struct isis_circuit *circuit)
   if (circuit->is_type & IS_LEVEL_2)
     THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
                      isis_jitter (circuit->psnp_interval[1], PSNP_JITTER));
+#ifdef HAVE_TRILL
+  if(isis->trill_active)
+    THREAD_TIMER_ON (master, circuit->t_send_psnp[TRILL_LEVEL - 1],
+                          send_trill_psnp, circuit,
+                          isis_jitter (circuit->psnp_interval[TRILL_LEVEL - 1],
+                                           PSNP_JITTER));
+#endif
 
   /* unified init for circuits; ignore warnings below this level */
   retv = isis_sock_init (circuit);
@@ -730,6 +763,13 @@ isis_circuit_down (struct isis_circuit *circuit)
           list_delete (circuit->u.bc.lan_neighs[1]);
           circuit->u.bc.lan_neighs[1] = NULL;
         }
+#ifdef HAVE_TRILL
+      if (circuit->u.bc.lan_neighs[TRILL_LEVEL -1])
+        {
+          list_delete (circuit->u.bc.lan_neighs[TRILL_LEVEL -1]);
+          circuit->u.bc.lan_neighs[TRILL_LEVEL -1] = NULL;
+        }
+#endif
       /* destroy adjacency databases */
       if (circuit->u.bc.adjdb[0])
         {
@@ -743,6 +783,14 @@ isis_circuit_down (struct isis_circuit *circuit)
           list_delete (circuit->u.bc.adjdb[1]);
           circuit->u.bc.adjdb[1] = NULL;
         }
+#ifdef HAVE_TRILL
+      if (circuit->u.bc.adjdb[TRILL_LEVEL -1])
+        {
+          circuit->u.bc.adjdb[TRILL_LEVEL -1]->del = isis_delete_adj;
+          list_delete (circuit->u.bc.adjdb[TRILL_LEVEL -1]);
+          circuit->u.bc.adjdb[TRILL_LEVEL -1] = NULL;
+        }
+#endif
       if (circuit->u.bc.is_dr[0])
         {
           isis_dr_resign (circuit, 1);
@@ -755,6 +803,14 @@ isis_circuit_down (struct isis_circuit *circuit)
           circuit->u.bc.is_dr[1] = 0;
         }
       memset (circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
+#ifdef HAVE_TRILL
+      if (circuit->u.bc.is_dr[TRILL_LEVEL -1])
+        {
+          isis_dr_resign (circuit, TRILL_LEVEL);
+          circuit->u.bc.is_dr[TRILL_LEVEL -1] = 0;
+        }
+      memset (circuit->u.bc.trill_desig_is, 0, ISIS_SYS_ID_LEN + 1);
+#endif
       memset (circuit->u.bc.snpa, 0, ETH_ALEN);
 
       THREAD_TIMER_OFF (circuit->u.bc.t_send_lan_hello[0]);
@@ -763,6 +819,12 @@ isis_circuit_down (struct isis_circuit *circuit)
       THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[1]);
       THREAD_TIMER_OFF (circuit->u.bc.t_refresh_pseudo_lsp[0]);
       THREAD_TIMER_OFF (circuit->u.bc.t_refresh_pseudo_lsp[1]);
+#ifdef HAVE_TRILL
+      THREAD_TIMER_OFF (circuit->u.bc.t_send_lan_hello[TRILL_LEVEL -1]);
+      THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[TRILL_LEVEL -1]);
+      THREAD_TIMER_OFF (circuit->u.bc.t_refresh_pseudo_lsp[TRILL_LEVEL -1]);
+#endif
+
     }
   else if (circuit->circ_type == CIRCUIT_T_P2P)
     {
@@ -774,8 +836,14 @@ isis_circuit_down (struct isis_circuit *circuit)
   /* Cancel all active threads */
   THREAD_TIMER_OFF (circuit->t_send_csnp[0]);
   THREAD_TIMER_OFF (circuit->t_send_csnp[1]);
+#ifdef HAVE_TRILL
+  THREAD_TIMER_OFF (circuit->t_send_csnp[TRILL_LEVEL - 1]);
+#endif
   THREAD_TIMER_OFF (circuit->t_send_psnp[0]);
   THREAD_TIMER_OFF (circuit->t_send_psnp[1]);
+#ifdef HAVE_TRILL
+  THREAD_TIMER_OFF (circuit->t_send_psnp[TRILL_LEVEL - 1]);
+#endif
   THREAD_OFF (circuit->t_read);
 
   if (circuit->lsp_queue)
@@ -790,9 +858,16 @@ isis_circuit_down (struct isis_circuit *circuit)
     send_hello (circuit, IS_LEVEL_1);
   if (circuit->is_type & IS_LEVEL_2)
     send_hello (circuit, IS_LEVEL_2);
+#ifdef HAVE_TRILL
+  if (isis->trill_active)
+    send_hello (circuit, TRILL_LEVEL);
+#endif
 
   circuit->upadjcount[0] = 0;
   circuit->upadjcount[1] = 0;
+#ifdef HAVE_TRILL
+  circuit->upadjcount[TRILL_LEVEL - 1] = 0;
+#endif
 
   /* close the socket */
   if (circuit->fd)
@@ -1030,7 +1105,7 @@ isis_interface_config_write (struct vty *vty)
             }
           else
           {
-            for (i = 0; i < 2; i++)
+            for (i = 0; i < ISIS_LEVELS; i++)
               {
                 if (circuit->csnp_interval[i] != DEFAULT_CSNP_INTERVAL)
                   {
@@ -1053,7 +1128,7 @@ isis_interface_config_write (struct vty *vty)
             }
           else
             {
-              for (i = 0; i < 2; i++)
+              for (i = 0; i < ISIS_LEVELS; i++)
                 {
                   if (circuit->psnp_interval[i] != DEFAULT_PSNP_INTERVAL)
                   {
@@ -1083,7 +1158,7 @@ isis_interface_config_write (struct vty *vty)
             }
           else
             {
-              for (i = 0; i < 2; i++)
+              for (i = 0; i < ISIS_LEVELS; i++)
                 {
                   if (circuit->hello_interval[i] != DEFAULT_HELLO_INTERVAL)
                     {
@@ -1106,7 +1181,7 @@ isis_interface_config_write (struct vty *vty)
             }
           else
             {
-              for (i = 0; i < 2; i++)
+              for (i = 0; i < ISIS_LEVELS; i++)
                 {
                   if (circuit->hello_multiplier[i] != DEFAULT_HELLO_MULTIPLIER)
                     {
@@ -1130,7 +1205,7 @@ isis_interface_config_write (struct vty *vty)
             }
           else
             {
-              for (i = 0; i < 2; i++)
+              for (i = 0; i < ISIS_LEVELS; i++)
                 {
                   if (circuit->priority[i] != DEFAULT_PRIORITY)
                     {
@@ -1153,7 +1228,7 @@ isis_interface_config_write (struct vty *vty)
             }
           else
             {
-              for (i = 0; i < 2; i++)
+              for (i = 0; i < ISIS_LEVELS; i++)
                 {
                   if (circuit->te_metric[i] != DEFAULT_CIRCUIT_METRIC)
                     {
@@ -1777,9 +1852,15 @@ DEFUN (isis_metric,
 
   circuit->te_metric[0] = met;
   circuit->te_metric[1] = met;
+#ifdef HAVE_TRILL
+  circuit->te_metric[TRILL_LEVEL - 1] = met;
+#endif
 
   circuit->metrics[0].metric_default = met;
   circuit->metrics[1].metric_default = met;
+#ifdef HAVE_TRILL
+  circuit->metrics[TRILL_LEVEL - 1].metric_default = met;
+#endif
 
   if (circuit->area)
     lsp_regenerate_schedule (circuit->area, circuit->is_type, 0);
@@ -1800,9 +1881,14 @@ DEFUN (no_isis_metric,
 
   circuit->te_metric[0] = DEFAULT_CIRCUIT_METRIC;
   circuit->te_metric[1] = DEFAULT_CIRCUIT_METRIC;
+#ifdef HAVE_TRILL
+  circuit->te_metric[TRILL_LEVEL - 1] = DEFAULT_CIRCUIT_METRIC;
+#endif
   circuit->metrics[0].metric_default = DEFAULT_CIRCUIT_METRIC;
   circuit->metrics[1].metric_default = DEFAULT_CIRCUIT_METRIC;
-
+#ifdef HAVE_TRILL
+  circuit->metrics[TRILL_LEVEL - 1].metric_default = DEFAULT_CIRCUIT_METRIC;
+#endif
   if (circuit->area)
     lsp_regenerate_schedule (circuit->area, circuit->is_type, 0);
 
@@ -1964,6 +2050,80 @@ ALIAS (no_isis_metric_l2,
        "Set default metric for circuit\n"
        "Default metric value\n"
        "Specify metric for level-2 routing\n")
+#ifdef HAVE_TRILL
+DEFUN (isis_metric_trill,
+       isis_metric_trill_cmd,
+       "isis metric <0-16777215> level-trill",
+       "IS-IS commands\n"
+       "Set default metric for circuit\n"
+       "Default metric value\n"
+       "Specify metric for trill routing\n")
+{
+  int met;
+  struct isis_circuit *circuit = isis_circuit_lookup (vty);
+  if (!circuit)
+    return CMD_ERR_NO_MATCH;
+
+  met = atoi (argv[0]);
+
+  /* RFC3787 section 5.1 */
+  if (circuit->area && circuit->area->oldmetric == 1 &&
+      met > MAX_NARROW_LINK_METRIC)
+    {
+      vty_out (vty, "Invalid metric %d - should be <0-63> "
+               "when narrow metric type enabled%s",
+               met, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  /* RFC4444 */
+  if (circuit->area && circuit->area->newmetric == 1 &&
+      met > MAX_WIDE_LINK_METRIC)
+    {
+      vty_out (vty, "Invalid metric %d - should be <0-16777215> "
+               "when wide metric type enabled%s",
+               met, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  circuit->te_metric[TRILL_LEVEL - 1] = met;
+  circuit->metrics[TRILL_LEVEL - 1].metric_default = met;
+
+  if (circuit->area)
+    lsp_regenerate_schedule (circuit->area, TRILL_LEVEL, 0);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_isis_metric_trill,
+       no_isis_metric_trill_cmd,
+       "no isis metric level-1",
+       NO_STR
+       "IS-IS commands\n"
+       "Set default metric for circuit\n"
+       "Specify metric for level-1 routing\n")
+{
+  struct isis_circuit *circuit = isis_circuit_lookup (vty);
+  if (!circuit)
+    return CMD_ERR_NO_MATCH;
+
+  circuit->te_metric[TRILL_LEVEL - 1] = DEFAULT_CIRCUIT_METRIC;
+  circuit->metrics[TRILL_LEVEL - 1].metric_default = DEFAULT_CIRCUIT_METRIC;
+
+  if (circuit->area)
+    lsp_regenerate_schedule (circuit->area, TRILL_LEVEL, 0);
+
+  return CMD_SUCCESS;
+}
+ALIAS (no_isis_metric_trill,
+       no_isis_metric_trill_arg_cmd,
+       "no isis metric <0-16777215> level-trill",
+       NO_STR
+       "IS-IS commands\n"
+       "Set default metric for circuit\n"
+       "Default metric value\n"
+       "Specify metric for trill routing\n")
+#endif
 /* end of metrics */
 
 DEFUN (isis_hello_interval,
@@ -1989,7 +2149,9 @@ DEFUN (isis_hello_interval,
 
   circuit->hello_interval[0] = (u_int16_t) interval;
   circuit->hello_interval[1] = (u_int16_t) interval;
-
+#ifdef HAVE_TRILL
+  circuit->hello_interval[TRILL_LEVEL - 1] = (u_int16_t) interval;
+#endif
   return CMD_SUCCESS;
 }
 
@@ -2006,6 +2168,9 @@ DEFUN (no_isis_hello_interval,
 
   circuit->hello_interval[0] = DEFAULT_HELLO_INTERVAL;
   circuit->hello_interval[1] = DEFAULT_HELLO_INTERVAL;
+#ifdef HAVE_TRILL
+  circuit->hello_interval[TRILL_LEVEL - 1] = DEFAULT_HELLO_INTERVAL;
+#endif
 
   return CMD_SUCCESS;
 }
@@ -2785,6 +2950,11 @@ isis_circuit_init ()
   install_element (INTERFACE_NODE, &isis_metric_l2_cmd);
   install_element (INTERFACE_NODE, &no_isis_metric_l2_cmd);
   install_element (INTERFACE_NODE, &no_isis_metric_l2_arg_cmd);
+#ifdef HAVE_TRILL
+  install_element (INTERFACE_NODE, &isis_metric_trill_cmd);
+  install_element (INTERFACE_NODE, &no_isis_metric_trill_cmd);
+  install_element (INTERFACE_NODE, &no_isis_metric_trill_arg_cmd);
+#endif
 
   install_element (INTERFACE_NODE, &isis_hello_interval_cmd);
   install_element (INTERFACE_NODE, &no_isis_hello_interval_cmd);

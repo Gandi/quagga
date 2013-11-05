@@ -50,6 +50,9 @@
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_spf.h"
+#ifdef HAVE_TRILL
+#include "isisd/trill.h"
+#endif
 
 /* debug isis-spf spf-events 
  4w4d: ISIS-Spf (tlt): L2 SPF needed, new adjacency, from 0x609229F4
@@ -209,6 +212,32 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 	  circuit->u.bc.lan_neighs[0] = list_new ();
 	}
     }
+
+#ifdef HAVE_TRILL
+  else if (level == TRILL_LEVEL)
+    {
+      if (! circuit->is_passive)
+        THREAD_TIMER_ON (master, circuit->t_send_psnp[TRILL_LEVEL - 1],
+                                send_trill_psnp, circuit,
+                        isis_jitter (circuit->psnp_interval[TRILL_LEVEL - 1],
+                                           PSNP_JITTER));
+
+      if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+       {
+         THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[TRILL_LEVEL - 1],
+                                isis_run_dr_trill,
+                          circuit, 2 * circuit->hello_interval[TRILL_LEVEL -1]);
+
+         THREAD_TIMER_ON (master,
+                                circuit->u.bc.t_send_lan_hello[TRILL_LEVEL - 1],
+                         send_lan_trill_hello, circuit,
+                          isis_jitter (circuit->hello_interval[TRILL_LEVEL -1],
+                                       IIH_JITTER));
+
+         circuit->u.bc.lan_neighs[TRILL_LEVEL - 1] = list_new ();
+       }
+    }
+#endif
   else
     {
       if (! circuit->is_passive)
@@ -283,27 +312,54 @@ isis_event_circuit_type_change (struct isis_circuit *circuit, int newtype)
   switch (circuit->is_type)
     {
     case IS_LEVEL_1:
-      if (newtype == IS_LEVEL_2)
-	circuit_resign_level (circuit, 1);
-      circuit_commence_level (circuit, 2);
+      if (newtype == IS_LEVEL_2){
+       circuit_resign_level (circuit, 1);
+       circuit_commence_level (circuit, 2);
+      }
+#ifdef HAVE_TRILL
+      else if(newtype == TRILL_LEVEL){
+       circuit_resign_level (circuit, 1);
+       circuit_commence_level (circuit, TRILL_LEVEL);
+      }
+#endif
+
       break;
     case IS_LEVEL_1_AND_2:
       if (newtype == IS_LEVEL_1)
-	circuit_resign_level (circuit, 2);
+       circuit_resign_level (circuit, 2);
+#ifdef HAVE_TRILL
+      else if(newtype == TRILL_LEVEL){
+       circuit_resign_level (circuit, 1);
+       circuit_resign_level (circuit, 2);
+       circuit_commence_level (circuit, TRILL_LEVEL);
+      }
+#endif
       else
-	circuit_resign_level (circuit, 1);
+       circuit_resign_level (circuit, 1);
       break;
     case IS_LEVEL_2:
-      if (newtype == IS_LEVEL_1)
-	circuit_resign_level (circuit, 2);
-      circuit_commence_level (circuit, 1);
+      if (newtype == IS_LEVEL_1){
+       circuit_resign_level (circuit, 2);
+       circuit_commence_level (circuit, 1);
+      }
+#ifdef HAVE_TRILL
+      else if(newtype == TRILL_LEVEL){
+       circuit_resign_level (circuit, 2);
+       circuit_commence_level (circuit, TRILL_LEVEL);
+       }
+#endif
       break;
     default:
       break;
     }
 
   circuit->is_type = newtype;
-  lsp_regenerate_schedule (circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
+#ifdef HAVE_TRILL
+  if(newtype == TRILL_LEVEL)
+       lsp_regenerate_schedule (circuit->area, TRILL_LEVEL, 0);
+  else
+#endif
+       lsp_regenerate_schedule (circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
 
   return;
 }

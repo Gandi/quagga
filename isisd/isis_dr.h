@@ -26,6 +26,9 @@
 
 int isis_run_dr_l1 (struct thread *thread);
 int isis_run_dr_l2 (struct thread *thread);
+#ifdef HAVE_TRILL
+int isis_run_dr_trill (struct thread *thread);
+#endif
 int isis_dr_elect (struct isis_circuit *circuit, int level);
 int isis_dr_resign (struct isis_circuit *circuit, int level);
 int isis_dr_commence (struct isis_circuit *circuit, int level);

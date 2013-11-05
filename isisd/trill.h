@@ -107,4 +107,7 @@ extern void trill_dict_delete_nodes(dict_t *, dict_t *,void *, bool);
 extern nickdb_search_result trill_search_rbridge (struct isis_area *,
 								  struct nickinfo *,
 								  dnode_t **);
+/* trill_bpdu.c */
+extern int send_trill_hello (struct isis_circuit *);
+extern int send_trill_hello_thread (struct thread *);
 #endif

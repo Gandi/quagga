@@ -257,8 +257,12 @@ int isis_receive (struct thread *thread);
 /*
  * Sending functions
  */
+int area_match (struct list *, struct list *);
 int send_lan_l1_hello (struct thread *thread);
 int send_lan_l2_hello (struct thread *thread);
+#ifdef HAVE_TRILL
+int send_lan_trill_hello (struct thread *thread);
+#endif
 int send_p2p_hello (struct thread *thread);
 int send_csnp (struct isis_circuit *circuit, int level);
 int send_l1_csnp (struct thread *thread);
@@ -266,9 +270,13 @@ int send_l2_csnp (struct thread *thread);
 int send_l1_psnp (struct thread *thread);
 int send_l2_psnp (struct thread *thread);
 int send_lsp (struct thread *thread);
+void tlvs_to_adj_area_addrs (struct tlvs *, struct isis_adjacency *);
+int tlvs_to_adj_nlpids (struct tlvs *, struct isis_adjacency *);
 int ack_lsp (struct isis_link_state_hdr *hdr,
 	     struct isis_circuit *circuit, int level);
 void fill_fixed_hdr (struct isis_fixed_hdr *hdr, u_char pdu_type);
 int send_hello (struct isis_circuit *circuit, int level);
+void fill_fixed_hdr_andstream (struct isis_fixed_hdr *hdr, u_char pdu_type,
+			  struct stream *stream);
 
 #endif /* _ZEBRA_ISIS_PDU_H */
