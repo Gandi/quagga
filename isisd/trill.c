@@ -150,6 +150,25 @@ static char trill_port_load(struct isis_area *area)
  return true;
 }
 
+void trill_struct_init(struct isis_area *area)
+{
+  struct trill_info *trill= area->trill;
+  if(trill)
+  {
+	trill->status = 0;
+	trill->nick.priority = DEFAULT_PRIORITY;
+	trill->nick.name = 0xFFFF;
+	trill->root_priority = DEFAULT_PRIORITY;
+	trill->nickdb = dict_create(MAX_RBRIDGE_NODES, nick_cmp);
+	trill->sysidtonickdb = dict_create(MAX_RBRIDGE_NODES, sysid_cmp);
+	trill->spf_completed = false;
+	trill->dt_roots = list_new();
+	nickname_init();
+	isis_event_system_type_change (area, TRILL_LEVEL);
+	memset (area->trill->lspdb_acq_reqs, 0, sizeof(trill->lspdb_acq_reqs));
+  }
+}
+
 void trill_init(int argc, char **argv)
 {
  const char *instname;
@@ -173,6 +192,10 @@ void trill_init(int argc, char **argv)
 
  instname = argv[optind];
  instarea = argv[optind+1];
+ isis->trill_active = true;
+  /* TRILL is different from the standard IS-IS; it uses one area address */
+ isis->max_area_addrs = 1;
+
  area = isis_area_create (instarea);
  (void) strlcpy (area->trill->name, instname, MAXLINKNAMELEN);
 
@@ -207,9 +230,6 @@ void trill_init(int argc, char **argv)
  /* Set up to use new (extended) metrics only */
  area->newmetric = 1;
  area->oldmetric = 0;
- isis->trill_active = true;
- /* TRILL is different from the standard IS-IS; it uses one area address */
- isis->max_area_addrs = 1;
 
  /* get interface configuration and change their status to up */
  if (!trill_port_load (area)) {

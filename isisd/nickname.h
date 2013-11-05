@@ -42,4 +42,6 @@ void trill_nickname_free(u_int16_t nick_nbo);
 u_int16_t trill_nickname_alloc(void);
 int  nickname_init(void);
 void trill_nickinfo_del(struct nickinfo *);
+int nick_cmp(const void *, const void *);
+int sysid_cmp(const void *, const void *);
 #endif

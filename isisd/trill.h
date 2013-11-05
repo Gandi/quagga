@@ -93,6 +93,7 @@ typedef enum
 } lspdbacq_state;
 
 void trill_init(int argc, char **argv);
+void trill_struct_init(struct isis_area *);
 void trill_exit(void);
 
 /* trill_nodedb.c */

@@ -123,3 +123,12 @@ void trill_nickinfo_del(struct nickinfo *ni)
   if (ni->dt_roots != NULL)
     list_delete (ni->dt_roots);
 }
+
+int nick_cmp(const void *key1, const void *key2)
+{
+  return (memcmp(key1, key2, sizeof(u_int16_t)));
+}
+int sysid_cmp(const void *key1, const void *key2)
+{
+  return (memcmp(key1, key2, ISIS_SYS_ID_LEN));
+}

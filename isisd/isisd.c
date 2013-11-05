@@ -139,6 +139,10 @@ isis_area_create (const char *area_tag)
       area->route_table6[1] = route_table_init ();
 #endif /* HAVE_IPV6 */
     }
+#ifdef HAVE_TRILL
+  if(isis->trill_active)
+	area->lspdb[TRILL_LEVEL - 1] = lsp_db_init ();
+#endif
 
   spftree_area_init (area);
 
@@ -161,6 +165,12 @@ isis_area_create (const char *area_tag)
   area->lsp_gen_interval[1] = DEFAULT_MIN_LSP_GEN_INTERVAL;
   area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
   area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
+#ifdef HAVE_TRILL
+  area->max_lsp_lifetime[TRILL_LEVEL - 1] = DEFAULT_LSP_LIFETIME; /* 1200 */
+  area->lsp_refresh[TRILL_LEVEL - 1] = DEFAULT_MAX_LSP_GEN_INTERVAL; /* 900 */
+  area->lsp_gen_interval[TRILL_LEVEL - 1] = DEFAULT_MIN_LSP_GEN_INTERVAL;
+  area->min_spf_interval[TRILL_LEVEL - 1] = MINIMUM_SPF_INTERVAL;
+#endif
   area->dynhostname = 1;
   area->oldmetric = 0;
   area->newmetric = 1;
@@ -175,6 +185,10 @@ isis_area_create (const char *area_tag)
   area->area_tag = strdup (area_tag);
   listnode_add (isis->area_list, area);
   area->isis = isis;
+#ifdef HAVE_TRILL
+  if(isis->trill_active)
+	trill_struct_init(area);
+#endif
 
   return area;
 }
