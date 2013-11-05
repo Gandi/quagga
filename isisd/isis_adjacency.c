@@ -181,6 +181,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
   int old_state;
   int level;
   struct isis_circuit *circuit;
+  u_char id[ISIS_SYS_ID_LEN + 2];
 
   old_state = adj->adj_state;
   adj->adj_state = new_state;
@@ -238,6 +239,10 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                 list_delete_all_node (circuit->lsp_queue);
             }
           isis_event_adjacency_state_change (adj, new_state);
+          memcpy (id, adj->sysid, ISIS_SYS_ID_LEN);
+          LSP_PSEUDO_ID (id) = LSP_FRAGMENT (id) = 0;
+          lsp_search_and_destroy(id, circuit->area->lspdb[level - 1]);
+
           isis_delete_adj (adj);
         }
 
