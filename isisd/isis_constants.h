@@ -48,7 +48,11 @@
 
 #define RANDOM_SPREAD           100000.0
 
+#ifdef HAVE_TRILL
+#define ISIS_LEVELS                   4
+#else
 #define ISIS_LEVELS                   2
+#endif
 #define ISIS_LEVEL1                   1
 #define ISIS_LEVEL2                   2
 

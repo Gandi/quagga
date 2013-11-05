@@ -52,6 +52,9 @@ struct isis
   u_int32_t debugs;		/* bitmap for debug */
   time_t uptime;		/* when did we start */
   struct thread *t_dync_clean;	/* dynamic hostname cache cleanup thread */
+  #ifdef HAVE_TRILL
+  bool trill_active;             /* TRILL support is active */
+  #endif
 
   /* Redistributed external information. */
   struct route_table *external_info[ZEBRA_ROUTE_MAX + 1];
@@ -96,7 +99,13 @@ struct isis_area
   struct flags flags;
   struct thread *t_tick;	/* LSP walker */
   struct thread *t_lsp_refresh[ISIS_LEVELS];
+  #ifdef HAVE_TRILL
+  struct thread *nl_tick; /* netlink(control <=> data plane) update tick */
+  #endif
   int lsp_regenerate_pending[ISIS_LEVELS];
+  #ifdef HAVE_TRILL
+  struct trill_info *trill;     /* TRILL IS-IS information */
+  #endif
 
   /*
    * Configurables 
@@ -163,5 +172,8 @@ extern struct thread_master *master;
 #define DEBUG_EVENTS                     (1<<10)
 #define DEBUG_ZEBRA                      (1<<11)
 #define DEBUG_PACKET_DUMP                (1<<12)
+#ifdef HAVE_TRILL
+#define DEBUG_TRILL_EVENTS               (1<<13)
+#endif
 
 #endif /* ISISD_H */
