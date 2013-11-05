@@ -42,6 +42,9 @@
  */
 
 #define IIH_JITTER                    10	/* % */
+#ifdef HAVE_TRILL
+#define TRILL_JITTER                    10	/* % */
+#endif
 #define MAX_AGE_JITTER                 5	/* % */
 #define MAX_LSP_GEN_JITTER             5	/* % */
 #define CSNP_JITTER                   10	/* % */

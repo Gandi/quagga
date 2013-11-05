@@ -23,6 +23,7 @@
 #ifndef ISIS_CIRCUIT_H
 #define ISIS_CIRCUIT_H
 
+#include "isisd/isis_constants.h"
 #define CIRCUIT_MAX 255
 
 struct password
@@ -43,15 +44,21 @@ struct metric
 struct isis_bcast_info
 {
   u_char snpa[ETH_ALEN];	/* SNPA of this circuit */
-  char run_dr_elect[2];		/* Should we run dr election ? */
-  struct thread *t_run_dr[2];	/* DR election thread */
-  struct thread *t_send_lan_hello[2];	/* send LAN IIHs in this thread */
-  struct list *adjdb[2];	/* adjacency dbs */
-  struct list *lan_neighs[2];	/* list of lx neigh snpa */
-  char is_dr[2];		/* Are we level x DR ? */
+  char run_dr_elect[ISIS_LEVELS];		/* Should we run dr election ? */
+  struct thread *t_run_dr[ISIS_LEVELS];	/* DR election thread */
+  struct thread *t_send_lan_hello[ISIS_LEVELS];/* send LAN IIHs in this thread*/
+  struct list *adjdb[ISIS_LEVELS];	/* adjacency dbs */
+  struct list *lan_neighs[ISIS_LEVELS];	/* list of lx neigh snpa */
+  char is_dr[ISIS_LEVELS];		/* Are we level x DR ? */
   u_char l1_desig_is[ISIS_SYS_ID_LEN + 1];	/* level-1 DR */
   u_char l2_desig_is[ISIS_SYS_ID_LEN + 1];	/* level-2 DR */
-  struct thread *t_refresh_pseudo_lsp[2];	/* refresh pseudo-node LSPs */
+#ifdef HAVE_TRILL
+  u_char trill_desig_is[ISIS_SYS_ID_LEN + 1];	/* TRILL DR */
+#endif
+
+  struct thread *t_refresh_pseudo_lsp[ISIS_LEVELS];  /* refresh pseudo-node
+                                                      * LSPs
+                                                      */
 };
 
 struct isis_p2p_info
@@ -73,8 +80,8 @@ struct isis_circuit
    * Threads
    */
   struct thread *t_read;
-  struct thread *t_send_csnp[2];
-  struct thread *t_send_psnp[2];
+  struct thread *t_send_csnp[ISIS_LEVELS];
+  struct thread *t_send_psnp[ISIS_LEVELS];
   struct list *lsp_queue;	/* LSPs to be txed (both levels) */
   time_t lsp_queue_last_cleared;/* timestamp used to enforce transmit interval;
                                  * for scalability, use one timestamp per 
@@ -97,7 +104,7 @@ struct isis_circuit
     struct isis_bcast_info bc;
     struct isis_p2p_info p2p;
   } u;
-  u_char priority[2];		/* l1/2 IS configured priority */
+  u_char priority[ISIS_LEVELS];	/* l1/2/trill IS configured priority */
   int pad_hellos;		/* add padding to Hello PDUs ? */
   char ext_domain;		/* externalDomain   (boolean) */
   int lsp_regenerate_pending[ISIS_LEVELS];
@@ -107,12 +114,12 @@ struct isis_circuit
   struct isis_passwd passwd;	/* Circuit rx/tx password */
   int is_type;	                /* circuit is type == level of circuit
 				 * diffrenciated from circuit type (media) */
-  u_int32_t hello_interval[2];	/* l1HelloInterval in msecs */
-  u_int16_t hello_multiplier[2];	/* l1HelloMultiplier */
-  u_int16_t csnp_interval[2];	/* level-1 csnp-interval in seconds */
-  u_int16_t psnp_interval[2];	/* level-1 psnp-interval in seconds */
-  struct metric metrics[2];	/* l1XxxMetric */
-  u_int32_t te_metric[2];
+  u_int32_t hello_interval[ISIS_LEVELS];	/* l1HelloInterval in msecs */
+  u_int16_t hello_multiplier[ISIS_LEVELS];	/* l1HelloMultiplier */
+  u_int16_t csnp_interval[ISIS_LEVELS];	/* level-1 csnp-interval in seconds */
+  u_int16_t psnp_interval[ISIS_LEVELS];	/* level-1 psnp-interval in seconds */
+  struct metric metrics[ISIS_LEVELS];	/* l1XxxMetric */
+  u_int32_t te_metric[ISIS_LEVELS];
   int ip_router;		/* Route IP ? */
   int is_passive;		/* Is Passive ? */
   struct list *ip_addrs;	/* our IP addresses */
@@ -121,7 +128,7 @@ struct isis_circuit
   struct list *ipv6_link;	/* our link local IPv6 addresses */
   struct list *ipv6_non_link;	/* our non-link local IPv6 addresses */
 #endif				/* HAVE_IPV6 */
-  u_int16_t upadjcount[2];
+  u_int16_t upadjcount[ISIS_LEVELS];
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
   u_char flags;
   /*
@@ -131,7 +138,9 @@ struct isis_circuit
   u_int32_t init_failures;	/* intialisationFailures */
   u_int32_t ctrl_pdus_rxed;	/* controlPDUsReceived */
   u_int32_t ctrl_pdus_txed;	/* controlPDUsSent */
-  u_int32_t desig_changes[2];	/* lanLxDesignatedIntermediateSystemChanges */
+  u_int32_t desig_changes[ISIS_LEVELS];/* lan Lx Designated
+                                        *  Intermediate System Changes
+                                        */
   u_int32_t rej_adjacencies;	/* rejectedAdjacencies */
 };
 

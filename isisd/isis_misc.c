@@ -289,6 +289,11 @@ string2circuit_t (const char * str)
   if (!strcmp (str, "level-1-2"))
     return IS_LEVEL_1_AND_2;
 
+#ifdef HAVE_TRILL
+  if (!strcmp (str, "level-trill"))
+    return TRILL_LEVEL;
+#endif
+
   return 0;
 }
 
@@ -339,6 +344,10 @@ circuit_t2string (int circuit_t)
       return "L2";
     case IS_LEVEL_1_AND_2:
       return "L1L2";
+#ifdef HAVE_TRILL
+    case TRILL_LEVEL:
+       return "TRILL";
+#endif
     default:
       return "??";
     }

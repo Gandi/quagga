@@ -1844,7 +1844,7 @@ DEFUN (no_domain_passwd,
 
 DEFUN (is_type,
        is_type_cmd,
-       "is-type (level-1|level-1-2|level-2-only)",
+       "is-type (level-1|level-1-2|level-2-only|level-trill)",
        "IS Level for this routing process (OSI only)\n"
        "Act as a station router only\n"
        "Act as both a station router and an area router\n"
