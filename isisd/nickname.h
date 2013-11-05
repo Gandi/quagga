@@ -1,6 +1,7 @@
 
 #ifndef _ZEBRA_ISIS_NICKNAME_H
 #define _ZEBRA_ISIS_NICKANME_H
+#include "isisd/trill.h"
 #include <libtrill.h>
 
 
@@ -40,4 +41,5 @@ void trill_nickname_reserve(u_int16_t nick_nbo);
 void trill_nickname_free(u_int16_t nick_nbo);
 u_int16_t trill_nickname_alloc(void);
 int  nickname_init(void);
+void trill_nickinfo_del(struct nickinfo *);
 #endif

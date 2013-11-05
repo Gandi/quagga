@@ -63,6 +63,7 @@ struct trill_nickdb_node
   struct isis_spftree *rdtree;  /* topology tree rooted at  X */
   struct list *adjnodes;        /* local nick ajacent RBridge on tree
 					rooted @ X */
+  u_int32_t refcnt;
 };
 
 /* RBridge forwarding table node */
@@ -93,4 +94,15 @@ typedef enum
 
 void trill_init(int argc, char **argv);
 void trill_exit(void);
+
+/* trill_nodedb.c */
+extern void trill_nickdb_update (struct isis_area *area,
+					    struct nickinfo *newnick);
+extern void trill_dict_create_nodes(struct isis_area *, struct nickinfo *);
+extern void trill_dict_remnode(dict_t *, dnode_t *);
+extern void trill_dict_free(dict_t *);
+extern void trill_dict_delete_nodes(dict_t *, dict_t *,void *, bool);
+extern nickdb_search_result trill_search_rbridge (struct isis_area *,
+								  struct nickinfo *,
+								  dnode_t **);
 #endif

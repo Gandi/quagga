@@ -117,3 +117,9 @@ void trill_nickname_free(u_int16_t nick_nbo)
 {
   trill_nickname_nickbitmap_op(ntohs(nick_nbo), true, false);
 }
+
+void trill_nickinfo_del(struct nickinfo *ni)
+{
+  if (ni->dt_roots != NULL)
+    list_delete (ni->dt_roots);
+}
