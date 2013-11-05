@@ -43,4 +43,4 @@ trilld_SOURCES = \
 trilld_LDADD = @ISIS_TOPOLOGY_LIB@ ../lib/libzebra.la @LIBCAP@
 
 examplesdir = $(exampledir)
-dist_examples_DATA = isisd.conf.sample
+dist_examples_DATA = isisd.conf.sample trilld.conf.sample

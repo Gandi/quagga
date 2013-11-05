@@ -1,0 +1,13 @@
+hostname hostfoo
+password foo
+enable password foofoo
+log file /var/log/trill.log
+
+isis trill
+router isis area0
+trill nickname 0001
+!trill nickname priority 1-127
+trill nickname priority 127
+!trill instance <bridge name>
+trill instance br0
+is-type level-trill
