@@ -194,7 +194,7 @@ static void set_area_nickname(struct isis_area *area,uint16_t nickname)
     }
 }
 
-static void trill_nickname_gen(struct isis_area *area)
+void trill_nickname_gen(struct isis_area *area)
 {
   u_int16_t nick;
   nick = trill_nickname_alloc();
@@ -328,6 +328,75 @@ static void trill_nickname_root_priority_update(struct isis_area *area,
      area->trill->root_priority |= CONFIGURED_NICK_PRIORITY;
 }
 
+void trill_lspdb_acquire_event(struct isis_circuit *circuit,
+					 lspdbacq_state caller)
+{
+  struct isis_area *area;
+  u_int8_t cid;
+  struct listnode *cnode;
+  int done = true;
+  area = circuit->area;
+  cid = circuit->circuit_id;
+  if (!isis->trill_active)
+    return;
+ if (CHECK_FLAG (area->trill->status, (TRILL_LSPDB_ACQUIRED | TRILL_NICK_SET)))
+    return;
+
+  switch(caller)
+    {
+    case CSNPRCV:
+    case CSNPSND:
+      LSPDB_ACQTRYINC (area, cid);
+      break;
+    case PSNPSNDTRY:
+      if (circuit->circ_type != CIRCUIT_T_BROADCAST)
+        LSPDB_ACQTRYINC (area, cid);
+      break;
+    default:
+      break;
+    }
+  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
+    {
+      cid = circuit->circuit_id;
+
+      /*
+       * If on any circuit we have reached max tries
+       * we consider LSP DB acquisition as done and
+       * assign ourselves a nickname
+       */
+      if (LSPDB_ACQTRYVAL (area, cid) > MAX_LSPDB_ACQTRIES)
+        {
+          done = true;
+         break;
+        }
+
+      /*
+       * If on any circuits we haven't received min LSPDB update
+       * packets then we wait until we hit max tries above
+       * on any circuit. If not it can only mean there is no other
+       * IS-IS instance on any of our circuits and so we wait.
+       */
+      if (LSPDB_ACQTRYVAL (area, cid) < MIN_LSPDB_ACQTRIES)
+        done = false;
+    }
+  if (done)
+    {
+      /*
+       * LSP DB acquired state, sufficient to start
+       * advertising our nickname. Set flags, pick a
+       * new nick if necessary and trigger new LSPs with the nick.
+       */
+      SET_FLAG (area->trill->status, TRILL_LSPDB_ACQUIRED);
+      if (ntohs(area->trill->nick.name) == RBRIDGE_NICKNAME_NONE)
+       {
+         trill_nickname_gen (area);
+         SET_FLAG (area->trill->status, TRILL_NICK_SET);
+         SET_FLAG (area->trill->status, TRILL_AUTONICK);
+         lsp_regenerate_schedule (area,TRILL_LEVEL,1);
+       }
+    }
+}
+
 void trill_init(int argc, char **argv)
 {
  const char *instname;
@@ -456,6 +525,7 @@ void trill_init(int argc, char **argv)
 	listnode_add (area->area_addrs, addr);
  }
  isis_event_system_type_change (area, TRILL_LEVEL);
+ lsp_regenerate_schedule (area, TRILL_LEVEL, 1);
 }
 
 void trill_exit(void)

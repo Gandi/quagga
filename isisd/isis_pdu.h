@@ -267,8 +267,14 @@ int send_p2p_hello (struct thread *thread);
 int send_csnp (struct isis_circuit *circuit, int level);
 int send_l1_csnp (struct thread *thread);
 int send_l2_csnp (struct thread *thread);
+#ifdef HAVE_TRILL
+int send_trill_csnp (struct thread *thread);
+#endif
 int send_l1_psnp (struct thread *thread);
 int send_l2_psnp (struct thread *thread);
+#ifdef HAVE_TRILL
+int send_trill_psnp (struct thread *thread);
+#endif
 int send_lsp (struct thread *thread);
 void tlvs_to_adj_area_addrs (struct tlvs *, struct isis_adjacency *);
 int tlvs_to_adj_nlpids (struct tlvs *, struct isis_adjacency *);

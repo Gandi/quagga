@@ -1866,6 +1866,9 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 
     }
 
+#ifdef HAVE_TRILL
+      trill_lspdb_acquire_event (circuit, CSNPRCV);
+#endif
   free_tlvs (&tlvs);
   return retval;
 }
@@ -2095,6 +2098,11 @@ isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
       retval = process_p2p_hello (circuit);
       break;
     case L1_LINK_STATE:
+#ifdef HAVE_TRILL
+      if(isis->trill_active)
+            retval = process_lsp (TRILL_LEVEL, circuit, ssnpa);
+      else
+#endif
       retval = process_lsp (ISIS_LEVEL1, circuit, ssnpa);
       break;
     case L2_LINK_STATE:
@@ -3090,6 +3098,11 @@ send_psnp (int level, struct isis_circuit *circuit)
       for (ALL_LIST_ELEMENTS_RO (list, node, lsp))
         ISIS_CLEAR_FLAG (lsp->SSNflags, circuit);
       list_delete (list);
+#ifdef HAVE_TRILL
+      if (circuit->circ_type != CIRCUIT_T_BROADCAST)
+               trill_lspdb_acquire_event (circuit, PSNPSNDTRY);
+      #endif
+
     }
 
   return retval;
@@ -3199,7 +3212,8 @@ send_lsp (struct thread *thread)
   /*
    * Do not send if levels do not match
    */
-  if (!(lsp->level & circuit->is_type))
+  if (!(LSP_TO_TRILL_LEVEL(lsp, circuit->area->isis->trill_active)
+      & circuit->is_type) &&  (circuit->is_type != TRILL_LEVEL))
     {
       list_delete_node (circuit->lsp_queue, node);
       return retval;
@@ -3208,7 +3222,9 @@ send_lsp (struct thread *thread)
   /*
    * Do not send if we do not have adjacencies in state up on the circuit
    */
-  if (circuit->upadjcount[lsp->level - 1] == 0)
+  if(circuit->upadjcount[LSP_TO_TRILL_LEVEL(lsp,
+                                    circuit->area->isis->trill_active) - 1] == 0
+    )
     {
       list_delete_node (circuit->lsp_queue, node);
       return retval;
@@ -3277,7 +3293,7 @@ ack_lsp (struct isis_link_state_hdr *hdr, struct isis_circuit *circuit,
     stream_reset (circuit->snd_stream);
 
   //  fill_llc_hdr (stream);
-  if (level == IS_LEVEL_1)
+  if (level == IS_LEVEL_1 || level == TRILL_LEVEL)
     fill_fixed_hdr_andstream (&fixed_hdr, L1_PARTIAL_SEQ_NUM,
 			      circuit->snd_stream);
   else

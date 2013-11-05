@@ -609,7 +609,7 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
         {
           if (circuit->circ_type == CIRCUIT_T_BROADCAST)
             {
-              for (i = 0; i < 2; i++)
+              for (i = 0; i < ISIS_LEVELS; i++)
                 {
                   adjdb = circuit->u.bc.adjdb[i];
                   if (adjdb && adjdb->count)
@@ -676,7 +676,7 @@ clear_isis_neighbor_common (struct vty *vty, const char *id)
         {
           if (circuit->circ_type == CIRCUIT_T_BROADCAST)
             {
-              for (i = 0; i < 2; i++)
+              for (i = 0; i < ISIS_LEVELS; i++)
                 {
                   adjdb = circuit->u.bc.adjdb[i];
                   if (adjdb && adjdb->count)
@@ -1914,7 +1914,7 @@ set_lsp_gen_interval (struct vty *vty, struct isis_area *area,
 {
   int lvl;
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+  for (lvl = IS_LEVEL_1; lvl <= ISIS_LEVELS; ++lvl)
     {
       if (!(lvl & level))
         continue;
@@ -1928,7 +1928,7 @@ set_lsp_gen_interval (struct vty *vty, struct isis_area *area,
         }
     }
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+  for (lvl = IS_LEVEL_1; lvl <= ISIS_LEVELS; ++lvl)
     {
       if (!(lvl & level))
         continue;
@@ -2369,7 +2369,7 @@ set_lsp_max_lifetime (struct vty *vty, struct isis_area *area,
 
   refresh_interval = interval - 300;
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++)
+  for (lvl = IS_LEVEL_1; lvl <= ISIS_LEVELS; lvl++)
     {
       if (!(lvl & level))
         continue;
@@ -2393,7 +2393,7 @@ set_lsp_max_lifetime (struct vty *vty, struct isis_area *area,
         }
     }
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++)
+  for (lvl = IS_LEVEL_1; lvl <= ISIS_LEVELS; lvl++)
     {
       if (!(lvl & level))
         continue;
@@ -2531,7 +2531,7 @@ set_lsp_refresh_interval (struct vty *vty, struct isis_area *area,
 {
   int lvl;
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+  for (lvl = IS_LEVEL_1; lvl <= ISIS_LEVELS; ++lvl)
     {
       if (!(lvl & level))
         continue;
@@ -2553,7 +2553,7 @@ set_lsp_refresh_interval (struct vty *vty, struct isis_area *area,
         }
     }
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+  for (lvl = IS_LEVEL_1; lvl <= ISIS_LEVELS; ++lvl)
     {
       if (!(lvl & level))
         continue;

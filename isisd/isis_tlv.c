@@ -86,7 +86,12 @@ free_tlvs (struct tlvs *tlvs)
   if (tlvs->ipv6_reachs)
     list_delete (tlvs->ipv6_reachs);
 #endif /* HAVE_IPV6 */
-
+#ifdef HAVE_TRILL
+  if (tlvs->router_capabilities)
+    list_delete (tlvs->router_capabilities);
+  if (tlvs->port_capabilities)
+    list_delete (tlvs->port_capabilities);
+#endif
   memset (tlvs, 0, sizeof (struct tlvs));
 
   return;
@@ -737,6 +742,29 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	    }
 	  pnt += length;
 	  break;
+#ifdef HAVE_TRILL
+        case ROUTER_CAPABILITY:
+          /* +------+------+------+------+------+-------+
+           * |Length|          Router ID        | Flags |
+           * +------+------+------+------+------+-------+
+           * |    optional sub-TLVs (0-250 octets)      |
+           * +------+------+------+------+------+-------+
+           */
+          *found |= TLVFLAG_ROUTER_CAPABILITY;
+          if (tlvs->router_capabilities == NULL)
+              tlvs->router_capabilities = list_new ();
+          listnode_add (tlvs->router_capabilities, (pnt - 1));
+          pnt += length;
+          break;
+
+        case PORT_CAPABILITY:
+          *found |= TLVFLAG_PORT_CAPABILITY;
+          if (tlvs->port_capabilities == NULL)
+              tlvs->port_capabilities  = list_new ();
+          listnode_add (tlvs->port_capabilities, (pnt - 1));
+          pnt += length;
+          break;
+#endif
 
 	default:
 	  zlog_warn ("ISIS-TLV (%s): unsupported TLV type %d, length %d",

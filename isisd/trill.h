@@ -1,11 +1,18 @@
 #ifndef ISIS_TRILL_H
 #define ISIS_TRILL_H
 #include <net/ethernet.h>
+#include "stream.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_flags.h"
+#include "isisd/isis_circuit.h"
+#include "isisd/isis_tlv.h"
+#include "isisd/isis_pdu.h"
+#include "isisd/isis_lsp.h"
+#include "isisd/isis_adjacency.h"
+#include "isisd/isis_csm.h"
 
 #include "isisd/isisd.h"
 
@@ -22,6 +29,16 @@
 #define TRILL_NICK_SET       (1 << 2)
 /* nickname priority configured by user */
 #define TRILL_PRIORITY_SET   (1 << 3)
+
+/* Constants used to track LSP DB acquisition */
+#define MIN_LSPDB_ACQTRIES 2    /* min two LSP PSNP/CSNP send/recv for LSP 
+				         * DB acquisition */
+#define MAX_LSPDB_ACQTRIES 6    /* max LSP PSNP/CSNP send/recv for LSP DB 
+                                 * acquisition on any circuit */
+
+/* Macros used to track LSP DB acquisition */
+#define LSPDB_ACQTRYINC(F, C) ((F)->trill->lspdb_acq_reqs[(C)])++
+#define LSPDB_ACQTRYVAL(F, C) ((F)->trill->lspdb_acq_reqs[(C)])
 
 struct trill_nickname
 {
@@ -96,6 +113,8 @@ void trill_init(int argc, char **argv);
 void trill_struct_init(struct isis_area *);
 void trill_exit(void);
 void install_trill_elements (void);
+void trill_nickname_gen(struct isis_area *area);
+void trill_lspdb_acquire_event(struct isis_circuit *, lspdbacq_state);
 
 /* trill_nodedb.c */
 extern void trill_nickdb_update (struct isis_area *area,
@@ -116,4 +135,9 @@ extern int process_trill_hello (struct isis_circuit *, u_char *);
 extern int tlv_add_trill_nickname(struct trill_nickname *,
 				   struct stream *,
 				   struct  isis_area *);
+
+/* trill_lsp.c */
+extern void trill_parse_router_capability_tlvs (struct isis_area *,
+							     struct isis_lsp *);
+extern void trill_lsp_destroy_nick(struct isis_lsp *, bool );
 #endif
