@@ -275,6 +275,57 @@ bool trill_area_nickname(struct isis_area *area, u_int16_t nickname)
   return true;
 }
 
+
+static void trill_nickname_priority_update(struct isis_area *area,
+							 u_int8_t priority)
+{
+  struct isis_circuit *circuit;
+  struct listnode *cnode;
+  if (priority)
+    {
+      area->trill->nick.priority = priority;
+      SET_FLAG(area->trill->status, TRILL_PRIORITY_SET);
+    }
+  else
+    {
+      /* Called from "no trill nickname priority" command */
+      area->trill->nick.priority = DFLT_NICK_PRIORITY;
+      UNSET_FLAG(area->trill->status, TRILL_PRIORITY_SET);
+    }
+
+  /*
+   * Set the configured nickname priority bit if the
+   * nickname was not automatically generated.
+   */
+  if (!CHECK_FLAG(area->trill->status, TRILL_AUTONICK))
+     area->trill->nick.priority |= CONFIGURED_NICK_PRIORITY;
+  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit)){
+    circuit->priority[TRILL_LEVEL - 1] = priority;
+  }
+}
+
+static void trill_nickname_root_priority_update(struct isis_area *area,
+								u_int16_t priority)
+{
+  if (priority)
+    {
+      area->trill->root_priority = priority;
+      SET_FLAG(area->trill->status, TRILL_PRIORITY_SET);
+    }
+  else
+    {
+      /* Called from "no trill nickname priority" command */
+      area->trill->root_priority = DFLT_NICK_ROOT_PRIORITY;
+      UNSET_FLAG(area->trill->status, TRILL_PRIORITY_SET);
+    }
+  /*
+   * Set the configured nickname priority bit if the
+   * nickname was not automatically generated.
+   */
+  if (!CHECK_FLAG(area->trill->status, TRILL_AUTONICK))
+     area->trill->root_priority |= CONFIGURED_NICK_PRIORITY;
+}
+
 void trill_init(int argc, char **argv)
 {
  const char *instname;
