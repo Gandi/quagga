@@ -9,6 +9,8 @@
 #define TRILL_NL_FAMILY  "TRILL_NL"
 #define TRILL_MCAST_NAME "TR_NL_MCAST"
 #define KERNL_RESPONSE_INTERFACE -1
+#define PAGE_SHIFT		12
+#define PAGE_SIZE		(1UL << PAGE_SHIFT)
 
 struct trill_nl_header {
   int ifindex;  /* port id */

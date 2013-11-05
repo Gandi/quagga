@@ -153,5 +153,6 @@ void trill_process_spf (struct isis_area *area)
   * these information have to be exposed to control plan
   */
   area->trill->spf_completed = true;
+  trill_publish(area);
 
 }

@@ -30,10 +30,12 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
+#include <linux/if_ether.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 /* Various well-known Ethernet addresses used by TRILL */
 #define	ALL_RBRIDGES		{ 0x01, 0x80, 0xC2, 0x00, 0x02, 0x00 }
@@ -56,6 +58,42 @@ extern "C" {
 #define	MIN_RBRIDGE_RANDOM_NICKNAME	(RBRIDGE_NICKNAME_NONE + 1)
 #define	MAX_RBRIDGE_RANDOM_NICKNAME	(RBRIDGE_NICKNAME_MINRES - 1)
 
+/* RBridge nick and tree information (*variable* size) */
+typedef struct trill_nickinfo {
+	/* Nickname of the RBridge */
+	uint16_t	nick;
+	/* Next-hop SNPA address to reach this RBridge */
+	char adjsnpa[ETH_ALEN];
+	/* Link on our system to use to reach next-hop */
+	uint32_t	linkid;
+	/* Num of *our* adjacencies on a tree rooted at this RBridge */
+	uint16_t	adjcount;
+	/* Num of distribution tree root nicks chosen by this RBridge */
+	uint16_t	dtrootcount;
+	/*
+	 * Variable size bytes to store adjacency nicks, distribution
+	 * tree roots and VLAN filter lists. Adjacency nicks and
+	 * distribution tree roots are 16-bit fields.
+	 *
+	 * Number of VLAN filter lists is equal to tni_adjcount as
+	 * the VLAN filter list is one per adjacency in each DT.
+	 * VLAN filter list is a 512 byte bitmap with the set of VLANs
+	 * that are reachable downstream via the adjacency.
+	 */
+} trill_nickinfo_t;
+
+#define	TNI_ADJNICKSPTR(v) ((uint16_t *)((struct trill_nickinfo *)(v)+1))
+#define	TNI_ADJNICK(v, n) (TNI_ADJNICKSPTR(v)[(n)])
+
+/* Access the DT root nick list in trill_nickinfo after adjacency nicks */
+#define	TNI_DTROOTNICKSPTR(v) (TNI_ADJNICKSPTR(v)+(v)->adjcount)
+#define	TNI_DTROOTNICK(v, n) (TNI_DTROOTNICKSPTR(v)[(n)])
+
+#define	TNI_TOTALSIZE(v) (\
+		(sizeof (struct trill_nickinfo)) + \
+		(sizeof (uint16_t) * (v)->adjcount) + \
+		(sizeof (uint16_t) * (v)->dtrootcount)\
+		)
 #ifdef __cplusplus
 }
 #endif
