@@ -10,7 +10,7 @@ AM_CFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PILDFLAGS)
 
 noinst_LIBRARIES = libisis.a
-sbin_PROGRAMS = isisd 
+sbin_PROGRAMS = isisd trilld
 SUBDIRS = topology
 
 libisis_a_SOURCES = \
@@ -25,13 +25,21 @@ noinst_HEADERS = \
 	isis_lsp.h dict.h isis_circuit.h isis_misc.h isis_network.h \
 	isis_zebra.h isis_dr.h isis_flags.h isis_dynhn.h isis_common.h \
 	iso_checksum.h isis_csm.h isis_events.h isis_spf.h isis_route.h \
-	include-netbsd/clnp.h include-netbsd/esis.h include-netbsd/iso.h
+	include-netbsd/clnp.h include-netbsd/esis.h include-netbsd/iso.h \
+	netlink.h
 
 isisd_SOURCES = \
 	isis_main.c $(libisis_a_SOURCES) \
 	isis_bpf.c isis_dlpi.c isis_pfpacket.c
 
 isisd_LDADD = @ISIS_TOPOLOGY_LIB@ ../lib/libzebra.la @LIBCAP@
+
+trilld_SOURCES = \
+       isis_main.c $(libisis_a_SOURCES) \
+       isis_bpf.c isis_dlpi.c isis_pfpacket.c \
+       netlink.c
+
+trilld_LDADD = @ISIS_TOPOLOGY_LIB@ ../lib/libzebra.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = isisd.conf.sample
