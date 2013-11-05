@@ -1,4 +1,9 @@
+#include <zebra.h>
+
 #include "netlink.h"
+
+#include "nickname.h"
+#include "trill.h"
 
 static struct nla_policy TRILL_U16_POLICY [TRILL_ATTR_MAX + 1]={
   [TRILL_ATTR_U16]={.type=NLA_U16},
@@ -13,7 +18,7 @@ int parse_cb(struct nl_msg *msg, void *data)
   struct trill_nl_header *tnlh;
   struct nlmsghdr *nlh = nlmsg_hdr(msg);
   struct nlattr *attrs[TRILL_ATTR_MAX+1];
-  struct isis_area *area= (struct isis_area *) data;
+  struct isis_area *area = (struct isis_area *)data;
   /* Validate message and parse attributes */
   genlh=nlmsg_data(nlh);
   tnlh=(struct trill_nl_header *)genlmsg_data(genlh);
@@ -50,9 +55,18 @@ int parse_cb(struct nl_msg *msg, void *data)
       genlmsg_parse(nlh, sizeof(struct trill_nl_header), attrs, TRILL_ATTR_MAX,TRILL_U16_POLICY);
       u_int16_t nickname;
       if (attrs[TRILL_ATTR_U16]) {
-		/*TODO*/
+		nickname= nla_get_u16(attrs[TRILL_ATTR_U16]);
+		if (nickname != RBRIDGE_NICKNAME_NONE &&
+			is_nickname_used (nickname)){
+			nickname = RBRIDGE_NICKNAME_NONE;
+			}
+		if (nickname != RBRIDGE_NICKNAME_NONE){
+			area->trill->nick.name = htons(nickname);
+			SET_FLAG (area->trill->status, TRILL_NICK_SET);
+			UNSET_FLAG (area->trill->status, TRILL_AUTONICK);
+		}
+	}
 
-      }
       break;
     }
     case TRILL_CMD_SET_RBRIDGE:
