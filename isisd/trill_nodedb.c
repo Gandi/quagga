@@ -221,4 +221,3 @@ u_int16_t sysid_to_nick(struct isis_area *area, u_char *sysid)
   tnode = (struct trill_nickdb_node *) dnode_get (dnode);
   return tnode->info.nick.name;
 }
-

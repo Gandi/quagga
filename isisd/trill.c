@@ -88,9 +88,9 @@ static int trill_port_init(const char *b, const char *p, void *arg)
    close(fd);
 
    if ((circ = ifp->info) ==  NULL){
-	   circ = isis_csm_state_change (IF_UP_FROM_Z, NULL, ifp);
-	   circ = isis_csm_state_change (TRILL_ENABLE, circ, area);
-   }
+	circ = isis_csm_state_change (TRILL_ENABLE, circ, area);
+	circ = isis_csm_state_change (IF_UP_FROM_Z, NULL, ifp);
+}
 
   return 0;
 }
@@ -459,6 +459,170 @@ void trill_create_nickfwdtable(struct isis_area *area)
     list_delete (oldfwdlist);
 }
 
+static struct nickfwdtable_node * trill_fwdtbl_lookup (struct isis_area *area,
+									 u_int16_t nick)
+{
+  struct listnode *node;
+  struct nickfwdtable_node *fwdnode;
+  if (area->trill->fwdtbl == NULL){
+    zlog_warn("trill_fwdtbl_lookup:fwdtbl is null");
+    return NULL;
+  }
+
+  for (ALL_LIST_ELEMENTS_RO (area->trill->fwdtbl, node, fwdnode)){
+    if (fwdnode->dest_nick == nick)
+	return fwdnode;
+    }
+  return NULL;
+}
+
+static void trill_add_nickadjlist(struct isis_area *area, struct list *adjlist,
+					    struct isis_vertex *vertex)
+{
+  u_int16_t nick;
+
+  nick = sysid_to_nick (area, vertex->N.id);
+  if (!nick){
+    return;
+  }
+  /* add only nodes that can be reached from local one (exist in forwarding
+   * table)*/
+  if (!trill_fwdtbl_lookup(area, nick))
+    return;
+  /* each node has to be added once */
+  if (listnode_lookup (adjlist, (void *)(u_long)nick) != NULL)
+    return;
+  listnode_add (adjlist, (void *)(u_long)nick);
+}
+
+void trill_create_nickadjlist(struct isis_area *area,
+						 struct trill_nickdb_node *nicknode)
+{
+  struct listnode *node;
+  struct listnode *cnode;
+  struct isis_vertex *vertex;
+  struct isis_vertex *pvertex;
+  struct isis_vertex *cvertex;
+  struct isis_vertex *rbvertex = NULL;
+  struct list *adjlist;
+  struct list *oldadjlist;
+  struct list *pseudoparents;
+  struct list *pseudochildren;
+  struct isis_spftree *rdtree;
+
+  /* if nicknode is NULL then local adjacency node are computed */
+  if (nicknode == NULL)
+   {
+     rdtree = area->spftree[TRILL_LEVEL - 1];
+     oldadjlist = area->trill->adjnodes;
+   }
+  else
+   {
+     rdtree = nicknode->rdtree;
+     oldadjlist = nicknode->adjnodes;
+   }
+
+  /* Find our node in the distribution tree first */
+  for (ALL_LIST_ELEMENTS_RO (rdtree->paths, node, vertex))
+    {
+      if (vertex->type != VTYPE_NONPSEUDO_IS &&
+	  vertex->type != VTYPE_NONPSEUDO_TE_IS)
+	continue;
+      if (memcmp (vertex->N.id, area->isis->sysid, ISIS_SYS_ID_LEN) == 0)
+        {
+          rbvertex = vertex;
+	  break;
+	}
+    }
+
+  /* Determine adjacencies by looking up the parent & child nodes */
+  if (rbvertex)
+    {
+      adjlist = list_new();
+
+      if (listcount (vertex->parents) > 0)
+      {
+         /*
+          * Find adjacent parent node: check parent is not another vertex
+          * with our system ID and the parent node is on SPF paths
+          */
+         pvertex =(struct isis_vertex*)listgetdata(listhead(rbvertex->parents));
+         while (pvertex != NULL)
+           {
+              if (memcmp (pvertex->N.id, area->isis->sysid, ISIS_SYS_ID_LEN)
+                  && (listnode_lookup (rdtree->paths, pvertex)))
+               break;
+             if(pvertex->parents != NULL){
+               if (listhead(pvertex->parents) !=NULL){
+                 pvertex = (struct isis_vertex *)
+                 listgetdata(listhead(pvertex->parents));
+               }
+               else
+                 goto pvertex_NULL;
+             }
+             else
+             {
+pvertex_NULL:
+               pvertex=NULL;
+               break;
+             }
+           }
+         /* Add only non pseudo parents to adjacency list
+          * if parent is a pseudo node add the first of his non pseudo
+          * parents
+          */
+         for (ALL_LIST_ELEMENTS_RO (rbvertex->parents, node, pvertex)){
+            if (pvertex->type !=  VTYPE_PSEUDO_TE_IS )
+                trill_add_nickadjlist (area, adjlist, pvertex);
+            else
+                trill_add_nickadjlist (area, adjlist,
+                                       listgetdata(listhead(pvertex->parents)));
+         }
+      }
+
+      if (rbvertex->children && listhead (rbvertex->children)){
+          pseudochildren = list_new();
+           for (ALL_LIST_ELEMENTS_RO (rbvertex->children, node, vertex))
+            {
+             if (memcmp (vertex->N.id, area->isis->sysid, ISIS_SYS_ID_LEN) == 0)
+                        listnode_add(pseudochildren, vertex);
+              else if (listnode_lookup (rdtree->paths, vertex))
+                        trill_add_nickadjlist (area, adjlist, vertex);
+            }
+          /*
+           * If we find child vertices above with our system ID(pseudo node)then
+           * we search their descendants and any that are found are added as
+           *  our adjacencies
+           */
+          for (node = listhead(pseudochildren); node != NULL;
+               node = listnextnode(node))
+             {
+                if ((vertex = listgetdata(node)) == NULL)
+                break;
+               for (ALL_LIST_ELEMENTS_RO (vertex->children, cnode, cvertex))
+                {
+                   if ((memcmp (cvertex->N.id,
+                        area->isis->sysid,ISIS_SYS_ID_LEN) == 0)
+                       && listnode_lookup(pseudochildren, cvertex) == NULL)
+                     listnode_add(pseudochildren, cvertex);
+
+                        if (listnode_lookup(rdtree->paths, cvertex)){
+                     trill_add_nickadjlist (area, adjlist, cvertex);
+                       }
+                }
+            }
+            if(pseudochildren)
+                list_delete(pseudochildren);
+      }
+
+      if (nicknode != NULL)
+		nicknode->adjnodes = adjlist;
+      else
+		area->trill->adjnodes = adjlist;
+	if(oldadjlist)
+	  list_delete (oldadjlist);
+    }
+}
 
 void trill_init(int argc, char **argv)
 {

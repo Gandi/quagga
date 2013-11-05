@@ -136,14 +136,22 @@ int isis_spf_schedule_trill (struct isis_area *area)
  */
 void trill_process_spf (struct isis_area *area)
 {
+  dnode_t *dnode;
+  struct trill_nickdb_node *tnode;
   /* Nothing to do if we don't have a nick yet */
   if (area->trill->nick.name == RBRIDGE_NICKNAME_NONE)
 	  return;
   /* compute forwarding table */
   trill_create_nickfwdtable(area);
   /* compute adjacency list for each node */
+  trill_create_nickadjlist(area, NULL);
+  for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)){
+    trill_create_nickadjlist(area, tnode);
+  }
 
  /* Once spf tree computing adjacency list and forwading table are completed,
   * these information have to be exposed to control plan
   */
+  area->trill->spf_completed = true;
+
 }
