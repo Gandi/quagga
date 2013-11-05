@@ -27,6 +27,7 @@
 /* The grand plan is to support 1024 circuits so we have 32*32 bit flags
  * the support will be achived using the newest drafts */
 #define ISIS_MAX_CIRCUITS 32 /* = 1024 */
+#define ISIS_MAX_CIRCUITS_COUNT 32 * ISIS_MAX_CIRCUITS
 
 /*
  * Flags structure for SSN and SRM flags
