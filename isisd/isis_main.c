@@ -331,6 +331,9 @@ main (int argc, char **argv, char **envp)
   memory_init ();
   access_list_init();
   isis_init ();
+#ifdef HAVE_TRILL
+  trill_init();
+#endif
   isis_circuit_init ();
   isis_spf_cmds_init ();
 

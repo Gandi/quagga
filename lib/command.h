@@ -304,6 +304,10 @@ struct desc
 #define OSPF6_DUMP_TYPE_LIST \
 "(neighbor|interface|area|lsa|zebra|config|dbex|spf|route|lsdb|redistribute|hook|asbr|prefix|abr)"
 #define ISIS_STR "IS-IS information\n"
+#ifdef HAVE_TRILL
+#define TRILL_STR "TRILL IS-IS information\n"
+#define TRILL_NICK_STR "Configure TRILL RBridge nickname information\n"
+#endif
 #define AREA_TAG_STR "[area tag]\n"
 
 #define CONF_BACKUP_EXT ".sav"

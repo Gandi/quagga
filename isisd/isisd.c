@@ -116,6 +116,14 @@ isis_area_create (const char *area_tag)
   else
     area->is_type = IS_LEVEL_1_AND_2;
 
+#ifdef HAVE_TRILL
+  /*
+   * set default TRILL values
+   * FIXME also force area to be level 1
+   */
+  trill_area_init(area);
+#endif
+
   /*
    * intialize the databases
    */

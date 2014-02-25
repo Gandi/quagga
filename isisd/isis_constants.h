@@ -51,6 +51,9 @@
 #define ISIS_LEVELS                   2
 #define ISIS_LEVEL1                   1
 #define ISIS_LEVEL2                   2
+#ifdef HAVE_TRILL
+#define TRILL_ISIS_LEVEL               ISIS_LEVEL1
+#endif
 
 /*
  * Default values
@@ -169,4 +172,8 @@
 #define ETH_ALEN 6
 #endif
 
+#ifndef true
+#define true  1
+#define false 0
+#endif
 #endif /* ISIS_CONSTANTS_H */

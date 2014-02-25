@@ -131,7 +131,9 @@ struct isis_area
 #endif				/* HAVE_IPV6 */
   /* Counters */
   u_int32_t circuit_state_changes;
-
+#ifdef HAVE_TRILL
+  struct trill *trill;     /* TRILL structure */
+#endif
 #ifdef TOPOLOGY_GENERATE
   struct list *topology;
   u_char topology_baseis[ISIS_SYS_ID_LEN];  /* IS for the first IS emulated. */
@@ -163,5 +165,7 @@ extern struct thread_master *master;
 #define DEBUG_EVENTS                     (1<<10)
 #define DEBUG_ZEBRA                      (1<<11)
 #define DEBUG_PACKET_DUMP                (1<<12)
-
+#ifdef HAVE_TRILL
+#define DEBUG_TRILL_EVENTS               (1<<13)
+#endif
 #endif /* ISISD_H */

@@ -32,6 +32,25 @@
 #define MIN_RBRIDGE_RANDOM_NICKNAME	(RBRIDGE_NICKNAME_NONE + 1)
 #define MAX_RBRIDGE_RANDOM_NICKNAME	(RBRIDGE_NICKNAME_MINRES - 1)
 
+/* IETF TRILL protocol defined constants */
+#define DFLT_NICK_PRIORITY 0x40		/* Default priority for autogen nicks */
+#define DFLT_NICK_ROOT_PRIORITY 0x40	/* Default priority for autogen nicks */
+#define CONFIGURED_NICK_PRIORITY 0x80	/* MSB of priority set if nick is configured */
+#define CONFIGURED_NICK_ROOT_PRIORITY 0x80/* MSB of priority set if nick is configured */
+#define MIN_RBRIDGE_PRIORITY 1		/* Min priority of use value */
+#define MAX_RBRIDGE_PRIORITY 127	/* Max priority of use value */
+#define MIN_RBRIDGE_ROOT_PRIORITY 1	/* Min root priority of use value */
+#define MAX_RBRIDGE_ROOT_PRIORITY 65534	/* Max root priority of use value*/
+#define MAX_RBRIDGE_NODES (RBRIDGE_NICKNAME_MAX + 1) /* Max RBridges possible */
+#define TRILL_NICKNAME_LEN   2		/* 16-bit nickname */
+#define TRILL_DFLT_ROOT_PRIORITY 0x40	/* Default tree root priority */
+
+/* trill_info status flags */
+#define TRILL_AUTONICK       (1 << 0)  /* nickname auto-generated (else user-provided) */
+#define TRILL_LSPDB_ACQUIRED (1 << 1)  /* LSP DB acquired before autogen nick is advertised */
+#define TRILL_NICK_SET       (1 << 2)  /* nickname configured (random/user generated) */
+#define TRILL_PRIORITY_SET   (1 << 3)  /* nickname priority configured by user */
+
 /* trill nickname structure */
 struct trill_nickname
 {
@@ -44,11 +63,13 @@ struct trill_nickname
 struct trill
 {
   struct trill_nickname nick;	/* our nick */
+  uint8_t status;		/* status flags */
   dict_t *nickdb;		/* TRILL nickname database */
   dict_t *sysidtonickdb;	/* TRILL sysid-to-nickname database */
   struct list *fwdtbl;		/* RBridge forwarding table */
   struct list *adjnodes;	/* Adjacent nicks for our distrib tree */
   struct list *dt_roots;	/* Our choice of DT roots */
+  char * name;			/* bridge name */
   uint16_t root_priority;	/* Root tree priority */
   uint16_t  tree_root;
 };
@@ -68,9 +89,27 @@ typedef struct nickinfo
 typedef struct trill_nickdb_node
 {
   nickinfo_t info;	/* Nick info of the node */
-  /* RBridge distribution tree with this nick as root */*
+  /* RBridge distribution tree with this nick as root */
   struct isis_spftree *rdtree;
-  /* Our (host RBridge) adjacent nicks on this distrib tree */*
+  /* Our (host RBridge) adjacent nicks on this distrib tree */
   struct list *adjnodes;
 } nicknode_t;
+
+/* Constants used in nickname generation/allocation */
+#define NICKNAMES_BITARRAY_SIZE (MAX_RBRIDGE_NODES / 8) /* nick usage array */
+#define CLEAR_BITARRAY_ENTRYLEN 4         /* stores nicks available per 32 nicks in nick bitarray */
+#define CLEAR_BITARRAY_ENTRYLENBITS (4*8)  /* 32 nicks tracked in each entry */
+#define CLEAR_BITARRAY_SIZE (MAX_RBRIDGE_NODES / CLEAR_BITARRAY_ENTRYLENBITS)
+static u_char clear_bit_count[CLEAR_BITARRAY_SIZE];
+/* nickname routines */
+static u_char nickbitvector[NICKNAMES_BITARRAY_SIZE];
+#define NICK_IS_USED(n)		(nickbitvector[(n)/8] & (1<<((n)%8)))
+#define NICK_SET_USED(n)	(nickbitvector[(n)/8] |= (1<<((n)%8)))
+#define NICK_CLR_USED(n)	(nickbitvector[(n)/8] &= ~(1<<((n)%8)))
+
+
+/* trilld.c */
+void trill_area_init(struct isis_area *area);
+void trill_init();
+
 #endif

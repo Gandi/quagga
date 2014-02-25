@@ -1279,6 +1279,35 @@ DEFUN (no_ip_router_isis,
   return CMD_SUCCESS;
 }
 
+#ifdef HAVE_TRILL
+DEFUN (trill_router_trill,
+       trill_router_trill_cmd,
+       "trill router trill WORD",
+       "Interface TRILL config commands\n"
+       "TRILL router interface commands\n"
+       "TRILL Routing\n"
+       "Routing process tag\n")
+{
+  struct isis_circuit *circuit;
+  struct interface *ifp;
+  struct isis_area *area;
+  ifp = (struct interface *) vty->index;
+  assert (ifp);
+  circuit = circuit_scan_by_ifp (ifp);
+  if (isis_area_get (vty, argv[0]) != CMD_SUCCESS)
+  {
+    vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+    return CMD_ERR_NO_MATCH;
+  }
+  area = vty->index;
+  circuit = isis_csm_state_change (ISIS_ENABLE, circuit, area);
+  isis_circuit_if_bind (circuit, ifp);
+  vty->node = INTERFACE_NODE;
+  vty->index = ifp;
+  return CMD_SUCCESS;
+}
+
+#endif
 #ifdef HAVE_IPV6
 DEFUN (ipv6_router_isis,
        ipv6_router_isis_cmd,
@@ -1295,22 +1324,7 @@ DEFUN (ipv6_router_isis,
   ifp = (struct interface *) vty->index;
   assert (ifp);
 
-  /* Prevent more than one area per circuit */
   circuit = circuit_scan_by_ifp (ifp);
-  if (circuit)
-    {
-      if (circuit->ipv6_router == 1)
-      {
-        if (strcmp (circuit->area->area_tag, argv[0]))
-          {
-            vty_out (vty, "ISIS circuit is already defined for IPv6 on %s%s",
-                     circuit->area->area_tag, VTY_NEWLINE);
-            return CMD_ERR_NOTHING_TODO;
-          }
-        return CMD_SUCCESS;
-      }
-    }
-
   if (isis_area_get (vty, argv[0]) != CMD_SUCCESS)
     {
       vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
@@ -2756,6 +2770,9 @@ isis_circuit_init ()
   install_element (INTERFACE_NODE, &ip_router_isis_cmd);
   install_element (INTERFACE_NODE, &no_ip_router_isis_cmd);
 
+#ifdef HAVE_TRILL
+  install_element (INTERFACE_NODE, &trill_router_trill_cmd);
+#endif
   install_element (INTERFACE_NODE, &isis_passive_cmd);
   install_element (INTERFACE_NODE, &no_isis_passive_cmd);
 
