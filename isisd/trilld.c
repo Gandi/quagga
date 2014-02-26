@@ -255,6 +255,33 @@ void trill_area_free(struct isis_area *area)
   XFREE (MTYPE_ISIS_TRILLAREA, area->trill);
 }
 
+void trill_nickdb_print (struct vty *vty, struct isis_area *area)
+{
+  dnode_t *dnode;
+  nicknode_t *tnode;
+  const char *sysid;
+
+  u_char *lsysid;
+  u_int16_t lpriority;
+
+  vty_out(vty, "    System ID          Hostname     Nickname   Priority  %s",
+	  VTY_NEWLINE);
+  lpriority = area->trill->nick.priority;
+  lsysid = area->isis->sysid;
+
+
+  for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)) {
+    sysid = sysid_print (tnode->info.sysid);
+    vty_out (vty, "%-21s %-10s  %8d  %8d%s", sysid,
+	     print_sys_hostname (tnode->info.sysid),
+	     ntohs (tnode->info.nick.name),
+	     tnode->info.nick.priority,VTY_NEWLINE);
+  }
+  if(area->trill->tree_root)
+    vty_out (vty,"    TREE_ROOT:       %8d    %s",
+	     ntohs (area->trill->tree_root),VTY_NEWLINE);
+}
+
 DEFUN (trill_nickname,
        trill_nickname_cmd,
        "trill nickname WORD",
@@ -338,6 +365,34 @@ DEFUN (trill_instance, trill_instance_cmd,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_trill_nickdatabase,
+       show_trill_nickdatabase_cmd,
+       "show trill nickname database",
+       SHOW_STR TRILL_STR "TRILL IS-IS nickname information\n"
+       "IS-IS TRILL nickname database\n")
+{
+
+  struct listnode *node;
+  struct isis_area *area;
+  dnode_t *dnode;
+
+  if (isis->area_list->count == 0)
+    return CMD_SUCCESS;
+
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area)) {
+    vty_out (vty, "Area %s nickname:%d priority:%d %s",
+	     area->area_tag ? area->area_tag : "null",
+	     ntohs(area->trill->nick.name),
+	     area->trill->nick.priority,VTY_NEWLINE);
+
+    vty_out (vty, "%s", VTY_NEWLINE);
+    vty_out (vty, "IS-IS TRILL nickname database:%s", VTY_NEWLINE);
+    trill_nickdb_print (vty, area);
+  }
+  vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
+  return CMD_SUCCESS;
+}
+
 void trill_init()
 {
   install_element (ISIS_NODE, &trill_nickname_cmd);
@@ -345,4 +400,10 @@ void trill_init()
   install_element (ISIS_NODE, &trill_nickname_priority_cmd);
   install_element (ISIS_NODE, &no_trill_nickname_priority_cmd);
   install_element (ISIS_NODE, &trill_instance_cmd);
+
+  install_element (VIEW_NODE, &show_trill_nickdatabase_cmd);
+
+  install_element (ENABLE_NODE, &show_trill_nickdatabase_cmd);
+
+
 }

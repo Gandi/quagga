@@ -116,6 +116,11 @@ extern void dict_merge(dict_t *, dict_t *);
 #define dnode_getkey(N) ((N)->dict_key)
 #define dnode_put(N, X) ((N)->dict_data = (X))
 
+#define ALL_DICT_NODES_RO(D,dnode,data) \
+  (dnode) = dict_first((D)); \
+  (dnode) != NULL && ((data) = dnode_get((dnode)), 1); \
+  (dnode) = dict_next((D),(dnode))
+
 #ifdef __cplusplus
 }
 #endif
