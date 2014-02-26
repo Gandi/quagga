@@ -282,6 +282,20 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area)
 	     ntohs (area->trill->tree_root),VTY_NEWLINE);
 }
 
+void
+trill_circuits_print_all (struct vty *vty, struct isis_area *area)
+{
+  struct listnode *node;
+  struct isis_circuit *circuit;
+
+  if (area->circuit_list == NULL)
+    return;
+
+  for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+    vty_out (vty, "%sInterface %s:%s", VTY_NEWLINE,
+	     circuit->interface->name, VTY_NEWLINE);
+}
+
 DEFUN (trill_nickname,
        trill_nickname_cmd,
        "trill nickname WORD",
@@ -392,6 +406,29 @@ DEFUN (show_trill_nickdatabase,
   vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
   return CMD_SUCCESS;
 }
+DEFUN (show_trill_circuits,
+       show_trill_circuits_cmd,
+       "show trill circuits",
+       SHOW_STR TRILL_STR
+       "IS-IS TRILL circuits\n")
+{
+  struct listnode *node;
+  struct isis_area *area;
+
+  if (isis->area_list->count == 0)
+    return CMD_SUCCESS;
+
+  assert (isis->area_list->count == 1);
+
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
+    {
+      vty_out (vty, "IS-IS TRILL circuits:%s%s",
+		      VTY_NEWLINE, VTY_NEWLINE);
+      trill_circuits_print_all (vty, area);
+    }
+  vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
+  return CMD_SUCCESS;
+}
 
 void trill_init()
 {
@@ -402,8 +439,9 @@ void trill_init()
   install_element (ISIS_NODE, &trill_instance_cmd);
 
   install_element (VIEW_NODE, &show_trill_nickdatabase_cmd);
+  install_element (VIEW_NODE, &show_trill_circuits_cmd);
 
   install_element (ENABLE_NODE, &show_trill_nickdatabase_cmd);
-
+  install_element (ENABLE_NODE, &show_trill_circuits_cmd);
 
 }
