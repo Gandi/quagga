@@ -53,6 +53,9 @@ u_char ALL_L1_ISS[6] = { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x14 };
 u_char ALL_L2_ISS[6] = { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x15 };
 u_char ALL_ISS[6] = { 0x09, 0x00, 0x2B, 0x00, 0x00, 0x05 };
 u_char ALL_ESS[6] = { 0x09, 0x00, 0x2B, 0x00, 0x00, 0x04 };
+#ifdef HAVE_TRILL
+u_char ALL_L1_RB[6] = { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x40 };
+#endif
 
 static char discard_buff[8192];
 static char sock_buff[8192];
@@ -72,12 +75,17 @@ isis_multicast_join (int fd, int registerto, int if_num)
     {
       mreq.mr_type = PACKET_MR_MULTICAST;
       mreq.mr_alen = ETH_ALEN;
+
       if (registerto == 1)
 	memcpy (&mreq.mr_address, ALL_L1_ISS, ETH_ALEN);
       else if (registerto == 2)
 	memcpy (&mreq.mr_address, ALL_L2_ISS, ETH_ALEN);
       else if (registerto == 3)
 	memcpy (&mreq.mr_address, ALL_ISS, ETH_ALEN);
+#ifdef HAVE_TRILL
+      else if (registerto == 4)
+	memcpy (&mreq.mr_address, ALL_L1_RB, ETH_ALEN);
+#endif
       else
 	memcpy (&mreq.mr_address, ALL_ESS, ETH_ALEN);
 
@@ -144,6 +152,11 @@ open_packet_socket (struct isis_circuit *circuit)
        * FIXME: is there a case only one will fail??
        */
       /* joining ALL_L1_ISS */
+#ifdef HAVE_TRILL
+
+      retval |= isis_multicast_join (circuit->fd, 4,
+                                      circuit->interface->ifindex);
+#else
       retval |= isis_multicast_join (circuit->fd, 1,
                                       circuit->interface->ifindex);
       /* joining ALL_L2_ISS */
@@ -152,6 +165,8 @@ open_packet_socket (struct isis_circuit *circuit)
       /* joining ALL_ISS (used in RFC 5309 p2p-over-lan as well) */
       retval |= isis_multicast_join (circuit->fd, 3,
                                     circuit->interface->ifindex);
+#endif
+
     }
   else
     {
@@ -332,6 +347,9 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   sa.sll_protocol = htons (stream_get_endp (circuit->snd_stream) + LLC_LEN);
   sa.sll_ifindex = circuit->interface->ifindex;
   sa.sll_halen = ETH_ALEN;
+#ifdef HAVE_TRILL
+  memcpy (&sa.sll_addr, ALL_L1_RB, ETH_ALEN);
+#else
   /* RFC5309 section 4.1 recommends ALL_ISS */
   if (circuit->circ_type == CIRCUIT_T_P2P)
     memcpy (&sa.sll_addr, ALL_ISS, ETH_ALEN);
@@ -339,6 +357,7 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
     memcpy (&sa.sll_addr, ALL_L1_ISS, ETH_ALEN);
   else
     memcpy (&sa.sll_addr, ALL_L2_ISS, ETH_ALEN);
+#endif
 
   /* on a broadcast circuit */
   /* first we put the LLC in */
@@ -373,10 +392,14 @@ isis_send_pdu_p2p (struct isis_circuit *circuit, int level)
   sa.sll_protocol = htons (stream_get_endp (circuit->snd_stream) + LLC_LEN);
   sa.sll_ifindex = circuit->interface->ifindex;
   sa.sll_halen = ETH_ALEN;
+#ifdef HAVE_TRILL
+  memcpy (&sa.sll_addr, ALL_L1_RB, ETH_ALEN);
+#else
   if (level == 1)
     memcpy (&sa.sll_addr, ALL_L1_ISS, ETH_ALEN);
   else
     memcpy (&sa.sll_addr, ALL_L2_ISS, ETH_ALEN);
+#endif
 
 
   /* lets try correcting the protocol */
