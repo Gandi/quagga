@@ -83,7 +83,12 @@ isis_new (unsigned long process_id)
   /*
    * Default values
    */
+#ifdef HAVE_TRILL
+  isis->max_area_addrs = 1;
+#else
   isis->max_area_addrs = 3;
+#endif
+
   isis->process_id = process_id;
   isis->router_id = 0;
   isis->area_list = list_new ();
