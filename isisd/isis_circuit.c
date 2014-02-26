@@ -81,7 +81,11 @@ isis_circuit_new ()
   /*
    * Default values
    */
+#ifdef HAVE_TRILL
+  circuit->is_type = IS_LEVEL_1;
+#else
   circuit->is_type = IS_LEVEL_1_AND_2;
+#endif
   circuit->flags = 0;
   circuit->pad_hellos = 1;
   for (i = 0; i < 2; i++)
