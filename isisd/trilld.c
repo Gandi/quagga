@@ -296,6 +296,44 @@ trill_circuits_print_all (struct vty *vty, struct isis_area *area)
 	     circuit->interface->name, VTY_NEWLINE);
 }
 
+static nicknode_t * trill_nicknode_lookup(struct isis_area *area, uint16_t nick)
+{
+  dnode_t *dnode;
+  nicknode_t *tnode;
+  dnode = dict_lookup (area->trill->nickdb, &nick);
+  if (dnode == NULL)
+    return (NULL);
+  tnode = (nicknode_t *) dnode_get (dnode);
+  return (tnode);
+}
+
+/* Lookup system ID when given a nickname */
+static u_char * nick_to_sysid(struct isis_area *area, u_int16_t nick)
+{
+  nicknode_t *tnode;
+
+  tnode = trill_nicknode_lookup(area, nick);
+  if (tnode == NULL)
+    return (NULL);
+  return tnode->info.sysid;
+}
+static void trill_fwdtbl_print (struct vty *vty, struct isis_area *area)
+{
+  struct listnode *node;
+  nickfwdtblnode_t *fwdnode;
+
+  if (area->trill->fwdtbl == NULL)
+    return;
+
+  vty_out(vty, "RBridge        nickname   interface  nexthop MAC%s", VTY_NEWLINE);
+  for (ALL_LIST_ELEMENTS_RO (area->trill->fwdtbl, node, fwdnode)) {
+    vty_out (vty, "%-15s   %-5d      %-5s  %-15s%s",
+	     print_sys_hostname (nick_to_sysid (area, fwdnode->dest_nick)),
+	     ntohs (fwdnode->dest_nick), fwdnode->interface->name,
+	     snpa_print (fwdnode->adj_snpa), VTY_NEWLINE);
+  }
+}
+
 DEFUN (trill_nickname,
        trill_nickname_cmd,
        "trill nickname WORD",
@@ -429,6 +467,26 @@ DEFUN (show_trill_circuits,
   vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
   return CMD_SUCCESS;
 }
+DEFUN (show_trill_fwdtable,
+       show_trill_fwdtable_cmd,
+       "show trill forwarding",
+       SHOW_STR TRILL_STR
+       "IS-IS TRILL forwarding table\n")
+{
+  struct listnode *node;
+  struct isis_area *area;
+
+  if (isis->area_list->count == 0)
+    return CMD_SUCCESS;
+  assert (isis->area_list->count == 1);
+
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area)) {
+    vty_out (vty, "IS-IS TRILL forwarding table:%s", VTY_NEWLINE);
+    trill_fwdtbl_print (vty, area);
+  }
+  vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
+  return CMD_SUCCESS;
+}
 
 void trill_init()
 {
@@ -440,8 +498,11 @@ void trill_init()
 
   install_element (VIEW_NODE, &show_trill_nickdatabase_cmd);
   install_element (VIEW_NODE, &show_trill_circuits_cmd);
+  install_element (VIEW_NODE, &show_trill_fwdtable_cmd);
 
   install_element (ENABLE_NODE, &show_trill_nickdatabase_cmd);
   install_element (ENABLE_NODE, &show_trill_circuits_cmd);
+  install_element (ENABLE_NODE, &show_trill_fwdtable_cmd);
+
 
 }

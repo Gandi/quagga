@@ -95,6 +95,12 @@ typedef struct trill_nickdb_node
   struct list *adjnodes;
 } nicknode_t;
 
+typedef struct nickfwdtable_node
+{
+  u_int16_t dest_nick;               /* destination RBridge nick */
+  u_char adj_snpa[ETH_ALEN];         /* MAC address of the adj node */
+  struct interface *interface;       /* if to reach the adj/neigh */
+} nickfwdtblnode_t;
 /* Constants used in nickname generation/allocation */
 #define NICKNAMES_BITARRAY_SIZE (MAX_RBRIDGE_NODES / 8) /* nick usage array */
 #define CLEAR_BITARRAY_ENTRYLEN 4         /* stores nicks available per 32 nicks in nick bitarray */
