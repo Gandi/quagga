@@ -236,6 +236,24 @@ void trill_area_init(struct isis_area *area)
   area->is_type = IS_LEVEL_1;
 }
 
+void trill_area_free(struct isis_area *area)
+{
+  if(area->trill->nickdb) {
+    dict_free(area->trill->nickdb);
+    dict_destroy (area->trill->nickdb);
+  }
+  if(area->trill->sysidtonickdb) {
+    dict_free(area->trill->sysidtonickdb);
+    dict_destroy (area->trill->sysidtonickdb);
+  }
+  if (area->trill->fwdtbl)
+    list_delete (area->trill->fwdtbl);
+  if (area->trill->adjnodes)
+    list_delete (area->trill->adjnodes);
+  if (area->trill->dt_roots)
+    list_delete (area->trill->dt_roots);
+  XFREE (MTYPE_ISIS_TRILLAREA, area->trill);
+}
 
 DEFUN (trill_nickname,
        trill_nickname_cmd,

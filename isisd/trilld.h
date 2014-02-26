@@ -110,6 +110,7 @@ static u_char nickbitvector[NICKNAMES_BITARRAY_SIZE];
 
 /* trilld.c */
 void trill_area_init(struct isis_area *area);
+void trill_area_free(struct isis_area *area);
 void trill_init();
 
 #endif

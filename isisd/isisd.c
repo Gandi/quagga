@@ -236,6 +236,10 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
       return CMD_ERR_NO_MATCH;
     }
 
+
+#ifdef HAVE_TRILL
+  trill_area_free(area);
+#endif
   if (area->circuit_list)
     {
       for (ALL_LIST_ELEMENTS (area->circuit_list, node, nnode, circuit))
