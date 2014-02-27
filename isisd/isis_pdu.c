@@ -469,10 +469,11 @@ process_p2p_hello (struct isis_circuit *circuit)
    */
   expected |= TLVFLAG_AREA_ADDRS;
   expected |= TLVFLAG_AUTH_INFO;
+#ifndef HAVE_TRILL
   expected |= TLVFLAG_NLPID;
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV6_ADDR;
-
+#endif
   auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
 		       STREAM_PNT (circuit->rcv_stream),
@@ -492,14 +493,14 @@ process_p2p_hello (struct isis_circuit *circuit)
       free_tlvs (&tlvs);
       return ISIS_WARNING;
     }
-
+#ifndef HAVE_TRILL
   if (!(found & TLVFLAG_NLPID))
     {
       zlog_warn ("No supported protocols TLV in P2P IS to IS hello");
       free_tlvs (&tlvs);
       return ISIS_WARNING;
     }
-
+#endif
   /* 8.2.5.1 c) Authentication */
   if (circuit->passwd.type)
     {
@@ -518,6 +519,7 @@ process_p2p_hello (struct isis_circuit *circuit)
   /*
    * check if it's own interface ip match iih ip addrs
    */
+#ifndef HAVE_TRILL
   if ((found & TLVFLAG_IPV4_ADDR) == 0 ||
       ip_match (circuit->ip_addrs, tlvs.ipv4_addrs) == 0)
     {
@@ -526,7 +528,7 @@ process_p2p_hello (struct isis_circuit *circuit)
       free_tlvs (&tlvs);
       return ISIS_WARNING;
     }
-
+#endif
   /*
    * My interpertation of the ISO, if no adj exists we will create one for
    * the circuit
@@ -567,10 +569,12 @@ process_p2p_hello (struct isis_circuit *circuit)
   if (found & TLVFLAG_IPV4_ADDR)
     tlvs_to_adj_ipv4_addrs (&tlvs, adj);
 
+#ifndef HAVE_TRILL
 #ifdef HAVE_IPV6
   if (found & TLVFLAG_IPV6_ADDR)
     tlvs_to_adj_ipv6_addrs (&tlvs, adj);
 #endif /* HAVE_IPV6 */
+#endif
 
   /* lets take care of the expiry */
   THREAD_TIMER_OFF (adj->t_expire);
@@ -957,10 +961,11 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   expected |= TLVFLAG_AUTH_INFO;
   expected |= TLVFLAG_AREA_ADDRS;
   expected |= TLVFLAG_LAN_NEIGHS;
+#ifndef HAVE_TRILL
   expected |= TLVFLAG_NLPID;
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV6_ADDR;
-
+#endif
   auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
                        STREAM_PNT (circuit->rcv_stream),
@@ -981,7 +986,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       retval = ISIS_WARNING;
       goto out;
     }
-
+#ifndef HAVE_TRILL
   if (!(found & TLVFLAG_NLPID))
     {
       zlog_warn ("No supported protocols TLV in Level %d LAN IS to IS hello",
@@ -989,7 +994,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       retval = ISIS_WARNING;
       goto out;
     }
-
+#endif
   /* Verify authentication, either cleartext of HMAC MD5 */
   if (circuit->passwd.type)
     {
@@ -1041,7 +1046,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       retval = ISIS_OK;
       goto out;
     }
-
+#ifndef HAVE_TRILL
   /*
    * check if it's own interface ip match iih ip addrs
    */
@@ -1053,7 +1058,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       retval = ISIS_WARNING;
       goto out;
     }
-
+#endif
   adj = isis_adj_lookup (hdr.source_id, circuit->u.bc.adjdb[level - 1]);
   if ((adj == NULL) || (memcmp(adj->snpa, ssnpa, ETH_ALEN)) ||
       (adj->level != level))
@@ -1129,12 +1134,12 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   /* we need to copy addresses to the adj */
   if (found & TLVFLAG_IPV4_ADDR)
     tlvs_to_adj_ipv4_addrs (&tlvs, adj);
-
+#ifndef HAVE_TRILL
 #ifdef HAVE_IPV6
   if (found & TLVFLAG_IPV6_ADDR)
     tlvs_to_adj_ipv6_addrs (&tlvs, adj);
 #endif /* HAVE_IPV6 */
-
+#endif
   adj->circuit_t = hdr.circuit_t;
 
   /* lets take care of the expiry */
