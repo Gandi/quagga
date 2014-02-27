@@ -93,6 +93,7 @@ typedef struct trill_nickdb_node
   struct isis_spftree *rdtree;
   /* Our (host RBridge) adjacent nicks on this distrib tree */
   struct list *adjnodes;
+  uint32_t refcnt;
 } nicknode_t;
 
 typedef struct nickfwdtable_node
@@ -113,6 +114,14 @@ static u_char nickbitvector[NICKNAMES_BITARRAY_SIZE];
 #define NICK_SET_USED(n)	(nickbitvector[(n)/8] |= (1<<((n)%8)))
 #define NICK_CLR_USED(n)	(nickbitvector[(n)/8] &= ~(1<<((n)%8)))
 
+typedef enum
+{
+  NOTFOUND = 1,
+  FOUND,
+  DUPLICATE,
+  NICK_CHANGED,
+  PRIORITY_CHANGE_ONLY
+} nickdb_search_result;
 
 
 /* trilld.c */

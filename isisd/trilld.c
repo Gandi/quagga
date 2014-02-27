@@ -440,6 +440,179 @@ static int trill_nick_conflict(nickinfo_t *nick1, nickinfo_t *nick2)
     return false;
     return true;
 }
+
+static nickdb_search_result trill_search_rbridge ( struct isis_area *area,
+						   nickinfo_t *ni,
+						   dnode_t **fndnode)
+{
+  dnode_t *dnode;
+  nicknode_t *tnode;
+
+  dnode = dict_lookup (area->trill->nickdb, &(ni->nick.name));
+  if (dnode == NULL)
+    dnode = dict_lookup(area->trill->sysidtonickdb, ni->sysid);
+  if (dnode == NULL)
+    return NOTFOUND;
+
+  tnode = (nicknode_t *) dnode_get (dnode);
+  assert (tnode != NULL);
+  assert (tnode->refcnt);
+  if (fndnode)
+    *fndnode = dnode;
+  if ( memcmp(&(tnode->info.sysid), ni->sysid, ISIS_SYS_ID_LEN) != 0)
+    return FOUND;
+  if (tnode->info.nick.name != ni->nick.name)
+    return NICK_CHANGED;
+  if (tnode->info.nick.priority != ni->nick.priority)
+    return PRIORITY_CHANGE_ONLY;
+  /* Exact nick and sysid match */
+  return DUPLICATE;
+}
+static void trill_nickinfo_del(nickinfo_t *ni)
+{
+  if (ni->dt_roots != NULL)
+    list_delete (ni->dt_roots);
+}
+static void trill_update_nickinfo (nicknode_t *tnode, nickinfo_t *recvd_nick)
+{
+  trill_nickinfo_del(&tnode->info);
+  tnode->info = *recvd_nick;
+  /* clear copied nick */
+  memset(recvd_nick, 0, sizeof (*recvd_nick));
+}
+
+
+static void trill_dict_remnode ( dict_t *dict, dnode_t *dnode)
+{
+  nicknode_t *tnode;
+
+  assert (dnode);
+  tnode = dnode_get (dnode);
+  assert(tnode->refcnt);
+  tnode->refcnt--;
+  if (tnode->refcnt == 0) {
+    isis_spftree_del (tnode->rdtree);
+    trill_nickinfo_del (&tnode->info);
+    if (tnode->adjnodes)
+      list_delete (tnode->adjnodes);
+    XFREE (MTYPE_ISIS_TRILL_NICKDB_NODE, tnode);
+  }
+  dict_delete_free (dict, dnode);
+}
+/*
+ * Delete nickname node in both databases. First a lookup
+ * of the node in first db by key1 and using the found node
+ * a lookup of the node in second db is done. Asserts the
+ * node if exists in one also exist in the second db.
+ */
+static void trill_dict_delete_nodes (dict_t *dict1, dict_t *dict2,
+				      void *key1, int key2isnick)
+{
+  dnode_t *dnode1;
+  dnode_t *dnode2;
+  nicknode_t *tnode;
+  int nickname;
+
+  dnode1 = dict_lookup (dict1, key1);
+  if (dnode1) {
+    tnode = (nicknode_t *) dnode_get(dnode1);
+    if (tnode) {
+      if (key2isnick) {
+	dnode2 = dict_lookup (dict2, &(tnode->info.nick.name));
+	nickname = tnode->info.nick.name;
+      } else {
+	dnode2 = dict_lookup (dict2, tnode->info.sysid);
+	nickname = *(int *)key1;
+      }
+      assert (dnode2);
+      trill_dict_remnode (dict2, dnode2);
+      /* Mark the nickname as available */
+      trill_nickname_free(nickname);
+    }
+    trill_dict_remnode (dict1, dnode1);
+  }
+}
+static void trill_dict_create_nodes (struct isis_area *area, nickinfo_t *nick)
+{
+  nicknode_t *tnode;
+
+  tnode = XCALLOC (MTYPE_ISIS_TRILL_NICKDB_NODE, sizeof(nicknode_t));
+  tnode->info = *nick;
+  dict_alloc_insert (area->trill->nickdb, &(tnode->info.nick.name), tnode);
+  tnode->refcnt = 1;
+  dict_alloc_insert (area->trill->sysidtonickdb, tnode->info.sysid, tnode);
+  tnode->refcnt++;
+  /* Mark the nickname as reserved */
+  trill_nickname_reserve(nick->nick.name);
+  tnode->rdtree = isis_spftree_new(area);
+  /* clear copied nick */
+  memset(nick, 0, sizeof (*nick));
+}
+static void trill_nickdb_update ( struct isis_area *area, nickinfo_t *newnick)
+{
+  dnode_t *dnode;
+  nicknode_t *tnode;
+  nickdb_search_result res;
+
+  res = trill_search_rbridge (area, newnick, &dnode);
+  if (res == NOTFOUND) {
+    trill_dict_create_nodes (area, newnick);
+    return;
+  }
+  assert (dnode);
+  tnode = dnode_get (dnode);
+
+  /* If nickname & system ID of the node in our database match
+   * the nick received then we don't have to change any dictionary
+   * nodes. Update only the node information. Otherwise we update
+   * the dictionary nodes.
+   */
+  if (res == DUPLICATE || res == PRIORITY_CHANGE_ONLY) {
+    trill_update_nickinfo (tnode, newnick);
+    return;
+  }
+  /*
+   * If the RBridge has a new nick then update its nick only.
+   */
+  if (res == NICK_CHANGED) {
+    if (isis->debugs & DEBUG_TRILL_EVENTS)
+      zlog_debug("ISIS TRILL storing new nick:%d from sysID:%s",
+		 ntohs(tnode->info.nick.name), sysid_print(tnode->info.sysid));
+      /* Delete the current nick in from our database */
+      trill_dict_delete_nodes (area->trill->sysidtonickdb,
+			       area->trill->nickdb, tnode->info.sysid, true);
+      /* Store the new nick entry */
+      trill_dict_create_nodes (area, newnick);
+  } else {
+    /*
+     * There is another RBridge using the same nick.
+     * Determine which of the two RBridges should use the nick.
+     * But first we should delete any prev nick associated
+     * with system ID sending the newnick as it has just
+     * announced a new nick.
+     */
+    trill_dict_delete_nodes (area->trill->sysidtonickdb,
+			     area->trill->nickdb, newnick->sysid, true);
+    if (trill_nick_conflict (&(tnode->info), newnick)) {
+      /*
+       * RBridge in tnode should choose another nick.
+       * Delete tnode from our nickdb and store newnick.
+       */
+      if (isis->debugs & DEBUG_TRILL_EVENTS) {
+	zlog_debug("ISIS TRILL replacing conflict nick:%d of sysID:%s",
+		   ntohs(tnode->info.nick.name),
+		   sysid_print(tnode->info.sysid));
+      }
+      trill_dict_delete_nodes (area->trill->sysidtonickdb,
+			       area->trill->nickdb, tnode->info.sysid, true);
+      trill_dict_create_nodes (area, newnick);
+    } else if (isis->debugs & DEBUG_TRILL_EVENTS) {
+      zlog_debug("ISIS TRILL because of conflict with existing"
+      "nick:%d of sysID:%s",
+      ntohs(tnode->info.nick.name), sysid_print(tnode->info.sysid));
+    }
+  }
+}
 static void trill_nick_recv(struct isis_area *area, nickinfo_t *other_nick)
 {
   nickinfo_t ournick;
@@ -484,7 +657,8 @@ static void trill_nick_recv(struct isis_area *area, nickinfo_t *other_nick)
       zlog_debug("ISIS TRILL our nick changed to:%d",
 		 ntohs (area->trill->nick.name));
   }
-  /* FIXME Update our nick database */
+  /* Update our nick database */
+  trill_nickdb_update (area, other_nick);
 }
 void trill_parse_router_capability_tlvs (struct isis_area *area,
 					 struct isis_lsp *lsp)
