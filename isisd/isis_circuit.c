@@ -57,6 +57,10 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
+#ifdef HAVE_TRILL
+#include "isisd/trilld.h"
+#endif
+
 
 /*
  * Prototypes.
@@ -1306,6 +1310,7 @@ DEFUN (trill_router_trill,
   area = vty->index;
   circuit = isis_csm_state_change (ISIS_ENABLE, circuit, area);
   isis_circuit_if_bind (circuit, ifp);
+  circuit->priority[TRILL_ISIS_LEVEL - 1] = area->trill->nick.priority;
   vty->node = INTERFACE_NODE;
   vty->index = ifp;
   return CMD_SUCCESS;
