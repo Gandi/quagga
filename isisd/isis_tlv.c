@@ -738,6 +738,21 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  pnt += length;
 	  break;
 
+#ifdef HAVE_TRILL
+	case ROUTER_CAPABILITY:
+	  /* +------+------+------+------+------+-------+
+	   * |Length|          Router ID        | Flags |
+	   * +------+------+------+------+------+-------+
+	   * |    optional sub-TLVs (0-250 octets)      |
+	   * +------+------+------+------+------+-------+
+	   */
+	  *found |= TLVFLAG_ROUTER_CAPABILITY;
+	  if (tlvs->router_capabilities == NULL)
+	    tlvs->router_capabilities = list_new ();
+	  listnode_add (tlvs->router_capabilities, (pnt - 1));
+	  pnt += length;
+	  break;
+#endif
 	default:
 	  zlog_warn ("ISIS-TLV (%s): unsupported TLV type %d, length %d",
 		     areatag, type, length);

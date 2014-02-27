@@ -50,6 +50,9 @@
 #include "isisd/isis_csm.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_spf.h"
+#ifdef HAVE_TRILL
+#include "isisd/trilld.h"
+#endif
 
 #ifdef TOPOLOGY_GENERATE
 #include "spgrid.h"
@@ -1235,7 +1238,12 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
       lsp->tlv_data.hostname->namelen = strlen (unix_hostname ());
       tlv_add_dynamic_hostname (lsp->tlv_data.hostname, lsp->pdu);
     }
+#ifdef HAVE_TRILL
+  if (CHECK_FLAG (area->trill->status, TRILL_NICK_SET))
+   if(tlv_add_trill_nickname (&(area->trill->nick), lsp->pdu, area) != ISIS_OK )
+    zlog_warn("failed to add nickname to lsp\n");
 
+#endif
   /* IPv4 address and TE router ID TLVs. In case of the first one we don't
    * follow "C" vendor, but "J" vendor behavior - one IPv4 address is put into
    * LSP and this address is same as router id. */
