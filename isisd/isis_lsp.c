@@ -521,6 +521,10 @@ lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
                          (lsp->lsp_header->lsp_bits & LSPBIT_IST) ==
                           IS_LEVEL_1_AND_2 ? IS_LEVEL_2 : IS_LEVEL_1);
     }
+#ifdef HAVE_TRILL
+  if (found & TLVFLAG_ROUTER_CAPABILITY)
+    trill_parse_router_capability_tlvs (area, lsp);
+#endif
 
   return;
 }

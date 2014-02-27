@@ -41,10 +41,12 @@
 #include "isisd/dict.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_constants.h"
+#include "isisd/isis_misc.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_flags.h"
 #include "isisd/isis_tlv.h"
 #include "isisd/isis_lsp.h"
+#include "isisd/isis_pdu.h"
 #include "isisd/trilld.h"
 #include "isisd/isisd.h"
 
@@ -307,7 +309,6 @@ int tlv_add_trill_nickname(struct trill_nickname *nick_info,
   u_char tflags;
   struct trill_nickname_subtlv tn;
   int rc;
-  u_int32_t * pnt;
 
   tlvstart = stream_get_endp (stream);
   (void) memset(&rtcap, 0, sizeof (rtcap));
@@ -333,7 +334,139 @@ int tlv_add_trill_nickname(struct trill_nickname *nick_info,
 		   stream);
   return rc;
 }
+/*
+ * Returns true if a nickname was received in the parsed LSP
+ */
+static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
+{
+  struct listnode *node;
+  struct router_capability *rtr_cap;
+  uint8_t subtlvs_len;
+  uint8_t subtlv;
+  uint8_t subtlv_len;
+  uint8_t stlvlen;
+  int nick_recvd = false;
+  int flags_recvd = false;
+  u_char *pnt;
 
+  memset(recvd_nick, 0, sizeof(nickinfo_t));
+  if (lsp->tlv_data.router_capabilities == NULL)
+    return false;
+
+  memcpy (recvd_nick->sysid, lsp->lsp_header->lsp_id, ISIS_SYS_ID_LEN);
+  recvd_nick->root_priority = TRILL_DFLT_ROOT_PRIORITY;
+
+  for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.router_capabilities, node, rtr_cap))
+    {
+       if (rtr_cap->len < ROUTER_CAPABILITY_MIN_LEN)
+         continue;
+
+       subtlvs_len = rtr_cap->len - ROUTER_CAPABILITY_MIN_LEN;
+       pnt = ((u_char *)rtr_cap) + sizeof(struct router_capability);
+       while (subtlvs_len >= TLFLDS_LEN) {
+	 subtlv = *(u_int8_t *)pnt++; subtlvs_len--;
+	 subtlv_len = *(u_int8_t *)pnt++; subtlvs_len--;
+
+	 if (subtlv_len > subtlvs_len) {
+	   zlog_warn("ISIS trill_parse_lsp received invalid router"
+	   " capability subtlvs_len:%d subtlv_len:%d",
+	   subtlvs_len, subtlv_len);
+	   break;
+	}
+	switch (subtlv) {
+	  case RCSTLV_TRILL_FLAGS:
+	    stlvlen = subtlv_len;
+	    /* var. len with min. one octet and must be included in
+	     * each link state PDU
+	     */
+	    if (!flags_recvd && subtlv_len >= TRILL_FLAGS_SUBTLV_MIN_LEN) {
+	      recvd_nick->flags = *(u_int8_t *)pnt;
+	      flags_recvd = true;
+	    } else {
+	      if (flags_recvd)
+		zlog_warn("ISIS trill_parse_lsp multiple TRILL"
+		" flags sub-TLVs received");
+	      else
+		zlog_warn("ISIS trill_parse_lsp invalid len:%d"
+		" of TRILL flags sub-TLV", subtlv_len);
+	    }
+	    pnt += stlvlen;
+	    subtlvs_len -= subtlv_len;
+	    break;
+	  case RCSTLV_TRILL_NICKNAME:
+	    stlvlen = subtlv_len;
+	    if (!nick_recvd && subtlv_len >= TRILL_NICKNAME_SUBTLV_MIN_LEN) {
+	      struct trill_nickname_subtlv *tn;
+	      tn = (struct trill_nickname_subtlv *)pnt;
+	      recvd_nick->nick.priority = tn->tn_priority;
+	      recvd_nick->nick.name = tn->tn_nickname;
+	      recvd_nick->root_priority = ntohs(tn->tn_trootpri);
+	      recvd_nick->root_count = ntohs(tn->tn_treecount);
+	      nick_recvd = true;
+	    } else {
+	      if (nick_recvd)
+		zlog_warn("ISIS trill_parse_lsp multiple TRILL"
+		" nick sub-TLVs received");
+	      else
+		zlog_warn("ISIS trill_parse_lsp invalid len:%d"
+		" of TRILL nick sub-TLV", subtlv_len);
+	    }
+	    pnt += stlvlen;
+	    subtlvs_len -= subtlv_len;
+	    break;
+	  default:
+	    stlvlen = subtlv_len;
+	    pnt += subtlv_len;
+	    subtlvs_len -= subtlv_len;
+	    break;
+	}
+      }
+    }
+    return (nick_recvd);
+}
+
+static void trill_nick_recv(struct isis_area *area, nickinfo_t *other_nick)
+{
+  nickinfo_t ournick;
+  int nickchange = false;
+
+  ournick.nick = area->trill->nick;
+  memcpy (ournick.sysid, area->isis->sysid, ISIS_SYS_ID_LEN);
+
+  /* Check for reserved TRILL nicknames that are not valid for use */
+  if ((other_nick->nick.name == RBRIDGE_NICKNAME_NONE) ||
+    (other_nick->nick.name == RBRIDGE_NICKNAME_UNUSED)) {
+    zlog_warn("ISIS TRILL received reserved nickname:%d from sysID:%s",
+	      ntohs (other_nick->nick.name),
+	      sysid_print(other_nick->sysid) );
+    return;
+  }
+  if (!(other_nick->flags & TRILL_FLAGS_V0)) {
+    zlog_info ("ISIS TRILL nick %d doesn't support V0 headers; flags %02X",
+	       ntohs (other_nick->nick.name),
+	       other_nick->flags);
+    return;
+  }
+  /* FIXME Check for conflict with our own nickname */
+
+  /* FIXME Update our nick database */
+}
+void trill_parse_router_capability_tlvs (struct isis_area *area,
+					 struct isis_lsp *lsp)
+{
+  nickinfo_t recvd_nick;
+
+  /* Return if LSP is our own or is a pseudonode LSP */
+  if ((memcmp (lsp->lsp_header->lsp_id, isis->sysid, ISIS_SYS_ID_LEN) == 0)
+       || (LSP_PSEUDO_ID(lsp->lsp_header->lsp_id) != 0))
+    return;
+
+  if (trill_parse_lsp (lsp, &recvd_nick)) {
+      /* Parsed LSP correctly but process only if nick is not unknown */
+      if (recvd_nick.nick.name != RBRIDGE_NICKNAME_NONE)
+         trill_nick_recv (area, &recvd_nick);
+    }
+}
 void trill_nickdb_print (struct vty *vty, struct isis_area *area)
 {
   dnode_t *dnode;

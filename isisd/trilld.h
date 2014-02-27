@@ -114,11 +114,15 @@ static u_char nickbitvector[NICKNAMES_BITARRAY_SIZE];
 #define NICK_CLR_USED(n)	(nickbitvector[(n)/8] &= ~(1<<((n)%8)))
 
 
+
 /* trilld.c */
 void trill_area_init(struct isis_area *area);
 void trill_area_free(struct isis_area *area);
 int tlv_add_trill_nickname (struct trill_nickname *nick_info,
 			    struct stream *stream, struct isis_area *area);
+void trill_parse_router_capability_tlvs (struct isis_area *,
+					 struct isis_lsp *);
+
 void trill_init();
 
 #endif
