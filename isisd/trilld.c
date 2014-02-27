@@ -424,7 +424,22 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
     }
     return (nick_recvd);
 }
+static int trill_nick_conflict(nickinfo_t *nick1, nickinfo_t *nick2)
+{
+  assert (nick1->nick.name == nick2->nick.name);
 
+  /* If nick1 priority is greater (or)
+   * If priorities match & nick1 sysid is greater
+   * then nick1 has higher priority
+   */
+  if (
+    (nick1->nick.priority > nick2->nick.priority)
+    || (nick1->nick.priority == nick2->nick.priority
+    && (sysid_cmp (nick1->sysid, nick2->sysid) > 0))
+  )
+    return false;
+    return true;
+}
 static void trill_nick_recv(struct isis_area *area, nickinfo_t *other_nick)
 {
   nickinfo_t ournick;
@@ -447,8 +462,28 @@ static void trill_nick_recv(struct isis_area *area, nickinfo_t *other_nick)
 	       other_nick->flags);
     return;
   }
-  /* FIXME Check for conflict with our own nickname */
-
+  /* Check for conflict with our own nickname */
+  if (other_nick->nick.name == area->trill->nick.name) {
+    /* Check if our nickname has lower priority or our
+     * system ID is lower, if not we keep our nickname
+     */
+    if (!(nickchange = trill_nick_conflict (&ournick, other_nick)))
+      return;
+  }
+  /* out nickname conflit and we have to change it */
+  if (nickchange) {
+    /* We choose another nickname */
+    gen_nickname (area);
+    SET_FLAG(area->trill->status, TRILL_AUTONICK);
+    /* If previous nick was configured remove the bit
+     * indicating nickname was configured  (0x80) */
+    area->trill->nick.priority &= ~CONFIGURED_NICK_PRIORITY;
+    /* Regenerate our LSP to advertise the new nickname */
+    lsp_regenerate_schedule (area, TRILL_ISIS_LEVEL, 1);
+    if (isis->debugs & DEBUG_TRILL_EVENTS)
+      zlog_debug("ISIS TRILL our nick changed to:%d",
+		 ntohs (area->trill->nick.name));
+  }
   /* FIXME Update our nick database */
 }
 void trill_parse_router_capability_tlvs (struct isis_area *area,
