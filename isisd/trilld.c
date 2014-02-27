@@ -660,6 +660,69 @@ static void trill_nick_recv(struct isis_area *area, nickinfo_t *other_nick)
   /* Update our nick database */
   trill_nickdb_update (area, other_nick);
 }
+void trill_nick_destroy(struct isis_lsp *lsp)
+{
+  u_char *lsp_id;
+  nickinfo_t ni;
+  struct isis_area *area;
+  int delnick;
+
+  area = listgetdata(listhead (isis->area_list));
+  lsp_id = lsp->lsp_header->lsp_id;
+
+  /*
+   * If LSP is our own or is a Pseudonode LSP (and we do not
+   * learn nicks from Pseudonode LSPs) then no action is needed.
+   */
+  if ((memcmp (lsp_id, isis->sysid,
+    ISIS_SYS_ID_LEN) == 0) || (LSP_PSEUDO_ID(lsp_id) != 0))
+    return;
+
+  if (!trill_parse_lsp (lsp, &ni) ||
+    (ni.nick.name == RBRIDGE_NICKNAME_NONE)) {
+    /* Delete the nickname associated with the LSP system ID
+     * (if any) that did not include router capability TLV or
+     * TRILL flags or the nickname in the LSP is unknown. This
+     * happens when we recv a LSP from RBridge that just re-started
+     * and we have to delete the prev nick associated with it.
+     */
+    trill_dict_delete_nodes (area->trill->sysidtonickdb,
+			     area->trill->nickdb, lsp_id, true);
+    if (isis->debugs & DEBUG_TRILL_EVENTS)
+      zlog_debug("ISIS TRILL removed any nickname associated with "
+      "sysID:%s LSP seqnum:0x%08x pseudonode:%x",
+      sysid_print(lsp_id), ntohl (lsp->lsp_header->seq_num),
+      LSP_PSEUDO_ID(lsp_id) );
+    trill_nickinfo_del (&ni);
+    return;
+
+  }
+  memcpy(ni.sysid, lsp_id, ISIS_SYS_ID_LEN);
+  delnick = ntohs(ni.nick.name);
+  if (delnick != RBRIDGE_NICKNAME_NONE &&
+    delnick != RBRIDGE_NICKNAME_UNUSED &&
+    ni.nick.priority >= MIN_RBRIDGE_PRIORITY
+  ) {
+    /* Only delete if the nickname was learned
+     * from the LSP by ensuring both system ID
+     * and nickname in the LSP match with a node
+     * in our nick database.
+     */
+    if (trill_search_rbridge (area, &ni, NULL) == DUPLICATE) {
+      trill_dict_delete_nodes (area->trill->sysidtonickdb,
+			       area->trill->nickdb, ni.sysid, true);
+      if (isis->debugs & DEBUG_TRILL_EVENTS)
+	zlog_debug("ISIS TRILL removed nickname:%d associated with "
+	"sysID:%s LSP ID:0x%08x pseudonode:%x",
+	delnick, sysid_print(lsp_id),
+	ntohl (lsp->lsp_header->seq_num), LSP_PSEUDO_ID(lsp_id) );
+    }
+  } else if (isis->debugs & DEBUG_TRILL_EVENTS)
+    zlog_debug("ISIS TRILL nick destroy invalid nickname:%d from "
+    "sysID:%s", delnick, sysid_print(lsp_id) );
+  trill_nickinfo_del (&ni);
+}
+
 void trill_parse_router_capability_tlvs (struct isis_area *area,
 					 struct isis_lsp *lsp)
 {
@@ -674,7 +737,14 @@ void trill_parse_router_capability_tlvs (struct isis_area *area,
       /* Parsed LSP correctly but process only if nick is not unknown */
       if (recvd_nick.nick.name != RBRIDGE_NICKNAME_NONE)
          trill_nick_recv (area, &recvd_nick);
+    } else {
+      /* if we have a nickname stored from this RBridge we remove it as this
+       * LSP without a nickname likely indicates the RBridge has re-started
+       * and hasn't chosen a new nick.
+       */
+      trill_nick_destroy (lsp);
     }
+    trill_nickinfo_del (&recvd_nick);
 }
 void trill_nickdb_print (struct vty *vty, struct isis_area *area)
 {
