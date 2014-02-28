@@ -49,6 +49,9 @@
 #include "isis_spf.h"
 #include "isis_route.h"
 #include "isis_csm.h"
+#ifdef HAVE_TRILL
+#include "trilld.h"
+#endif
 
 int isis_run_spf_l1 (struct thread *thread);
 int isis_run_spf_l2 (struct thread *thread);
@@ -1169,8 +1172,16 @@ init_spt (struct isis_spftree *spftree)
   return;
 }
 
+/*
+ * struct isis_spftree *calc_spftree tree node
+ * for which we compute SPF if NULL mean self
+ */
 static int
-isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
+isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid
+#ifdef HAVE_TRILL
+	      , struct isis_spftree *calc_spftree
+#endif
+)
 {
   int retval = ISIS_OK;
   struct listnode *node;
@@ -1188,11 +1199,18 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
   start_time = time_now.tv_sec;
   start_time = (start_time * 1000000) + time_now.tv_usec;
 
+#ifdef HAVE_TRILL
+  if(calc_spftree)
+    spftree = calc_spftree;
+  else
+    spftree = area->spftree[level - 1];
+#else
   if (family == AF_INET)
     spftree = area->spftree[level - 1];
 #ifdef HAVE_IPV6
   else if (family == AF_INET6)
     spftree = area->spftree6[level - 1];
+#endif
 #endif
   assert (spftree);
   assert (sysid);
@@ -1205,7 +1223,11 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
     table = area->route_table6[level - 1];
 #endif
 
+#ifdef HAVE_TRILL
+  if (family != AF_TRILL)
+#endif
   isis_route_invalidate_table (area, table);
+
 
   /*
    * C.2.5 Step 0
@@ -1278,6 +1300,9 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
     }
 
 out:
+#ifdef HAVE_TRILL
+  if (family != AF_TRILL)
+#endif
   isis_route_validate (area);
   spftree->pending = 0;
   spftree->runcount++;
@@ -1291,6 +1316,43 @@ out:
   return retval;
 }
 
+#ifdef HAVE_TRILL
+static int
+trill_complete_spf(struct isis_area *area)
+{
+  int retval, i = 0;
+  dnode_t *dnode;
+  nicknode_t *tnode;
+  retval = isis_run_spf (area, TRILL_ISIS_LEVEL, AF_TRILL, isis->sysid, NULL);
+  if (retval != ISIS_OK)
+    zlog_warn ("ISIS-Spf running spf for system returned:%d", retval);
+  /*
+   * Run SPF for all other RBridges in the campus as well to
+   * compute the distribution trees with other RBridges in
+   * the campus as root.
+   */
+
+  for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)) {
+    i++;
+    /* to be sure t no recompute self adjencies */
+    if(!memcmp(tnode->info.sysid,isis->sysid,ISIS_SYS_ID_LEN))
+      continue;
+    retval = isis_run_spf (area, TRILL_ISIS_LEVEL, AF_TRILL,
+			   tnode->info.sysid, tnode->rdtree);
+    if (isis->debugs & DEBUG_SPF_EVENTS)
+      zlog_debug ("ISIS-Spf running spf for:%s",
+		  print_sys_hostname (tnode->info.sysid));
+      if (retval != ISIS_OK)
+	zlog_warn ("ISIS-Spf running spf for:%s returned:%d",
+		   print_sys_hostname (tnode->info.sysid), retval);
+  }
+  /*
+   * Process computed SPF trees to create TRILL
+   * forwarding and adjacency tables.
+   */
+  return retval;
+}
+#endif
 int
 isis_run_spf_l1 (struct thread *thread)
 {
@@ -1314,8 +1376,12 @@ isis_run_spf_l1 (struct thread *thread)
   if (isis->debugs & DEBUG_SPF_EVENTS)
     zlog_debug ("ISIS-Spf (%s) L1 SPF needed, periodic SPF", area->area_tag);
 
+#ifdef HAVE_TRILL
+  retval = trill_complete_spf(area);
+#else
   if (area->ip_circuits)
     retval = isis_run_spf (area, 1, AF_INET, isis->sysid);
+#endif
 
   return retval;
 }
@@ -1343,7 +1409,11 @@ isis_run_spf_l2 (struct thread *thread)
     zlog_debug ("ISIS-Spf (%s) L2 SPF needed, periodic SPF", area->area_tag);
 
   if (area->ip_circuits)
-    retval = isis_run_spf (area, 2, AF_INET, isis->sysid);
+    retval = isis_run_spf (area, 2, AF_INET, isis->sysid
+#ifdef HAVE_TRILL
+			   , NULL
+#endif
+    );
 
   return retval;
 }
@@ -1369,7 +1439,11 @@ isis_spf_schedule (struct isis_area *area, int level)
 
   /* wait configured min_spf_interval before doing the SPF */
   if (diff >= area->min_spf_interval[level-1])
-      return isis_run_spf (area, level, AF_INET, isis->sysid);
+      return isis_run_spf (area, level, AF_INET, isis->sysid
+#ifdef HAVE_TRILL
+			   , NULL
+#endif
+      );
 
   if (level == 1)
     THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l1, area,
@@ -1411,7 +1485,11 @@ isis_run_spf6_l1 (struct thread *thread)
     zlog_debug ("ISIS-Spf (%s) L1 SPF needed, periodic SPF", area->area_tag);
 
   if (area->ipv6_circuits)
-    retval = isis_run_spf (area, 1, AF_INET6, isis->sysid);
+    retval = isis_run_spf (area, 1, AF_INET6, isis->sysid
+#ifdef HAVE_TRILL
+			   , NULL
+#endif
+    );
 
   return retval;
 }
@@ -1439,7 +1517,11 @@ isis_run_spf6_l2 (struct thread *thread)
     zlog_debug ("ISIS-Spf (%s) L2 SPF needed, periodic SPF.", area->area_tag);
 
   if (area->ipv6_circuits)
-    retval = isis_run_spf (area, 2, AF_INET6, isis->sysid);
+    retval = isis_run_spf (area, 2, AF_INET6, isis->sysid
+#ifdef HAVE_TRILL
+			   , NULL
+#endif
+    );
 
   return retval;
 }
@@ -1466,7 +1548,11 @@ isis_spf_schedule6 (struct isis_area *area, int level)
 
   /* wait configured min_spf_interval before doing the SPF */
   if (diff >= area->min_spf_interval[level-1])
-      return isis_run_spf (area, level, AF_INET6, isis->sysid);
+      return isis_run_spf (area, level, AF_INET6, isis->sysid
+#ifdef HAVE_TRILL
+			   , NULL
+#endif
+      );
 
   if (level == 1)
     THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l1, area,

@@ -114,6 +114,7 @@ static u_char nickbitvector[NICKNAMES_BITARRAY_SIZE];
 #define NICK_SET_USED(n)	(nickbitvector[(n)/8] |= (1<<((n)%8)))
 #define NICK_CLR_USED(n)	(nickbitvector[(n)/8] &= ~(1<<((n)%8)))
 
+#define AF_TRILL        31
 typedef enum
 {
   NOTFOUND = 1,
