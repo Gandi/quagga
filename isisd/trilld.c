@@ -49,6 +49,7 @@
 #include "isisd/isis_pdu.h"
 #include "isisd/trilld.h"
 #include "isisd/isisd.h"
+#include "isisd/isis_spf.h"
 
 
 int nickavailcnt = RBRIDGE_NICKNAME_MINRES - RBRIDGE_NICKNAME_NONE - 1;

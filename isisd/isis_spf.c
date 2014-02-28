@@ -234,10 +234,13 @@ isis_vertex_new (void *id, enum vertextype vtype)
 static void
 isis_vertex_del (struct isis_vertex *vertex)
 {
+  if (vertex->Adj_N)
   list_delete (vertex->Adj_N);
   vertex->Adj_N = NULL;
+  if (vertex->parents)
   list_delete (vertex->parents);
   vertex->parents = NULL;
+  if (vertex->children)
   list_delete (vertex->children);
   vertex->children = NULL;
 
@@ -951,6 +954,39 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
   struct prefix_ipv6 *ipv6;
 #endif /* HAVE_IPV6 */
 
+#ifdef HAVE_TRILL
+  /*
+   * Check if computing SPF tree for another system. If computing SPF
+   * tree for another system (for TRILL) preload TENT by determining
+   * the neighboring systems of the root system by processing the root
+   * system LSP.
+   */
+  if (memcmp (root_sysid, isis->sysid, ISIS_SYS_ID_LEN) != 0) {
+    dnode_t *dnode;
+    memcpy (lsp_id, root_sysid, ISIS_SYS_ID_LEN);
+    LSP_PSEUDO_ID (lsp_id) = 0;
+    LSP_FRAGMENT (lsp_id) = 0;
+    /* should add at least one */
+    retval = ISIS_WARNING;
+    for (ALL_DICT_NODES_RO(spftree->area->lspdb[level-1], dnode, lsp)) {
+      if (LSP_FRAGMENT (lsp->lsp_header->lsp_id))
+	continue;
+      if (memcmp(lsp_id, lsp->lsp_header->lsp_id, ISIS_SYS_ID_LEN) != 0)
+	continue;
+      if (LSP_PSEUDO_ID (lsp->lsp_header->lsp_id)){
+	retval = isis_spf_process_pseudo_lsp ( spftree, lsp,
+					       parent->d_N,
+					       0, AF_TRILL,
+					       root_sysid, parent);
+      } else {
+	retval = isis_spf_process_lsp ( spftree, lsp,
+					parent->d_N, parent->depth,
+				        AF_TRILL, root_sysid, parent);
+      }
+    }
+    return retval;
+  }
+#endif
   for (ALL_LIST_ELEMENTS_RO (spftree->area->circuit_list, cnode, circuit))
     {
       if (circuit->state != C_STATE_UP)
@@ -1148,6 +1184,7 @@ add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
 	      vertex->depth, vertex->d_N);
 #endif /* EXTREME_DEBUG */
 
+#ifndef HAVE_TRILL
   if (vertex->type > VTYPE_ES)
     {
       if (listcount (vertex->Adj_N) > 0)
@@ -1158,6 +1195,7 @@ add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
                     "%s depth %d dist %d", vid2string (vertex, buff),
                     vertex->depth, vertex->d_N);
     }
+#endif
 
   return;
 }
@@ -1166,8 +1204,10 @@ static void
 init_spt (struct isis_spftree *spftree)
 {
   spftree->tents->del = spftree->paths->del = (void (*)(void *)) isis_vertex_del;
-  list_delete_all_node (spftree->tents);
-  list_delete_all_node (spftree->paths);
+  if(spftree->tents)
+    list_delete_all_node (spftree->tents);
+  if(spftree->paths)
+    list_delete_all_node (spftree->paths);
   spftree->tents->del = spftree->paths->del = NULL;
   return;
 }
@@ -1200,18 +1240,19 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid
   start_time = (start_time * 1000000) + time_now.tv_usec;
 
 #ifdef HAVE_TRILL
-  if(calc_spftree)
-    spftree = calc_spftree;
-  else
-    spftree = area->spftree[level - 1];
-#else
+  if (family == AF_TRILL)
+    if(calc_spftree)
+      spftree = calc_spftree;
+    else
+      spftree = area->spftree[level - 1];
+#endif
   if (family == AF_INET)
     spftree = area->spftree[level - 1];
 #ifdef HAVE_IPV6
   else if (family == AF_INET6)
     spftree = area->spftree6[level - 1];
 #endif
-#endif
+
   assert (spftree);
   assert (sysid);
 
@@ -1335,7 +1376,7 @@ trill_complete_spf(struct isis_area *area)
   for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)) {
     i++;
     /* to be sure t no recompute self adjencies */
-    if(!memcmp(tnode->info.sysid,isis->sysid,ISIS_SYS_ID_LEN))
+    if(!memcmp(tnode->info.sysid, isis->sysid, ISIS_SYS_ID_LEN))
       continue;
     retval = isis_run_spf (area, TRILL_ISIS_LEVEL, AF_TRILL,
 			   tnode->info.sysid, tnode->rdtree);
@@ -1439,7 +1480,7 @@ isis_spf_schedule (struct isis_area *area, int level)
 
   /* wait configured min_spf_interval before doing the SPF */
   if (diff >= area->min_spf_interval[level-1])
-      return isis_run_spf (area, level, AF_INET, isis->sysid
+      return isis_run_spf (area, level, AF_TRILL, isis->sysid
 #ifdef HAVE_TRILL
 			   , NULL
 #endif
