@@ -825,6 +825,26 @@ static void trill_fwdtbl_print (struct vty *vty, struct isis_area *area)
 	     snpa_print (fwdnode->adj_snpa), VTY_NEWLINE);
   }
 }
+static void
+trill_print_paths (struct vty *vty, struct isis_area *area)
+{
+  dnode_t *dnode;
+  nicknode_t *tnode;
+  vty_out (vty, "%sRBridge distribution paths for RBridge:%s%s",
+	   VTY_NEWLINE, print_sys_hostname (area->isis->sysid),
+	   VTY_NEWLINE);
+  isis_print_paths (vty, area->spftree[TRILL_ISIS_LEVEL -1]->paths,
+		    area->isis->sysid);
+
+  for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)) {
+    if (tnode->rdtree && tnode->rdtree->paths->count > 0) {
+      vty_out (vty, "%sRBridge distribution paths for RBridge:%s%s",
+	       VTY_NEWLINE, print_sys_hostname (tnode->info.sysid),
+	       VTY_NEWLINE);
+      isis_print_paths (vty, tnode->rdtree->paths, tnode->info.sysid);
+    }
+  }
+}
 
 DEFUN (trill_nickname,
        trill_nickname_cmd,
@@ -980,6 +1000,18 @@ DEFUN (show_trill_fwdtable,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_trill_topology,
+       show_trill_topology_cmd,
+       "show trill topology",
+       SHOW_STR TRILL_STR "TRILL IS-IS topology information\n"
+       "IS-IS TRILL topology\n")
+{
+  struct isis_area *area;
+  area = listgetdata(listhead (isis->area_list));
+  vty_out (vty, "IS-IS paths to RBridges that speak TRILL", VTY_NEWLINE);
+  trill_print_paths (vty, area);
+}
+
 void trill_init()
 {
   install_element (ISIS_NODE, &trill_nickname_cmd);
@@ -991,10 +1023,12 @@ void trill_init()
   install_element (VIEW_NODE, &show_trill_nickdatabase_cmd);
   install_element (VIEW_NODE, &show_trill_circuits_cmd);
   install_element (VIEW_NODE, &show_trill_fwdtable_cmd);
+  install_element (VIEW_NODE, &show_trill_topology_cmd);
 
   install_element (ENABLE_NODE, &show_trill_nickdatabase_cmd);
   install_element (ENABLE_NODE, &show_trill_circuits_cmd);
   install_element (ENABLE_NODE, &show_trill_fwdtable_cmd);
+  install_element (ENABLE_NODE, &show_trill_topology_cmd);
 
 
 }

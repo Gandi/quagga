@@ -1612,7 +1612,7 @@ isis_spf_schedule6 (struct isis_area *area, int level)
 }
 #endif
 
-static void
+void
 isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
 {
   struct listnode *node;
