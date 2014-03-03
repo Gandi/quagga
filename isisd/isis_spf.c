@@ -1473,6 +1473,23 @@ isis_spf_schedule (struct isis_area *area, int level)
     zlog_debug ("ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago",
                 area->area_tag, level, diff);
 
+#ifdef HAVE_TRILL
+/* should be non trill specific
+ * but will keep it trill specific for the moment
+ * wait a ZERO_AGE_LIFETIME before stating computing topology
+ * this ensure that no expired lsp is still pending in database resulting in
+ * wrong multicast tree that may have loop.
+ * this can happen when the new associated node became a pseudo node
+ * and thus for the expiration of the already existing pseudo lsp
+ * should we check for drb change instead ?
+ */
+    if (now - isis->uptime < ZERO_AGE_LIFETIME || isis->uptime == 0){
+      THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l1, area,
+		       ZERO_AGE_LIFETIME);
+      spftree->pending = 1;
+      return ISIS_OK;
+    }
+#endif
   if (spftree->pending)
     return ISIS_OK;
 
