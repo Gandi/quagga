@@ -43,6 +43,9 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_dynhn.h"
+#ifdef HAVE_TRILL
+#include "isisd/trilld.h"
+#endif
 
 /* staticly assigned vars for printing purposes */
 struct in_addr new_prefix;
@@ -257,6 +260,9 @@ speaks (struct nlpids *nlpids, int family)
 {
   int i, speaks = 0;
 
+#ifdef HAVE_TRILL
+  return 1;
+#else
   if (nlpids == (struct nlpids *) NULL)
     return speaks;
   for (i = 0; i < nlpids->count; i++)
@@ -268,6 +274,7 @@ speaks (struct nlpids *nlpids, int family)
     }
 
   return speaks;
+#endif
 }
 
 /*
