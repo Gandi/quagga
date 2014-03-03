@@ -425,6 +425,34 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
     }
     return (nick_recvd);
 }
+
+static void trill_create_nickfwdtable(struct isis_area *area)
+{
+}
+static void trill_create_nickadjlist(struct isis_area *area,
+				     nicknode_t *nicknode)
+{
+}
+/*
+ * Called upon computing the SPF trees to create the forwarding
+ * and adjacency lists for TRILL.
+ */
+void trill_process_spf (struct isis_area *area)
+{
+  dnode_t *dnode;
+  nicknode_t *tnode;
+
+  /* Nothing to do if we don't have a nick yet */
+  if (area->trill->nick.name == RBRIDGE_NICKNAME_NONE)
+    return;
+
+  trill_create_nickfwdtable(area);
+  trill_create_nickadjlist(area, NULL);
+
+  for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)){
+    trill_create_nickadjlist(area, tnode);
+  }
+}
 static int trill_nick_conflict(nickinfo_t *nick1, nickinfo_t *nick2)
 {
   assert (nick1->nick.name == nick2->nick.name);

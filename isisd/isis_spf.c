@@ -1391,6 +1391,7 @@ trill_complete_spf(struct isis_area *area)
    * Process computed SPF trees to create TRILL
    * forwarding and adjacency tables.
    */
+  trill_process_spf (area);
   return retval;
 }
 #endif
