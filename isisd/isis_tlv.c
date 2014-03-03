@@ -86,6 +86,12 @@ free_tlvs (struct tlvs *tlvs)
   if (tlvs->ipv6_reachs)
     list_delete (tlvs->ipv6_reachs);
 #endif /* HAVE_IPV6 */
+#ifdef HAVE_TRILL
+  if(tlvs->router_capabilities)
+    list_delete(tlvs->router_capabilities);
+  if(tlvs->port_capabilities)
+    list_delete(tlvs->port_capabilities);
+#endif
 
   memset (tlvs, 0, sizeof (struct tlvs));
 
