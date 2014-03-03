@@ -50,7 +50,7 @@
 #include "isisd/trilld.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_spf.h"
-
+#include "isisd/isis_adjacency.h"
 
 int nickavailcnt = RBRIDGE_NICKNAME_MINRES - RBRIDGE_NICKNAME_NONE - 1;
 
@@ -425,9 +425,61 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
     }
     return (nick_recvd);
 }
+static void trill_destroy_nickfwdtable(void *obj)
+{
+  XFREE (MTYPE_ISIS_TRILL_FWDTBL_NODE, obj);
+}
+/* Lookup nickname when given a system ID */
+static uint16_t sysid_to_nick(struct isis_area *area, u_char *sysid)
+{
+  dnode_t *dnode;
+  nicknode_t *tnode;
 
+  dnode = dict_lookup (area->trill->sysidtonickdb, sysid);
+  if (dnode == NULL)
+    return 0;
+  tnode = (nicknode_t *) dnode_get (dnode);
+  return tnode->info.nick.name;
+}
 static void trill_create_nickfwdtable(struct isis_area *area)
 {
+  struct listnode *node;
+  struct isis_vertex *vertex;
+  struct isis_adjacency *adj;
+  struct list *fwdlist = NULL;
+  struct list *oldfwdlist;
+  nickfwdtblnode_t *fwdnode;
+  struct isis_spftree *rdtree;
+  oldfwdlist = area->trill->fwdtbl;
+  int firstnode = true;
+  rdtree = area->spftree[TRILL_ISIS_LEVEL - 1];
+  for (ALL_LIST_ELEMENTS_RO (rdtree->paths, node, vertex)) {
+    if (firstnode) {
+      /* first node in path list is us */
+      fwdlist = list_new();
+      fwdlist->del = trill_destroy_nickfwdtable;
+      firstnode = false;
+      continue;
+    }
+    if (
+      vertex->type != VTYPE_NONPSEUDO_IS &&
+      vertex->type != VTYPE_NONPSEUDO_TE_IS
+    )
+      continue;
+      zlog_debug("adj node count %i", listcount(vertex->Adj_N));
+      if (listhead (vertex->Adj_N) &&
+	(adj = listgetdata (listhead (vertex->Adj_N)))) {
+	fwdnode = XCALLOC (MTYPE_ISIS_TRILL_FWDTBL_NODE,
+			   sizeof(nickfwdtblnode_t));
+	fwdnode->dest_nick = sysid_to_nick (area, vertex->N.id);
+	memcpy(fwdnode->adj_snpa, adj->snpa, sizeof(fwdnode->adj_snpa));
+	fwdnode->interface = adj->circuit->interface;
+	listnode_add (fwdlist, fwdnode);
+      }
+  }
+  area->trill->fwdtbl = fwdlist;
+  if (oldfwdlist != NULL)
+    list_delete (oldfwdlist);
 }
 static void trill_create_nickadjlist(struct isis_area *area,
 				     nicknode_t *nicknode)
