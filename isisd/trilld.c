@@ -1,5 +1,5 @@
 /*
- * IS-IS Rout(e)ing protocol - isis_trill.h
+ * IS-IS Rout(e)ing protocol - trilld.h
  *
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * modified by gandi.net
@@ -51,6 +51,7 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_adjacency.h"
+#include "isisd/netlink.h"
 
 int nickavailcnt = RBRIDGE_NICKNAME_MINRES - RBRIDGE_NICKNAME_NONE - 1;
 

@@ -161,6 +161,17 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_CHECK_TOOL(AR, ar)
 
+
+PKG_CHECK_MODULES(LIBNL3, libnl-3.0 >= 3.1, [have_libnl3=yes], [have_libnl3=no])
+PKG_CHECK_MODULES(LIBNL3, libnl-3.0 < 3.1, [have_libnl3_old=yes], [have_libnl3_old=no])
+
+if (test "${have_libnl3}" = "yes"); then
+        CFLAGS="${CFLAGS} -I/usr/include/libnl3 "
+        LIBS="${LIBS} -lnl-genl-3 -lnl-3 "
+elif (test "${have_libnl3_old}" = "yes"); then
+        LIBS="${LIBS} -lnl-genl -lnl "
+fi
+
 dnl ---------------------------
 dnl We, perhaps unfortunately,
 dnl depend on GNU Make specific

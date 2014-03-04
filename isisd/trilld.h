@@ -1,5 +1,5 @@
 /*
- * IS-IS Rout(e)ing protocol - isis_trill.h
+ * IS-IS Rout(e)ing protocol - trill.h
  *
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * modified by gandi.net
