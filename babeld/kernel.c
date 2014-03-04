@@ -70,11 +70,12 @@ static int
 kernel_route_v4(int add, const unsigned char *pref, unsigned short plen,
                 const unsigned char *gate, int ifindex,
                 unsigned int metric);
+#ifdef HAVE_IPV6
 static int
 kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
                 const unsigned char *gate, int ifindex,
                 unsigned int metric);
-
+#endif
 int
 kernel_interface_operational(struct interface *interface)
 {
@@ -119,31 +120,44 @@ kernel_route(int operation, const unsigned char *pref, unsigned short plen,
 
     switch (operation) {
         case ROUTE_ADD:
+#ifdef HAVE_IPV6
             return ipv4 ?
                    kernel_route_v4(1, pref, plen, gate, ifindex, metric):
                    kernel_route_v6(1, pref, plen, gate, ifindex, metric);
+#else
+            return kernel_route_v4(1, pref, plen, gate, ifindex, metric);
+#endif
             break;
         case ROUTE_FLUSH:
+#ifdef HAVE_IPV6
             return ipv4 ?
                    kernel_route_v4(0, pref, plen, gate, ifindex, metric):
                    kernel_route_v6(0, pref, plen, gate, ifindex, metric);
+#else
+            return kernel_route_v4(0, pref, plen, gate, ifindex, metric);
+#endif
             break;
         case ROUTE_MODIFY:
             if(newmetric == metric && memcmp(newgate, gate, 16) == 0 &&
                newifindex == ifindex)
                 return 0;
             debugf(BABEL_DEBUG_ROUTE, "Modify route: delete old; add new.");
+#ifdef HAVE_IPV6
             rc = ipv4 ?
                 kernel_route_v4(0, pref, plen, gate, ifindex, metric):
                 kernel_route_v6(0, pref, plen, gate, ifindex, metric);
-
+#else
+            rc = kernel_route_v4(0, pref, plen, gate, ifindex, metric);
+#endif
             if (rc < 0)
                 return -1;
-
+#ifdef HAVE_IPV6
             rc = ipv4 ?
                 kernel_route_v4(1, pref, plen, newgate, newifindex, newmetric):
                 kernel_route_v6(1, pref, plen, newgate, newifindex, newmetric);
-
+#else
+            rc = kernel_route_v4(1, pref, plen, newgate, newifindex, newmetric);
+#endif
             return rc;
             break;
         default:
@@ -206,6 +220,7 @@ kernel_route_v4(int add,
                             zclient, &quagga_prefix, &api);
 }
 
+#ifdef HAVE_IPV6
 static int
 kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
                 const unsigned char *gate, int ifindex, unsigned int metric)
@@ -254,7 +269,7 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
                                   ZEBRA_IPV6_ROUTE_DELETE,
                             zclient, &quagga_prefix, &api);
 }
-
+#endif
 int
 if_eui64(char *ifname, int ifindex, unsigned char *eui)
 {

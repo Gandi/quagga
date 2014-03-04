@@ -87,7 +87,7 @@ babel_ipv4_route_delete (struct zapi_ipv4 *api, struct prefix_ipv4 *prefix,
     }
     return 0;
 }
-
+#ifdef HAVE_IPV6
 /* Add redistributed route to Babel table. */
 int
 babel_ipv6_route_add (struct zapi_ipv6 *api, struct prefix_ipv6 *prefix,
@@ -118,7 +118,7 @@ babel_ipv6_route_delete (struct zapi_ipv6 *api, struct prefix_ipv6 *prefix,
     }
     return 0;
 }
-
+#endif
 struct xroute *
 find_xroute(const unsigned char *prefix, unsigned char plen)
 {

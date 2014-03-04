@@ -51,9 +51,11 @@ int babel_ipv4_route_add (struct zapi_ipv4 *api, struct prefix_ipv4 *prefix,
                           unsigned int ifindex, struct in_addr *nexthop);
 int babel_ipv4_route_delete (struct zapi_ipv4 *api, struct prefix_ipv4 *prefix,
                              unsigned int ifindex);
+#ifdef HAVE_IPV6
 int babel_ipv6_route_add (struct zapi_ipv6 *api, struct prefix_ipv6 *prefix,
                           unsigned int ifindex, struct in6_addr *nexthop);
 int babel_ipv6_route_delete (struct zapi_ipv6 *api, struct prefix_ipv6 *prefix,
                              unsigned int ifindex);
+#endif
 int xroutes_estimate(void);
 void for_all_xroutes(void (*f)(struct xroute*, void*), void *closure);

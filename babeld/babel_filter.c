@@ -62,17 +62,22 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
     p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
     if (p.family == AF_INET)
         uchar_to_inaddr(&p.u.prefix4, prefix);
+#ifdef HAVE_IPV6
     else
         uchar_to_in6addr(&p.u.prefix6, prefix);
-
+#endif
     if (babel_ifp != NULL && babel_ifp->list[filter]) {
         if (access_list_apply (babel_ifp->list[filter], &p)
             == FILTER_DENY) {
             debugf(BABEL_DEBUG_FILTER,
                    "%s/%d filtered by distribute in",
+#ifdef HAVE_IPV6
                    p.family == AF_INET ?
                    inet_ntoa(p.u.prefix4) :
                    inet6_ntoa (p.u.prefix6),
+#else
+		   inet_ntoa(p.u.prefix4),
+#endif
                    p.prefixlen);
             return INFINITY;
 	}
@@ -81,9 +86,13 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
         if (prefix_list_apply (babel_ifp->prefix[filter], &p)
             == PREFIX_DENY) {
             debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute in",
+#ifdef HAVE_IPV6
                         p.family == AF_INET ?
                         inet_ntoa(p.u.prefix4) :
                         inet6_ntoa (p.u.prefix6),
+#else
+                        inet_ntoa(p.u.prefix4),
+#endif
                         p.prefixlen);
             return INFINITY;
 	}
@@ -98,9 +107,13 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
             if (alist) {
                 if (access_list_apply (alist, &p) == FILTER_DENY) {
                     debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute in",
+#ifdef HAVE_IPV6
                                 p.family == AF_INET ?
                                 inet_ntoa(p.u.prefix4) :
                                 inet6_ntoa (p.u.prefix6),
+#else
+                                inet_ntoa(p.u.prefix4),
+#endif
                                 p.prefixlen);
                     return INFINITY;
 		}
@@ -111,9 +124,13 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
             if (plist) {
                 if (prefix_list_apply (plist, &p) == PREFIX_DENY) {
                     debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute in",
+#ifdef HAVE_IPV6
                                 p.family == AF_INET ?
                                 inet_ntoa(p.u.prefix4) :
                                 inet6_ntoa (p.u.prefix6),
+#else
+                                inet_ntoa(p.u.prefix4),
+#endif
                                 p.prefixlen);
                     return INFINITY;
 		}

@@ -676,9 +676,11 @@ is_interface_ll_address(struct interface *ifp, const unsigned char *address)
         return 0;
 
     FOR_ALL_INTERFACES_ADDRESSES(ifp, connected, node) {
+#ifdef HAVE_IPV6
         if(connected->address->family == AF_INET6 &&
            memcmp(&connected->address->u.prefix6, address, 16) == 0)
             return 1;
+#endif
     }
 
     return 0;

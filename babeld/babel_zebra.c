@@ -79,7 +79,7 @@ struct cmd_node zebra_node =
     1 /* vtysh? yes */
 };
 
-
+#ifdef HAVE_IPV6
 /* Zebra route add and delete treatment (ipv6). */
 static int
 babel_zebra_read_ipv6 (int command, struct zclient *zclient,
@@ -132,7 +132,7 @@ babel_zebra_read_ipv6 (int command, struct zclient *zclient,
 
     return 0;
 }
-
+#endif
 static int
 babel_zebra_read_ipv4 (int command, struct zclient *zclient,
 		       zebra_size_t length)
@@ -342,9 +342,10 @@ void babelz_zebra_init(void)
     zclient->interface_address_delete = babel_interface_address_delete;
     zclient->ipv4_route_add = babel_zebra_read_ipv4;
     zclient->ipv4_route_delete = babel_zebra_read_ipv4;
+#ifdef HAVE_IPV6
     zclient->ipv6_route_add = babel_zebra_read_ipv6;
     zclient->ipv6_route_delete = babel_zebra_read_ipv6;
-
+#endif
     install_node (&zebra_node, zebra_config_write);
     install_element(BABEL_NODE, &babel_redistribute_type_cmd);
     install_element(BABEL_NODE, &no_babel_redistribute_type_cmd);
