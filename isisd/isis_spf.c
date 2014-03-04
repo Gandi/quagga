@@ -971,6 +971,8 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
     for (ALL_DICT_NODES_RO(spftree->area->lspdb[level-1], dnode, lsp)) {
       if (LSP_FRAGMENT (lsp->lsp_header->lsp_id))
 	continue;
+      if (lsp == NULL || lsp->lsp_header->rem_lifetime == 0)
+	continue;
       if (memcmp(lsp_id, lsp->lsp_header->lsp_id, ISIS_SYS_ID_LEN) != 0)
 	continue;
       if (LSP_PSEUDO_ID (lsp->lsp_header->lsp_id)){
