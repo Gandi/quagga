@@ -95,6 +95,9 @@ struct isis_area
   struct list *circuit_list;	/* IS-IS circuits */
   struct flags flags;
   struct thread *t_tick;	/* LSP walker */
+#ifdef HAVE_TRILL
+  struct thread *nl_tick; /*netlink recev tick*/
+#endif
   struct thread *t_lsp_refresh[ISIS_LEVELS];
   int lsp_regenerate_pending[ISIS_LEVELS];
 

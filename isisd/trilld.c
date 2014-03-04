@@ -36,6 +36,7 @@
 #include "if.h"
 #include "stream.h"
 #include "command.h"
+#include "privs.h"
 
 
 #include "isisd/dict.h"
@@ -53,6 +54,13 @@
 #include "isisd/isis_adjacency.h"
 #include "isisd/netlink.h"
 
+/* Global variables needed for netlink genl socket*/
+extern struct zebra_privs_t isisd_privs;
+static struct nl_sock *sock_genl;
+int genl_family;
+int group_number;
+
+
 int nickavailcnt = RBRIDGE_NICKNAME_MINRES - RBRIDGE_NICKNAME_NONE - 1;
 
 int nickname_init()
@@ -68,6 +76,37 @@ int nickname_init()
   clear_bit_count[RBRIDGE_NICKNAME_UNUSED / CLEAR_BITARRAY_ENTRYLENBITS]--;
 }
 
+int receiv_nl(struct thread *thread)
+{
+  struct isis_area *area;
+  area = THREAD_ARG (thread);
+  assert (area);
+  nl_recvmsgs_default(sock_genl);
+  area->nl_tick = NULL;
+  THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
+                    nl_socket_get_fd(sock_genl));
+  return ISIS_OK;
+}
+void netlink_init(struct isis_area *area)
+{
+  isisd_privs.change(ZPRIVS_RAISE);
+  sock_genl = nl_socket_alloc();
+  genl_connect(sock_genl);
+  genl_family = genl_ctrl_resolve(sock_genl, TRILL_NL_FAMILY);
+  group_number = genl_ctrl_resolve_grp(sock_genl, TRILL_NL_FAMILY,
+				       TRILL_MCAST_NAME);
+  nl_socket_disable_seq_check(sock_genl);
+  if(!genl_family){
+    zlog_err("unable to find generic netlink family id");
+    abort();
+  }
+
+  if(nl_socket_modify_cb(sock_genl, NL_CB_MSG_IN, NL_CB_CUSTOM,
+    parse_cb, (void *)area))
+    zlog_warn("unable to modify netlink callback");
+  THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
+			nl_socket_get_fd(sock_genl));
+}
 static int trill_nickname_nickbitmap_op(u_int16_t nick, int update, int val)
 {
   if (nick == RBRIDGE_NICKNAME_NONE || nick == RBRIDGE_NICKNAME_UNUSED)
@@ -234,10 +273,11 @@ void trill_area_init(struct isis_area *area)
   trill->adjnodes = list_new();
   trill->dt_roots = list_new();
   trill->root_priority = DEFAULT_PRIORITY;
-  trill->tree_root= RBRIDGE_NICKNAME_NONE;
+  trill->tree_root = RBRIDGE_NICKNAME_NONE;
 
   /* FIXME For the moment force all TRILL area to be level 1 */
   area->is_type = IS_LEVEL_1;
+  netlink_init(area);
 }
 
 void trill_area_free(struct isis_area *area)
