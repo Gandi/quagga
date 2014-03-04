@@ -1043,6 +1043,50 @@ trill_print_paths (struct vty *vty, struct isis_area *area)
   }
 }
 
+static void trill_adjtbl_print (struct vty *vty, struct isis_area *area,
+				nicknode_t *nicknode)
+{
+  struct listnode *node;
+  nickfwdtblnode_t *fwdnode;
+  void *listdata;
+  uint16_t nick;
+  int idx = 0;
+  struct list *adjnodes;
+  if (nicknode != NULL) {
+    adjnodes = nicknode->adjnodes;
+  } else {
+    adjnodes = area->trill->adjnodes;
+    if (adjnodes != NULL)
+      vty_out (vty,"Adj node count %d %s", listcount(adjnodes), VTY_NEWLINE);
+  }
+  if (adjnodes == NULL)
+    return;
+  vty_out(vty, "Hostname                           Nick     Iface    "
+  "Nexthop%s", VTY_NEWLINE);
+  for (ALL_LIST_ELEMENTS_RO (adjnodes, node, listdata)) {
+    nick = (u_int16_t)(u_long)listdata;
+    fwdnode = trill_fwdtbl_lookup (area, nick);
+    if (!fwdnode)
+      continue;
+    vty_out (vty, "%-32s   %-5d    %-5s    %-15s%s",
+	     print_sys_hostname (nick_to_sysid(area, nick)),
+	     ntohs (nick), fwdnode->interface->name,
+	     snpa_print (fwdnode->adj_snpa), VTY_NEWLINE);
+  }
+}
+static void trill_adjtbl_print_all (struct vty *vty, struct isis_area *area)
+{
+  dnode_t *dnode;
+  nicknode_t *tnode;
+  vty_out(vty, "Adjacencies on our RBridge distribution tree:%s", VTY_NEWLINE);
+  trill_adjtbl_print (vty, area, NULL);
+  for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)) {
+    vty_out(vty, "Adjacencies on RBridge %s distribution tree:%s",
+	    print_sys_hostname (tnode->info.sysid), VTY_NEWLINE);
+    trill_adjtbl_print (vty, area, tnode);
+  }
+}
+
 DEFUN (trill_nickname,
        trill_nickname_cmd,
        "trill nickname WORD",
@@ -1208,6 +1252,26 @@ DEFUN (show_trill_topology,
   vty_out (vty, "IS-IS paths to RBridges that speak TRILL", VTY_NEWLINE);
   trill_print_paths (vty, area);
 }
+DEFUN (show_trill_adjtable,
+       show_trill_adjtable_cmd,
+       "show trill adjacencies",
+       SHOW_STR TRILL_STR
+       "IS-IS TRILL adjacency lists\n")
+{
+  struct listnode *node;
+  struct isis_area *area;
+
+  if (isis->area_list->count == 0)
+    return CMD_SUCCESS;
+
+  area = listgetdata(listhead (isis->area_list));
+
+  vty_out (vty, "IS-IS TRILL adjacencies in all distribution trees:%s%s",
+	     VTY_NEWLINE, VTY_NEWLINE);
+  trill_adjtbl_print_all (vty, area);
+  vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
+  return CMD_SUCCESS;
+}
 
 void trill_init()
 {
@@ -1221,11 +1285,13 @@ void trill_init()
   install_element (VIEW_NODE, &show_trill_circuits_cmd);
   install_element (VIEW_NODE, &show_trill_fwdtable_cmd);
   install_element (VIEW_NODE, &show_trill_topology_cmd);
+  install_element (VIEW_NODE, &show_trill_adjtable_cmd);
 
   install_element (ENABLE_NODE, &show_trill_nickdatabase_cmd);
   install_element (ENABLE_NODE, &show_trill_circuits_cmd);
   install_element (ENABLE_NODE, &show_trill_fwdtable_cmd);
   install_element (ENABLE_NODE, &show_trill_topology_cmd);
+  install_element (ENABLE_NODE, &show_trill_adjtable_cmd);
 
 
 }
