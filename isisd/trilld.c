@@ -481,9 +481,126 @@ static void trill_create_nickfwdtable(struct isis_area *area)
   if (oldfwdlist != NULL)
     list_delete (oldfwdlist);
 }
+
+static nickfwdtblnode_t * trill_fwdtbl_lookup (struct isis_area *area, u_int16_t nick)
+{
+  struct listnode *node;
+  nickfwdtblnode_t *fwdnode;
+  if (area->trill->fwdtbl == NULL){
+    zlog_warn("trill_fwdtbl_lookup : fwdtbl is null");
+    return NULL;
+  }
+
+  for (ALL_LIST_ELEMENTS_RO (area->trill->fwdtbl, node, fwdnode)){
+    if (fwdnode->dest_nick == nick)
+      return fwdnode;
+    }
+  return NULL;
+}
+static void trill_add_nickadjlist(struct isis_area *area, struct list *adjlist, struct isis_vertex *vertex)
+{
+  u_int16_t nick;
+
+  nick = sysid_to_nick (area, vertex->N.id);
+  if (!nick)
+    return;
+  /*
+   * check if nickname is availeable in forwarding database
+   * if nick is not found in fwd database that means that something went wrong
+   */
+  if (!trill_fwdtbl_lookup(area, nick)){
+    zlog_warn("nickname %i found in adj list but is not present"
+    "in fwd database", htons(nick));
+    return;
+  }
+  if (listnode_lookup (adjlist, (void *)(u_long)nick) != NULL)
+    return;
+  listnode_add (adjlist, (void *)(u_long)nick);
+}
+
 static void trill_create_nickadjlist(struct isis_area *area,
 				     nicknode_t *nicknode)
 {
+  struct listnode *node;
+  struct listnode *cnode;
+  struct isis_vertex *vertex;
+  struct isis_vertex *pvertex;
+  struct isis_vertex *cvertex;
+  struct isis_vertex *rbvertex = NULL;
+  struct list *adjlist;
+  struct list *oldadjlist;
+  struct list *childlist;
+  struct isis_spftree *rdtree;
+  if (nicknode == NULL) {
+    rdtree = area->spftree[TRILL_ISIS_LEVEL - 1];
+    oldadjlist = area->trill->adjnodes;
+  } else {
+    rdtree = nicknode->rdtree;
+    oldadjlist = nicknode->adjnodes;
+  }
+  /* Find our node in the distribution tree first */
+  for (ALL_LIST_ELEMENTS_RO (rdtree->paths, node, vertex)) {
+    if (vertex->type != VTYPE_NONPSEUDO_IS &&
+      vertex->type != VTYPE_NONPSEUDO_TE_IS)
+      continue;
+    if (memcmp (vertex->N.id, area->isis->sysid, ISIS_SYS_ID_LEN) == 0) {
+      rbvertex = vertex;
+      break;
+    }
+  }
+
+  /* Determine adjacencies by looking up the parent & child nodes */
+  if (rbvertex) {
+    adjlist = list_new();
+    if (listcount (vertex->parents) > 0) {
+      /* Add only non pseudo parents to adjacency list
+       * if parent is a pseudo node add the first of his non pseudo
+       * parents which is the non pseudo node version of the pseudo node
+       */
+      for (ALL_LIST_ELEMENTS_RO (rbvertex->parents, node, pvertex)){
+	if (pvertex->type !=  VTYPE_PSEUDO_TE_IS )
+	  trill_add_nickadjlist (area, adjlist, pvertex);
+	else
+	  trill_add_nickadjlist (area, adjlist,
+				 listgetdata(listhead(pvertex->parents)));
+      }
+    }
+    if (rbvertex->children) {
+      childlist = list_new();
+      for (ALL_LIST_ELEMENTS_RO (rbvertex->children, node, vertex)) {
+	if (memcmp (vertex->N.id, area->isis->sysid, ISIS_SYS_ID_LEN) == 0)
+	  listnode_add(childlist, vertex);
+	else if (listnode_lookup (rdtree->paths, vertex))
+	  trill_add_nickadjlist (area, adjlist, vertex);
+      }
+      /*
+       * If we find child vertices above with our system ID (pseudo node)
+       * then we search their descendants and any that are found are
+       * added as our adjacencies
+       */
+      if( listcount(childlist) > 0) {
+	for (node = listhead(childlist); node != NULL;
+	     node = listnextnode(node)) {
+	  if ((vertex = listgetdata(node)) == NULL)
+	    break;
+	  for (ALL_LIST_ELEMENTS_RO (vertex->children, cnode, cvertex)) {
+	    if ((memcmp (cvertex->N.id, area->isis->sysid, ISIS_SYS_ID_LEN) == 0)
+	      && listnode_lookup(childlist, cvertex) == NULL)
+	      listnode_add(childlist, cvertex);
+	    if (listnode_lookup(rdtree->paths, cvertex))
+	      trill_add_nickadjlist (area, adjlist, cvertex);
+	  }
+	}
+	list_delete(childlist);
+      }
+    }
+    if (nicknode != NULL)
+      nicknode->adjnodes = adjlist;
+    else
+      area->trill->adjnodes = adjlist;
+    if(oldadjlist)
+      list_delete (oldadjlist);
+  }
 }
 /*
  * Called upon computing the SPF trees to create the forwarding
