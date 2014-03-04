@@ -466,7 +466,6 @@ static void trill_create_nickfwdtable(struct isis_area *area)
       vertex->type != VTYPE_NONPSEUDO_TE_IS
     )
       continue;
-      zlog_debug("adj node count %i", listcount(vertex->Adj_N));
       if (listhead (vertex->Adj_N) &&
 	(adj = listgetdata (listhead (vertex->Adj_N)))) {
 	fwdnode = XCALLOC (MTYPE_ISIS_TRILL_FWDTBL_NODE,
