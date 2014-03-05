@@ -73,6 +73,8 @@ struct trill
   char * name;			/* bridge name */
   uint16_t root_priority;	/* Root tree priority */
   uint16_t  tree_root;
+  struct list *configured_vni;	/* Configured VNI locally */
+  struct list *supported_vni;	/* supported VNI*/
 };
 
 /* TRILL nickname information (node-specific) */
@@ -84,6 +86,8 @@ typedef struct nickinfo
   struct list *dt_roots;	/* Distrib. Trees chosen by node */
   uint16_t root_priority;	/* Root tree priority */
   uint16_t root_count;		/* Root tree count */
+  uint8_t vni_count;
+  struct list* supported_vni;	/* supported VNI*/
 } nickinfo_t;
 
 /* Nickname database node */
@@ -136,6 +140,8 @@ typedef struct trill_nickinfo_s {
   uint16_t	tni_adjcount;
   /* Num of distribution tree root nicks chosen by this RBridge */
   uint16_t	tni_dtrootcount;
+  /* Num of vni supported by this RBridge  */
+  uint16_t	tni_vnicount;
   /* Num of vlan supported by this RBridge  */
   /* Variable size bytes to store adjacency nicks, distribution
    * tree roots. Adjacency nicks and distribution tree roots are
@@ -151,9 +157,19 @@ typedef struct trill_nickinfo_s {
 #define	TNI_DTROOTNICKSPTR(v) ((uint16_t *)(TNI_ADJNICKSPTR(v)+(v)->tni_adjcount))
 #define	TNI_DTROOTNICK(v, n)  (TNI_DTROOTNICKSPTR(v)[(n)])
 
+/*
+ * Acess vni list in trill_nickinfo_t after DT Roots
+ * we cast TNI_VNIPTR to uint32_t pointer
+ * to get correct value in TNI_VNI  (vni are 32bit size))
+ */
+#define	TNI_VNIPTR(v)	((uint32_t*)((uint16_t *)\
+			(TNI_DTROOTNICKSPTR(v)+(v)->tni_dtrootcount)))
+#define TNI_VNI(v,n)	((TNI_VNIPTR(v))[(n)])
+
 #define TNI_TOTALSIZE(v) (sizeof (trill_nickinfo_t) + \
 	(sizeof (uint16_t) * (v)->tni_adjcount) + \
-	(sizeof (uint16_t) * (v)->tni_dtrootcount)
+	(sizeof (uint16_t) * (v)->tni_dtrootcount) + \
+	(sizeof (uint32_t) * (v)->tni_vnicount))
 /* trilld.c */
 void trill_area_init(struct isis_area *area);
 void trill_area_free(struct isis_area *area);

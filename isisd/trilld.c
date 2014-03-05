@@ -331,6 +331,8 @@ void trill_area_init(struct isis_area *area)
   trill->dt_roots = list_new();
   trill->root_priority = DEFAULT_PRIORITY;
   trill->tree_root = RBRIDGE_NICKNAME_NONE;
+  trill->configured_vni = list_new();
+  trill->supported_vni = list_new();
 
   /* FIXME For the moment force all TRILL area to be level 1 */
   area->is_type = IS_LEVEL_1;
@@ -353,6 +355,10 @@ void trill_area_free(struct isis_area *area)
     list_delete (area->trill->adjnodes);
   if (area->trill->dt_roots)
     list_delete (area->trill->dt_roots);
+  if (area->trill->configured_vni)
+    list_delete (area->trill->configured_vni);
+  if (area->trill->supported_vni)
+    list_delete (area->trill->supported_vni);
   XFREE (MTYPE_ISIS_TRILLAREA, area->trill);
 }
 
@@ -454,7 +460,8 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
 
   memcpy (recvd_nick->sysid, lsp->lsp_header->lsp_id, ISIS_SYS_ID_LEN);
   recvd_nick->root_priority = TRILL_DFLT_ROOT_PRIORITY;
-
+  recvd_nick->dt_roots = list_new();
+  recvd_nick->supported_vni = list_new();
   for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.router_capabilities, node, rtr_cap))
     {
        if (rtr_cap->len < ROUTER_CAPABILITY_MIN_LEN)
@@ -937,6 +944,8 @@ static void trill_nickinfo_del(nickinfo_t *ni)
 {
   if (ni->dt_roots != NULL)
     list_delete (ni->dt_roots);
+  if (ni->supported_vni != NULL)
+    list_delete(ni->supported_vni);
 }
 static void trill_update_nickinfo (nicknode_t *tnode, nickinfo_t *recvd_nick)
 {
