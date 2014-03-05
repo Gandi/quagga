@@ -763,6 +763,72 @@ static void trill_publish_nick(struct isis_area *area, int fd,
     free(ni);
   }
 }
+static uint16_t get_root_nick(struct isis_area *area)
+{
+  uint8_t lpriority;
+  uint16_t root_nick;
+  u_char *lsysid;
+  dnode_t *dnode;
+  nicknode_t *tnode;
+  int i;
+  lpriority = area->trill->nick.priority;
+  lsysid = area->isis->sysid;
+  root_nick = area->trill->nick.name;
+
+  for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode))
+  {
+    i++;
+    if (tnode->info.nick.priority < lpriority)
+      continue;
+    if (tnode->info.nick.priority == lpriority &&
+	memcmp(tnode->info.sysid, lsysid, ISIS_SYS_ID_LEN) < 0)
+      continue;
+    if (trill_fwdtbl_lookup(area, tnode->info.nick.name))
+    {
+      lpriority = tnode->info.nick.priority;
+      lsysid = tnode->info.sysid;
+      root_nick = tnode->info.nick.name;
+    }
+  }
+  return root_nick;
+
+}
+static void trill_publish (struct isis_area *area)
+{
+  struct listnode *node;
+  nickfwdtblnode_t *fwdnode;
+  uint16_t root_nick;
+  struct nl_msg *msg;
+  struct trill_nl_header *trnlhdr;
+  struct isis_circuit *circuit;
+  if (area->circuit_list && listhead(area->circuit_list))
+    circuit = listgetdata(listhead(area->circuit_list));
+  if (circuit == NULL)
+      return;
+
+  if (area->trill->fwdtbl != NULL)
+    for (ALL_LIST_ELEMENTS_RO (area->trill->fwdtbl, node, fwdnode))
+      trill_publish_nick(area, circuit->fd, fwdnode->dest_nick,
+			 fwdnode,circuit->interface->ifindex);
+
+  trill_publish_nick(area, circuit->fd, area->trill->nick.name,
+		     NULL, circuit->interface->ifindex);
+
+  msg = nlmsg_alloc();
+  trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
+			sizeof(struct trill_nl_header), NLM_F_REQUEST,
+			TRILL_CMD_SET_TREEROOT_ID, TRILL_NL_VERSION);
+  if(!trnlhdr)
+    abort();
+  root_nick = get_root_nick(area);
+  trnlhdr->ifindex = circuit->interface->ifindex;
+  trnlhdr->total_length = sizeof(msg);
+  trnlhdr->msg_number = 1;
+  nla_put_u16(msg, TRILL_ATTR_U16, ntohs(root_nick));
+  nl_send_auto_complete(sock_genl, msg);
+  nlmsg_free(msg);
+  area->trill->tree_root = root_nick;
+}
 /*
  * Called upon computing the SPF trees to create the forwarding
  * and adjacency lists for TRILL.
@@ -782,6 +848,7 @@ void trill_process_spf (struct isis_area *area)
   for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)){
     trill_create_nickadjlist(area, tnode);
   }
+  trill_publish(area);
 }
 static int trill_nick_conflict(nickinfo_t *nick1, nickinfo_t *nick2)
 {
