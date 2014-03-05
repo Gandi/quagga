@@ -90,6 +90,7 @@ int receiv_nl(struct thread *thread)
   assert (area);
   nl_recvmsgs_default(sock_genl);
   area->nl_tick = NULL;
+  zlog_debug("received nl msg area %s", area->area_tag);
   THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
                     nl_socket_get_fd(sock_genl));
   return ISIS_OK;
@@ -111,6 +112,8 @@ void netlink_init(struct isis_area *area)
   if(nl_socket_modify_cb(sock_genl, NL_CB_MSG_IN, NL_CB_CUSTOM,
     parse_cb, (void *)area))
     zlog_warn("unable to modify netlink callback");
+  if(nl_socket_add_membership(sock_genl, group_number))
+    zlog_warn("unable to join multicast group\n");
   THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
 			nl_socket_get_fd(sock_genl));
 }
@@ -410,9 +413,14 @@ int tlv_add_trill_nickname(struct trill_nickname *nick_info,
 			   struct stream *stream, struct isis_area *area)
 {
   size_t tlvstart;
+  struct listnode *node;
   struct router_capability_tlv rtcap;
   u_char tflags;
   struct trill_nickname_subtlv tn;
+  struct trill_vni_subtlv *vni_subtlv;
+  int vni_count, tlv_number, last_tlv, size, i;
+  uint32_t *pnt;
+  void * vni;
   int rc;
 
   tlvstart = stream_get_endp (stream);
@@ -437,6 +445,96 @@ int tlv_add_trill_nickname(struct trill_nickname *nick_info,
 		   sizeof (struct trill_nickname_subtlv), (u_char *)&tn,
 		   tlvstart,
 		   stream);
+  if (rc != ISIS_OK)
+    return rc;
+  /* Let's fill vni sub tlv */
+
+  vni_count = listcount(area->trill->supported_vni);
+  tlv_number = vni_count / MAX_VNI_PER_SUBTLV;
+  last_tlv = vni_count % MAX_VNI_PER_SUBTLV;
+  /* one subTLV needed */
+  if (!tlv_number){
+    if(vni_count){
+      size = sizeof(struct trill_vni_subtlv) + vni_count * sizeof(u_int32_t);
+      vni_subtlv = calloc(1, size);
+      vni_subtlv->length = vni_count;
+      /* go to vni list position */
+      pnt = (uint32_t *) (uint8_t *)(vni_subtlv + 1);
+      i = 0;
+      for (ALL_LIST_ELEMENTS_RO (area->trill->supported_vni, node, vni)) {
+	pnt[i] = (uint32_t) (u_long) vni;
+	i++;
+      }
+
+      tlvstart = stream_get_endp (stream);
+      (void) memset(&rtcap, 0, sizeof (rtcap));
+      rc = add_tlv(ROUTER_CAPABILITY,
+		   sizeof ( struct router_capability_tlv),
+		   (u_char *)&rtcap, stream);
+      if (rc != ISIS_OK)
+	return rc;
+      rc = add_subtlv (RCSTLV_TRILL_VLAN_GROUP, size,
+		       (u_char *)vni_subtlv,
+		       tlvstart, stream);
+      free(vni_subtlv);
+    }
+  /* multiple subTLV needed */
+  } else {
+      size = sizeof(struct trill_vni_subtlv) +
+	      MAX_VNI_PER_SUBTLV * sizeof(uint32_t);
+      vni_subtlv = calloc(1, size);
+      vni_subtlv->length = MAX_VNI_PER_SUBTLV;
+      pnt = (uint32_t *) (uint8_t *)(vni_subtlv + 1);
+      for (ALL_LIST_ELEMENTS_RO (area->trill->supported_vni, node, vni)) {
+	pnt[i]= (uint32_t) (u_long) vni;
+	i++;
+	if (i >= MAX_VNI_PER_SUBTLV) {
+	  i = 0;
+	  tlvstart = stream_get_endp (stream);
+	  (void) memset(&rtcap, 0, sizeof (rtcap));
+	  rc = add_tlv(ROUTER_CAPABILITY,
+		       sizeof ( struct router_capability_tlv),
+		       (u_char *)&rtcap, stream);
+	  if (rc != ISIS_OK)
+	    return rc;
+	  rc = add_subtlv (RCSTLV_TRILL_VLAN_GROUP, size,
+			   (u_char *)vni_subtlv, tlvstart,stream);
+	  free(vni_subtlv);
+	  tlv_number --;
+	  if(tlv_number)
+	  {
+	    size = sizeof(struct trill_vni_subtlv) +
+		  MAX_VNI_PER_SUBTLV * sizeof(uint32_t);
+	    vni_subtlv = calloc(1, size);
+	    vni_subtlv->length = MAX_VNI_PER_SUBTLV;
+	    pnt = (uint32_t *) (uint8_t *)(vni_subtlv + 1);
+	  } else {
+	    /* last tlv size eq max*/
+	    if(last_tlv) {
+	      size = sizeof(struct trill_vni_subtlv) +
+		     last_tlv * sizeof(uint32_t);
+	      vni_subtlv = calloc (1, size);
+	      vni_subtlv->length = last_tlv;
+	      pnt = (uint32_t *) (uint8_t *)(vni_subtlv + 1);
+	    }
+	  }
+	}
+      }
+      /* last tlv size less than max*/
+      if(last_tlv) {
+	tlvstart = stream_get_endp (stream);
+	(void) memset(&rtcap, 0, sizeof (rtcap));
+	rc = add_tlv(ROUTER_CAPABILITY,
+		     sizeof ( struct router_capability_tlv),
+		     (u_char *)&rtcap, stream);
+	if (rc != ISIS_OK)
+	  return rc;
+	rc = add_subtlv (RCSTLV_TRILL_VLAN_GROUP, size,
+			 (u_char *)vni_subtlv,
+			 tlvstart, stream);
+	free(vni_subtlv);
+    }
+  }
   return rc;
 }
 /*
@@ -1545,7 +1643,7 @@ DEFUN (show_trill_topology,
 {
   struct isis_area *area;
   area = listgetdata(listhead (isis->area_list));
-  vty_out (vty, "IS-IS paths to RBridges that speak TRILL", VTY_NEWLINE);
+  vty_out (vty, "IS-IS paths to RBridges that speak TRILL%s", VTY_NEWLINE);
   trill_print_paths (vty, area);
 }
 DEFUN (show_trill_adjtable,

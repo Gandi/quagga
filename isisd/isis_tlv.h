@@ -536,6 +536,14 @@ struct trill_nickname_subtlv
 #pragma pack()
 #endif
 #endif /* HAVE_TRILL */
+
+#define MAX_VNI_PER_SUBTLV  60
+/* LSP: ROUTER_CAPABILITY RCSTLV_TRILL_VLAN_GROUP */
+struct trill_vni_subtlv
+{
+  u_int8_t length;
+  /*dynamic allocation of vni list*/
+};
 /*
  * Pointer to each tlv type, filled by parse_tlvs()
  */
