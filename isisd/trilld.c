@@ -62,6 +62,12 @@ int group_number;
 
 static nicknode_t * trill_nicknode_lookup(struct isis_area *area,
 					  uint16_t nick);
+static void trill_dict_delete_nodes (dict_t *dict1, dict_t *dict2,
+				     void *key1, int key2isnick);
+static nickdb_search_result trill_search_rbridge ( struct isis_area *area,
+						   nickinfo_t *ni,
+						   dnode_t **fndnode);
+static int trill_nick_conflict(nickinfo_t *nick1, nickinfo_t *nick2);
 int nickavailcnt = RBRIDGE_NICKNAME_MINRES - RBRIDGE_NICKNAME_NONE - 1;
 
 int nickname_init()
@@ -212,10 +218,43 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
 
   nickname = htons(nickname);
   savednick = area->trill->nick.name;
+
+  /*
+   * Check if we know of another RBridge already using this nickname.
+   * If yes check if it conflicts with the nickname in the database.
+   */
+  if (is_nickname_used(nickname)) {
+    nickinfo_t ni;
+    dnode_t *dnode;
+    nicknode_t *tnode;
+    ni.nick = area->trill->nick;
+    memcpy(ni.sysid, isis->sysid, ISIS_SYS_ID_LEN);
+    if (trill_search_rbridge (area, &ni, &dnode) == FOUND) {
+      assert (dnode);
+      tnode = dnode_get (dnode);
+      if (trill_nick_conflict (&(tnode->info), &ni)) {
+	trill_dict_delete_nodes (area->trill->nickdb,
+				 area->trill->sysidtonickdb,
+				 &nickname, false);
+      } else {
+	/*
+	 * The other nick in our nickdb has greater priority so return
+	 * fail, restore nick and let user configure another nick.
+	 */
+	if (savednick == RBRIDGE_NICKNAME_NONE)
+	{
+	  gen_nickname (area);
+	  SET_FLAG (area->trill->status, TRILL_NICK_SET);
+	  SET_FLAG (area->trill->status, TRILL_AUTONICK);
+	  area->trill->nick.priority &= ~CONFIGURED_NICK_PRIORITY;
+	}
+	return false;
+      }
+    }
+  }
+  trill_nickname_reserve(nickname);
   area->trill->nick.name = nickname;
   area->trill->nick.priority |= CONFIGURED_NICK_PRIORITY;
-
-  trill_nickname_reserve(nickname);
   SET_FLAG(area->trill->status, TRILL_NICK_SET);
   UNSET_FLAG(area->trill->status, TRILL_AUTONICK);
   if (listcount(area->circuit_list) > 0) {
@@ -228,7 +267,7 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
 			TRILL_CMD_SET_BRIDGE, TRILL_NL_VERSION);
     if(!trnlhdr)
       abort();
-    nla_put_u16(msg, TRILL_ATTR_U16, nickname);
+    nla_put_u16(msg, TRILL_ATTR_U16, htons(nickname));
     trnlhdr->ifindex = circuit->interface->ifindex;
     trnlhdr->total_length = sizeof(msg);
     trnlhdr->msg_number = 1;
