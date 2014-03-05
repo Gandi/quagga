@@ -60,7 +60,8 @@ static struct nl_sock *sock_genl;
 int genl_family;
 int group_number;
 
-
+static nicknode_t * trill_nicknode_lookup(struct isis_area *area,
+					  uint16_t nick);
 int nickavailcnt = RBRIDGE_NICKNAME_MINRES - RBRIDGE_NICKNAME_NONE - 1;
 
 int nickname_init()
@@ -659,6 +660,109 @@ static void trill_create_nickadjlist(struct isis_area *area,
       list_delete (oldadjlist);
   }
 }
+
+static void trill_publish_nick(struct isis_area *area, int fd,
+			       uint16_t nick, nickfwdtblnode_t *fwdnode,
+			       int port_id)
+{
+  int idx;
+  uint16_t overhead;
+  int new_ni_size;
+  void *listdata;
+  struct listnode *node;
+  struct list *adjnodes;
+  struct list *dtrootnodes;
+  struct nl_msg *msg;
+  struct trill_nl_header *trnlhdr;
+  nicknode_t *nick_node;
+  trill_nickinfo_t *ni;
+  uint16_t adjcount = 0;
+  uint16_t dtrootcount = 0;
+
+  /* If this is a forwarding entry (not us), then get node data */
+  if (fwdnode != NULL)
+  {
+    nick_node = trill_nicknode_lookup (area, fwdnode->dest_nick);
+    if (nick_node == NULL)
+      return;
+    adjnodes = nick_node->adjnodes;
+    dtrootnodes = nick_node->info.dt_roots;
+  } else {
+    adjnodes = area->trill->adjnodes;
+    dtrootnodes = area->trill->dt_roots;
+  }
+
+  if (adjnodes != NULL)
+    adjcount = listcount(adjnodes);
+
+  if (dtrootnodes != NULL)
+    dtrootcount = listcount(dtrootnodes);
+
+  overhead = (adjcount * sizeof (uint16_t)) +
+	     (dtrootcount * sizeof (uint16_t));
+
+  /*WARNING: extending tios size to have space for ajd list and treerot list*/
+
+  new_ni_size = sizeof(trill_nickinfo_t) + (overhead > 0 ? overhead : 0);
+  if (new_ni_size > PAGE_SIZE){
+    zlog_err("netlink data over PAGE_SIZE");
+    return;
+  }
+  ni = (trill_nickinfo_t *)calloc(1, new_ni_size);
+  ni->tni_adjcount = adjcount;
+  ni->tni_dtrootcount = dtrootcount;
+  ni->tni_nick = nick;
+
+  if (fwdnode != NULL) {
+    memcpy(ni->tni_adjsnpa, fwdnode->adj_snpa, sizeof(fwdnode->adj_snpa));
+    ni->tni_linkid = fwdnode->interface->ifindex;
+  }
+  if (adjcount > 0) {
+    idx = 0;
+    for (ALL_LIST_ELEMENTS_RO (adjnodes, node, listdata)) {
+      TNI_ADJNICK(ni, idx) = (uint16_t)(unsigned long)listdata;
+      idx++;
+    }
+  }
+
+  if (dtrootcount > 0) {
+    idx = 0;
+    for (ALL_LIST_ELEMENTS_RO (dtrootnodes, node, listdata)) {
+      TNI_DTROOTNICK(ni, idx) = (uint16_t)(unsigned long)listdata;
+      idx++;
+    }
+  }
+
+  if (ni) {
+    if (fwdnode == NULL) {
+      /*
+       * check if it's really self in case we remove fwdnode from
+       * fwdtbl before finishing executing this function
+       * (asynchronous threads)*/
+      if (area->trill->nick.name == nick) {
+	msg = nlmsg_alloc();
+	trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
+			    sizeof(struct trill_nl_header), NLM_F_REQUEST,
+			    TRILL_CMD_SET_NICKS_INFO, TRILL_NL_VERSION);
+      } else {
+	free(ni);
+	return;
+      }
+    } else {
+      msg = nlmsg_alloc();
+      trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
+			    sizeof(struct trill_nl_header), NLM_F_REQUEST,
+			    TRILL_CMD_ADD_NICKS_INFO, TRILL_NL_VERSION);
+    }
+    nla_put(msg,TRILL_ATTR_BIN, new_ni_size, ni);
+    trnlhdr->ifindex = port_id;
+    trnlhdr->total_length = sizeof(msg);
+    trnlhdr->msg_number = 1;
+    nl_send_auto_complete(sock_genl, msg);
+    nlmsg_free(msg);
+    free(ni);
+  }
+}
 /*
  * Called upon computing the SPF trees to create the forwarding
  * and adjacency lists for TRILL.
@@ -1042,7 +1146,8 @@ trill_circuits_print_all (struct vty *vty, struct isis_area *area)
 	     circuit->interface->name, VTY_NEWLINE);
 }
 
-static nicknode_t * trill_nicknode_lookup(struct isis_area *area, uint16_t nick)
+static nicknode_t * trill_nicknode_lookup(struct isis_area *area,
+					  uint16_t nick)
 {
   dnode_t *dnode;
   nicknode_t *tnode;

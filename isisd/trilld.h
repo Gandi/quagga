@@ -51,6 +51,7 @@
 #define TRILL_NICK_SET       (1 << 2)  /* nickname configured (random/user generated) */
 #define TRILL_PRIORITY_SET   (1 << 3)  /* nickname priority configured by user */
 
+typedef u_char ether_addr_t[6];
 /* trill nickname structure */
 struct trill_nickname
 {
@@ -124,7 +125,35 @@ typedef enum
   PRIORITY_CHANGE_ONLY
 } nickdb_search_result;
 
+typedef struct trill_nickinfo_s {
+  /* Nickname of the RBridge */
+  uint16_t	tni_nick;
+  /* Next-hop SNPA address to reach this RBridge */
+  ether_addr_t	tni_adjsnpa;
+  /* Link on our system to use to reach next-hop */
+  uint32_t	tni_linkid;
+  /* Num of *our* adjacencies on a tree rooted at this RBridge */
+  uint16_t	tni_adjcount;
+  /* Num of distribution tree root nicks chosen by this RBridge */
+  uint16_t	tni_dtrootcount;
+  /* Num of vlan supported by this RBridge  */
+  /* Variable size bytes to store adjacency nicks, distribution
+   * tree roots. Adjacency nicks and distribution tree roots are
+   * 16-bit fields.
+   */
+} trill_nickinfo_t;
 
+/* Access the adjacency nick list at the end of trill_nickinfo_t */
+#define	TNI_ADJNICKSPTR(v) ((uint16_t *)((trill_nickinfo_t *)(v)+1))
+#define	TNI_ADJNICK(v, n) (TNI_ADJNICKSPTR(v)[(n)])
+
+/* Access the DT root nick list in trill_nickinfo_t after adjacency nicks */
+#define	TNI_DTROOTNICKSPTR(v) ((uint16_t *)(TNI_ADJNICKSPTR(v)+(v)->tni_adjcount))
+#define	TNI_DTROOTNICK(v, n)  (TNI_DTROOTNICKSPTR(v)[(n)])
+
+#define TNI_TOTALSIZE(v) (sizeof (trill_nickinfo_t) + \
+	(sizeof (uint16_t) * (v)->tni_adjcount) + \
+	(sizeof (uint16_t) * (v)->tni_dtrootcount)
 /* trilld.c */
 void trill_area_init(struct isis_area *area);
 void trill_area_free(struct isis_area *area);

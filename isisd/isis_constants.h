@@ -176,4 +176,8 @@
 #define true  1
 #define false 0
 #endif
+
+#ifndef PAGE_SIZE
+#define PAGE_SIZE 4095
+#endif
 #endif /* ISIS_CONSTANTS_H */
