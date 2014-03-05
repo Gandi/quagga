@@ -17,6 +17,40 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#include <zebra.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include "log.h"
+#include "memory.h"
+#include "hash.h"
+#include "vty.h"
+#include "linklist.h"
+#include "thread.h"
+#include "if.h"
+#include "stream.h"
+#include "command.h"
+#include "privs.h"
+
+#include "isisd/dict.h"
+#include "isisd/isis_common.h"
+#include "isisd/isis_constants.h"
+#include "isisd/isis_misc.h"
+#include "isisd/isis_circuit.h"
+#include "isisd/isis_flags.h"
+#include "isisd/isis_tlv.h"
+#include "isisd/isis_lsp.h"
+#include "isisd/isis_pdu.h"
+#include "isisd/trilld.h"
+#include "isisd/isisd.h"
+#include "isisd/isis_spf.h"
+#include "isisd/isis_adjacency.h"
 #include "isisd/netlink.h"
 
 static struct nla_policy TRILL_U16_POLICY [TRILL_ATTR_MAX + 1] = {
@@ -123,8 +157,17 @@ int parse_cb(struct nl_msg *msg, void *data)
     }
     case TRILL_CMD_GET_VNIS:
     {
+      int16_t vni_nb;
+      uint32_t vnis[MAX_VNI_ARR_SIZE];
+      int i;
       genlmsg_parse(nlh, sizeof(struct trill_nl_header), attrs,
 		    TRILL_ATTR_MAX, TRILL_VNI_POLICY);
+      vni_nb = nla_get_u16(attrs[TRILL_ATTR_U16]);
+      nla_memcpy(vnis,attrs[TRILL_ATTR_BIN], sizeof(uint32_t)*vni_nb);
+      list_delete(area->trill->configured_vni);
+      area->trill->configured_vni = list_new();
+      for (i=0; i< vni_nb; i++)
+	listnode_add(area->trill->configured_vni,(void *)(u_long)vnis[i]);
       break;
     }
     default:

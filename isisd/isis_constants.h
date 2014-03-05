@@ -180,4 +180,6 @@
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4095
 #endif
+/* maximum vni number to fetch from kernel */
+#define MAX_VNI_ARR_SIZE 1024
 #endif /* ISIS_CONSTANTS_H */
