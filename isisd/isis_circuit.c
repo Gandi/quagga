@@ -600,6 +600,19 @@ isis_circuit_up (struct isis_circuit *circuit)
   if (circuit->is_passive)
     return ISIS_OK;
 
+/* WARNING
+ * netlink socket that set nickname needs at least one interface index
+ * in order to get correct rbridge id.
+ * When parsing configuration file specified interface structure are
+ * still not binded to interfaces.
+ * Recall the trill_area_nickname that has already set nick.name in
+ * trill structure in the first call.
+ * this is not the best way to proceed but to proceed otherwise we will need
+ * to change kernel part.
+ */
+#ifdef HAVE_TRILL
+trill_area_nickname(circuit->area, htons(circuit->area->trill->nick.name));
+#endif
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
       /*

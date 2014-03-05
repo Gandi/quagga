@@ -132,16 +132,16 @@ static int trill_nickname_nickbitmap_op(u_int16_t nick, int update, int val)
   }
   return false;
 }
-static int is_nickname_used(u_int16_t nick_nbo)
+int is_nickname_used(uint16_t nick_nbo)
 {
   return trill_nickname_nickbitmap_op(ntohs(nick_nbo), false, true);
 }
-static void trill_nickname_reserve(u_int16_t nick_nbo)
+static void trill_nickname_reserve(uint16_t nick_nbo)
 {
   trill_nickname_nickbitmap_op(ntohs(nick_nbo), true, true);
 }
 
-static void trill_nickname_free(u_int16_t nick_nbo)
+static void trill_nickname_free(uint16_t nick_nbo)
 {
   trill_nickname_nickbitmap_op(ntohs(nick_nbo), true, false);
 }
@@ -217,6 +217,23 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
   trill_nickname_reserve(nickname);
   SET_FLAG(area->trill->status, TRILL_NICK_SET);
   UNSET_FLAG(area->trill->status, TRILL_AUTONICK);
+  if (listcount(area->circuit_list) > 0) {
+    struct nl_msg *msg;
+    struct trill_nl_header *trnlhdr;
+    struct isis_circuit *circuit = listgetdata(listhead(area->circuit_list));
+    msg = nlmsg_alloc();
+    trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
+			sizeof(struct trill_nl_header), NLM_F_REQUEST,
+			TRILL_CMD_SET_BRIDGE, TRILL_NL_VERSION);
+    if(!trnlhdr)
+      abort();
+    nla_put_u16(msg, TRILL_ATTR_U16, nickname);
+    trnlhdr->ifindex = circuit->interface->ifindex;
+    trnlhdr->total_length = sizeof(msg);
+    trnlhdr->msg_number = 1;
+    nl_send_auto_complete(sock_genl, msg);
+    nlmsg_free(msg);
+  }
   return true;
 }
 

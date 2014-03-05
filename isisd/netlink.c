@@ -16,22 +16,23 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
+
 #include "isisd/netlink.h"
 
-static struct nla_policy TRILL_U16_POLICY [TRILL_ATTR_MAX + 1]={
+static struct nla_policy TRILL_U16_POLICY [TRILL_ATTR_MAX + 1] = {
   [TRILL_ATTR_U16] = {.type = NLA_U16},
 };
-static struct nla_policy TRILL_U32_POLICY [TRILL_ATTR_MAX + 1]={
+static struct nla_policy TRILL_U32_POLICY [TRILL_ATTR_MAX + 1] = {
   [TRILL_ATTR_U32] = {.type = NLA_U32},
 };
-static struct nla_policy TRILL_STRING_POLICY [TRILL_ATTR_MAX + 1]={
+static struct nla_policy TRILL_STRING_POLICY [TRILL_ATTR_MAX + 1] = {
   [TRILL_ATTR_STRING] = {.type = NLA_STRING},
 };
-static struct nla_policy TRILL_BIN_POLICY [TRILL_ATTR_MAX + 1]={
+static struct nla_policy TRILL_BIN_POLICY [TRILL_ATTR_MAX + 1] = {
   [TRILL_ATTR_BIN] = {.type = NLA_UNSPEC},
 };
 
-static struct nla_policy TRILL_VNI_POLICY [TRILL_ATTR_MAX + 1]={
+static struct nla_policy TRILL_VNI_POLICY [TRILL_ATTR_MAX + 1] = {
   [TRILL_ATTR_U16] = {.type = NLA_U16},
   [TRILL_ATTR_BIN] = {.type = NLA_UNSPEC},
 };

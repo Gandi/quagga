@@ -59,4 +59,8 @@ int tlv_add_trill_nickname (struct trill_nickname *nick_info,
 void trill_process_spf (struct isis_area *area) {}
 void trill_parse_router_capability_tlvs (struct isis_area *area,
 					 struct isis_lsp *lsp) { }
+int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
+{
+  return 0;
+}
 void trill_init() {}

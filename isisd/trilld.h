@@ -134,6 +134,7 @@ void trill_process_spf (struct isis_area *area);
 void trill_parse_router_capability_tlvs (struct isis_area *,
 					 struct isis_lsp *);
 
+int trill_area_nickname(struct isis_area *area, u_int16_t nickname);
 void trill_init();
 
 #endif
