@@ -119,6 +119,8 @@ void generate_topology_lsps (struct isis_area *area);
 void remove_topology_lsps (struct isis_area *area);
 void build_topology_lsp_data (struct isis_lsp *lsp,
 			      struct isis_area *area, int lsp_top_num);
+int lsp_regenerate_now(struct isis_area *area, int level);
+
 #endif /* TOPOLOGY_GENERATE */
 
 #endif /* ISIS_LSP */

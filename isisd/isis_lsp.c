@@ -1710,6 +1710,14 @@ lsp_regenerate (struct isis_area *area, int level)
   return ISIS_OK;
 }
 
+
+int lsp_regenerate_now(struct isis_area *area, int level)
+{
+  area->t_lsp_refresh[0] = NULL;
+  area->lsp_regenerate_pending[0] = 0;
+  return lsp_regenerate (area, level);
+}
+
 /*
  * Something has changed or periodic refresh -> regenerate LSP
  */
