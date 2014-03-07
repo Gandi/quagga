@@ -849,12 +849,14 @@ static void trill_publish_nick(struct isis_area *area, int fd,
   struct listnode *node;
   struct list *adjnodes;
   struct list *dtrootnodes;
+  struct list *supported_vni;
   struct nl_msg *msg;
   struct trill_nl_header *trnlhdr;
   nicknode_t *nick_node;
   trill_nickinfo_t *ni;
   uint16_t adjcount = 0;
   uint16_t dtrootcount = 0;
+  uint16_t vnicount = 0;
 
   /* If this is a forwarding entry (not us), then get node data */
   if (fwdnode != NULL)
@@ -864,9 +866,11 @@ static void trill_publish_nick(struct isis_area *area, int fd,
       return;
     adjnodes = nick_node->adjnodes;
     dtrootnodes = nick_node->info.dt_roots;
+    supported_vni = nick_node->info.supported_vni;
   } else {
     adjnodes = area->trill->adjnodes;
     dtrootnodes = area->trill->dt_roots;
+    supported_vni = area->trill->configured_vni;
   }
 
   if (adjnodes != NULL)
@@ -874,9 +878,15 @@ static void trill_publish_nick(struct isis_area *area, int fd,
 
   if (dtrootnodes != NULL)
     dtrootcount = listcount(dtrootnodes);
+  if (supported_vni != NULL)
+    vnicount = listcount(supported_vni);
 
-  overhead = (adjcount * sizeof (uint16_t)) +
-	     (dtrootcount * sizeof (uint16_t));
+  overhead = (
+    (adjcount * sizeof (uint16_t))+
+    (dtrootcount * sizeof (uint16_t)) +
+    (vnicount * sizeof (uint32_t))
+  );
+
 
   /*WARNING: extending tios size to have space for ajd list and treerot list*/
 
@@ -888,6 +898,7 @@ static void trill_publish_nick(struct isis_area *area, int fd,
   ni = (trill_nickinfo_t *)calloc(1, new_ni_size);
   ni->tni_adjcount = adjcount;
   ni->tni_dtrootcount = dtrootcount;
+  ni->tni_vnicount = vnicount;
   ni->tni_nick = nick;
 
   if (fwdnode != NULL) {
@@ -906,6 +917,13 @@ static void trill_publish_nick(struct isis_area *area, int fd,
     idx = 0;
     for (ALL_LIST_ELEMENTS_RO (dtrootnodes, node, listdata)) {
       TNI_DTROOTNICK(ni, idx) = (uint16_t)(unsigned long)listdata;
+      idx++;
+    }
+  }
+  if (vnicount > 0) {
+    idx = 0;
+    for (ALL_LIST_ELEMENTS_RO (supported_vni, node, listdata)) {
+      TNI_VNI(ni, idx) = (uint32_t)(unsigned long)listdata;
       idx++;
     }
   }
