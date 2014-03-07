@@ -36,7 +36,7 @@ isisd_LDADD = @ISIS_TOPOLOGY_LIB@ ../lib/libzebra.la @LIBCAP@
 trilld_SOURCES = \
 	isis_main.c $(libisis_a_SOURCES) \
 	isis_bpf.c isis_dlpi.c isis_pfpacket.c \
-	trilld.c netlink.c
+	trilld.c netlink.c trill_vni.c
 trilld_LDADD = @ISIS_TOPOLOGY_LIB@ ../lib/libzebra.la @LIBCAP@	
 
 examplesdir = $(exampledir)

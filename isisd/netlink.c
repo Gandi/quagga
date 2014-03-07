@@ -167,7 +167,9 @@ int parse_cb(struct nl_msg *msg, void *data)
       list_delete(area->trill->configured_vni);
       area->trill->configured_vni = list_new();
       for (i=0; i< vni_nb; i++)
-	listnode_add(area->trill->configured_vni,(void *)(u_long)vnis[i]);
+	listnode_add(area->trill->configured_vni, (void *)(u_long)vnis[i]);
+      if (generate_supported_vni(area))
+	lsp_regenerate_now(area, TRILL_ISIS_LEVEL);
       break;
     }
     default:
