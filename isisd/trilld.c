@@ -550,6 +550,8 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
   uint8_t stlvlen;
   int nick_recvd = false;
   int flags_recvd = false;
+  int vni_recvd = false;
+  uint8_t vni_count;
   u_char *pnt;
 
   memset(recvd_nick, 0, sizeof(nickinfo_t));
@@ -614,6 +616,39 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
 	      else
 		zlog_warn("ISIS trill_parse_lsp invalid len:%d"
 		" of TRILL nick sub-TLV", subtlv_len);
+	    }
+	    pnt += stlvlen;
+	    subtlvs_len -= subtlv_len;
+	    break;
+
+	  case RCSTLV_TRILL_VLAN_GROUP:
+	    if (!vni_recvd && subtlv_len >= TRILL_VNI_SUBTLV_MIN_LEN) {
+	      recvd_nick->vni_count = *(uint8_t*)pnt;
+	      zlog_debug("recvd_nick->vni_count = %i",recvd_nick->vni_count);
+	      pnt = (uint32_t *) ((uint8_t *) pnt + 1);
+	      for (vni_count = 0; vni_count < recvd_nick->vni_count; vni_count++) {
+		listnode_add (recvd_nick->supported_vni,
+			      (void *) (u_long) *(uint32_t *)pnt);
+		pnt = (uint32_t *)pnt + 1;
+	      }
+	      vni_recvd = true;
+	    } else {
+	      /* mulipart subtlv */
+	      if (vni_recvd) {
+		if (subtlv_len >= TRILL_VNI_SUBTLV_MIN_LEN) {
+		  uint8_t sub_count;
+		  sub_count = *(u_int8_t*)pnt;
+		  recvd_nick->vni_count += sub_count;
+		  pnt = (uint32_t *) ((uint8_t *) pnt + 1);
+		  for (vni_count = 0;vni_count < sub_count; vni_count++) {
+		    listnode_add (recvd_nick->supported_vni,
+				  (void *) (u_long) *(uint32_t *)pnt);
+		    pnt = (uint32_t *)pnt+1;
+		  }
+		}
+	      } else
+		zlog_warn("ISIS trill_parse_lsp invalid len:%d"
+		" of TRILL vlan sub-TLV", subtlv_len);
 	    }
 	    pnt += stlvlen;
 	    subtlvs_len -= subtlv_len;
@@ -1342,6 +1377,9 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area)
   dnode_t *dnode;
   nicknode_t *tnode;
   const char *sysid;
+  struct listnode *node;
+  void *data;
+  uint32_t vni;
 
   u_char *lsysid;
   u_int16_t lpriority;
@@ -1358,6 +1396,13 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area)
 	     print_sys_hostname (tnode->info.sysid),
 	     ntohs (tnode->info.nick.name),
 	     tnode->info.nick.priority,VTY_NEWLINE);
+    vty_out(vty, "\tSupported VNI:%s\t",VTY_NEWLINE);
+
+    for (ALL_LIST_ELEMENTS_RO(tnode->info.supported_vni, node, data)) {
+      vni = (uint32_t) (u_long) data;
+      vty_out(vty, "%i    ",(((vni >>4)&0x00FFF000) | (vni &0x00000FFF)));
+    }
+    vty_out(vty, "%s",VTY_NEWLINE);
   }
   if(area->trill->tree_root)
     vty_out (vty,"    TREE_ROOT:       %8d    %s",
@@ -1572,8 +1617,11 @@ DEFUN (show_trill_nickdatabase,
 {
 
   struct listnode *node;
+  struct listnode *vninode;
   struct isis_area *area;
   dnode_t *dnode;
+  void *data;
+  uint32_t vni;
 
   if (isis->area_list->count == 0)
     return CMD_SUCCESS;
@@ -1584,6 +1632,11 @@ DEFUN (show_trill_nickdatabase,
 	     ntohs(area->trill->nick.name),
 	     area->trill->nick.priority,VTY_NEWLINE);
 
+    vty_out(vty, "\tConfigured VNI%s\t",VTY_NEWLINE);
+    for (ALL_LIST_ELEMENTS_RO(area->trill->configured_vni, vninode, data)) {
+      vni = (uint32_t) (u_long) data;
+      vty_out(vty, "%i    ",(((vni >>4)&0x00FFF000) | (vni &0x00000FFF)));
+    }
     vty_out (vty, "%s", VTY_NEWLINE);
     vty_out (vty, "IS-IS TRILL nickname database:%s", VTY_NEWLINE);
     trill_nickdb_print (vty, area);
