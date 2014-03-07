@@ -174,6 +174,8 @@ typedef struct trill_nickinfo_s {
 /* trilld.c */
 void trill_area_init(struct isis_area *area);
 void trill_area_free(struct isis_area *area);
+nicknode_t * trill_nicknode_lookup(struct isis_area *area,
+				   uint16_t nick);
 int tlv_add_trill_nickname (struct trill_nickname *nick_info,
 			    struct stream *stream, struct isis_area *area);
 void trill_process_spf (struct isis_area *area);

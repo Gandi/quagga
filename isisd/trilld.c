@@ -60,8 +60,6 @@ static struct nl_sock *sock_genl;
 int genl_family;
 int group_number;
 
-static nicknode_t * trill_nicknode_lookup(struct isis_area *area,
-					  uint16_t nick);
 static void trill_dict_delete_nodes (dict_t *dict1, dict_t *dict2,
 				     void *key1, int key2isnick);
 static nickdb_search_result trill_search_rbridge ( struct isis_area *area,
@@ -1423,7 +1421,7 @@ trill_circuits_print_all (struct vty *vty, struct isis_area *area)
 	     circuit->interface->name, VTY_NEWLINE);
 }
 
-static nicknode_t * trill_nicknode_lookup(struct isis_area *area,
+nicknode_t * trill_nicknode_lookup(struct isis_area *area,
 					  uint16_t nick)
 {
   dnode_t *dnode;

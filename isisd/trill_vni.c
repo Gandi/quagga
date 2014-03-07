@@ -54,12 +54,58 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_adjacency.h"
 
+static void
+list_add_list_unique (struct list *l, struct list *m)
+{
+  struct listnode *n;
+
+  for (n = listhead (m); n; n = listnextnode (n)) {
+    if(!listnode_lookup (l,(void *)n->data)) {
+      listnode_add (l, n->data);
+    }
+  }
+}
+static void add_vni_list(struct isis_area *area, struct list *list,
+			 uint16_t nick )
+{
+  static nicknode_t  *tnode;
+  tnode = trill_nicknode_lookup(area, nick);
+  list_add_list_unique(list, tnode->info.supported_vni);
+}
+
+/*
+ * get value that exist in two of lists
+ * but are not already present in list
+ */
+static void intersect_list(struct list* list, struct list **lists, int count)
+{
+  int i,j;
+  uint32_t * vni;
+  struct listnode *node;
+  for ( i = 0; i < count ; i++) {
+    for (ALL_LIST_ELEMENTS_RO (lists[i], node, vni)) {
+      /* if this vni is already supported no need to do other check */
+      if(!listnode_lookup(list, vni))
+	for (j = i; j < count ; j++) {
+	  if (listnode_lookup(lists[j], vni)) {
+	    listnode_add(list, vni);
+	  }
+	}
+    }
+    list_delete(lists[i]);
+  }
+  free(lists);
+}
 int generate_supported_vni(struct isis_area *area)
 {
   int old_count, changed;
-  struct listnode *node;
+  struct listnode *node, *tnode;
   struct list * old_list;
+  struct isis_circuit *circuit;
+  nickfwdtblnode_t *fwdnode;
   void *vni;
+  int i, circuit_number;
+  struct list** tmp_list;
   changed = false;
   struct trill *trill = area->trill;
   old_count = listcount(trill->supported_vni);
@@ -76,13 +122,32 @@ int generate_supported_vni(struct isis_area *area)
   list_delete (old_list);
 
   /* Step two is use less if circuit list has a unique interface */
-  if ( listcount(area->circuit_list) < 2 )
+  circuit_number = listcount(area->circuit_list);
+  if ( circuit_number < 2 )
     goto out;
 
   /*
    * Step two check if a vni is received from two diffrents interfaces
    *  in such case add it to supported vni list
    */
+  /*
+   * WARNING i am a struct list ** dont forget to free me
+   * after deleting all the struct list *
+   */
+  tmp_list = calloc(1, sizeof(struct list *) * circuit_number);
+  i = 0;
+  /* Step 2.1  group vni per interface */
+  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit)){
+    /* tmp_list[i] will store all vni supported by interface i */
+    tmp_list[i] = list_new();
+    for (ALL_LIST_ELEMENTS_RO (area->trill->fwdtbl, tnode, fwdnode)) {
+      if(circuit->interface->ifindex == fwdnode->interface->ifindex)
+	add_vni_list(area, tmp_list[i], fwdnode->dest_nick);
+    }
+    i++;
+  }
+  /* Step 2.2 add vni that are present on multiple interface */
+  intersect_list(trill->supported_vni, tmp_list, circuit_number);
 
 out :
   /*
