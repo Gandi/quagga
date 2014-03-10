@@ -50,11 +50,14 @@ override_dh_auto_configure:
  		--enable-vtysh \
  		--enable-isisd \
  		--enable-watchquagga \
- 		--enable-ospf-te \
- 		--enable-opaque-lsa \
+ 		--disable-ospf-te \
+ 		--disable-opaque-lsa \
  		--disable-ipv6 \
- 		--enable-ospfclient=yes \
- 		--enable-ospfapi=yes \
+ 		--enable-ospfclient=no \
+ 		--enable-ospfapi=no \
+ 		--disable-ripd \
+ 		--disable-babeld \
+		--disable-bgpd \
  		--enable-multipath=64 \
  		--enable-user=quagga \
  		--enable-group=quagga \
