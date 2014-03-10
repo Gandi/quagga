@@ -501,16 +501,17 @@ time2string (u_int32_t time)
  * the jitter
  */
 unsigned long
-isis_jitter (unsigned long timer, unsigned long jitter)
+isis_jitter (unsigned long timer, unsigned long jitter, int *precision)
 {
-  int j, k;
+  float j, k, tmp;
 
   if (jitter >= 100)
     return timer;
 
   if (timer == 1)
     return timer;
-  /* 
+
+  /*
    * randomizing just the percent value provides
    * no good random numbers - hence the spread
    * to RANDOM_SPREAD (100000), which is ok as
@@ -519,10 +520,33 @@ isis_jitter (unsigned long timer, unsigned long jitter)
 
   j = 1 + (int) ((RANDOM_SPREAD * rand ()) / (RAND_MAX + 1.0));
 
-  k = timer - (timer * (100 - jitter)) / 100;
+  k = (float) timer - ((float)timer * (100 - jitter)) / 100;
 
-  timer = timer - (k * j / RANDOM_SPREAD);
+  tmp = ((float) timer - (float) (k * j / RANDOM_SPREAD));
 
+  /*
+   * For LSP the timer is large enough yo to have a
+   * jitter > 1 in such case precision is not needed
+   * and we can return a value in second
+   */
+
+  if (! precision)
+    return (unsigned long ) tmp;
+
+  /*
+   * considering that we deal with interger if k < 1 returned value will
+   * always be equal to timer - 1 this make isis_jitter useless
+   * in such case switch to MS precision in order to get a correct
+   * jitter value
+   */
+  if ( k < 1 ) {
+    timer =  tmp * 1000;
+    *precision = ISIS_MS_PRECISION;
+  }
+  else {
+    timer = (unsigned long) tmp;
+    *precision = ISIS_S_PRECISION;
+  }
   return timer;
 }
 

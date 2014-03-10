@@ -2433,7 +2433,7 @@ int
 send_lan_l1_hello (struct thread *thread)
 {
   struct isis_circuit *circuit;
-  int retval;
+  int retval, precision, timer;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
@@ -2445,10 +2445,15 @@ send_lan_l1_hello (struct thread *thread)
   retval = send_hello (circuit, 1);
 
   /* set next timer thread */
-  THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[0],
+  timer = isis_jitter (circuit->hello_interval[0], IIH_JITTER, &precision);
+  if (precision == ISIS_S_PRECISION)
+    THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[0],
 		   send_lan_l1_hello, circuit,
-		   isis_jitter (circuit->hello_interval[0], IIH_JITTER));
-
+		   timer);
+  else
+    THREAD_TIMER_MSEC_ON (master, circuit->u.bc.t_send_lan_hello[0],
+		     send_lan_l1_hello, circuit,
+		     timer);
   return retval;
 }
 
@@ -2456,7 +2461,7 @@ int
 send_lan_l2_hello (struct thread *thread)
 {
   struct isis_circuit *circuit;
-  int retval;
+  int retval, precision, timer;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
@@ -2468,9 +2473,16 @@ send_lan_l2_hello (struct thread *thread)
   retval = send_hello (circuit, 2);
 
   /* set next timer thread */
-  THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[1],
-		   send_lan_l2_hello, circuit,
-		   isis_jitter (circuit->hello_interval[1], IIH_JITTER));
+  timer = isis_jitter (circuit->hello_interval[1], IIH_JITTER, &precision);
+  if (precision == ISIS_S_PRECISION)
+    THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[1],
+		     send_lan_l2_hello, circuit,
+		     timer);
+    else
+      THREAD_TIMER_MSEC_ON (master, circuit->u.bc.t_send_lan_hello[1],
+			    send_lan_l2_hello, circuit,
+			    timer);
+      return retval;
 
   return retval;
 }
@@ -2479,6 +2491,7 @@ int
 send_p2p_hello (struct thread *thread)
 {
   struct isis_circuit *circuit;
+  int precision, timer;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
@@ -2487,10 +2500,13 @@ send_p2p_hello (struct thread *thread)
   send_hello (circuit, 1);
 
   /* set next timer thread */
-  THREAD_TIMER_ON (master, circuit->u.p2p.t_send_p2p_hello, send_p2p_hello,
-		   circuit, isis_jitter (circuit->hello_interval[1],
-					 IIH_JITTER));
-
+  timer = isis_jitter (circuit->hello_interval[1], IIH_JITTER, &precision);
+  if (precision == ISIS_S_PRECISION)
+    THREAD_TIMER_ON (master, circuit->u.p2p.t_send_p2p_hello, send_p2p_hello,
+		   circuit, timer);
+  else
+    THREAD_TIMER_MSEC_ON (master, circuit->u.p2p.t_send_p2p_hello, send_p2p_hello,
+		     circuit, timer);
   return ISIS_OK;
 }
 
@@ -2781,6 +2797,7 @@ send_l1_csnp (struct thread *thread)
 {
   struct isis_circuit *circuit;
   int retval = ISIS_OK;
+  int timer, precision;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
@@ -2792,9 +2809,13 @@ send_l1_csnp (struct thread *thread)
       send_csnp (circuit, 1);
     }
   /* set next timer thread */
-  THREAD_TIMER_ON (master, circuit->t_send_csnp[0], send_l1_csnp, circuit,
-		   isis_jitter (circuit->csnp_interval[0], CSNP_JITTER));
-
+  timer = isis_jitter (circuit->csnp_interval[0], CSNP_JITTER, &precision);
+  if (precision == ISIS_S_PRECISION)
+    THREAD_TIMER_ON (master, circuit->t_send_csnp[0], send_l1_csnp, circuit,
+		   timer);
+  else
+    THREAD_TIMER_MSEC_ON (master, circuit->t_send_csnp[0], send_l1_csnp,
+			  circuit, timer);
   return retval;
 }
 
@@ -2803,6 +2824,8 @@ send_l2_csnp (struct thread *thread)
 {
   struct isis_circuit *circuit;
   int retval = ISIS_OK;
+  int timer, precision;
+
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
@@ -2814,8 +2837,13 @@ send_l2_csnp (struct thread *thread)
       send_csnp (circuit, 2);
     }
   /* set next timer thread */
-  THREAD_TIMER_ON (master, circuit->t_send_csnp[1], send_l2_csnp, circuit,
-		   isis_jitter (circuit->csnp_interval[1], CSNP_JITTER));
+  timer = isis_jitter (circuit->csnp_interval[1], CSNP_JITTER, &precision);
+  if (precision == ISIS_S_PRECISION)
+    THREAD_TIMER_ON (master, circuit->t_send_csnp[1], send_l2_csnp, circuit,
+		   timer);
+  else
+    THREAD_TIMER_MSEC_ON (master, circuit->t_send_csnp[1], send_l2_csnp,
+			  circuit, timer);
 
   return retval;
 }
@@ -3012,6 +3040,7 @@ send_l1_psnp (struct thread *thread)
 
   struct isis_circuit *circuit;
   int retval = ISIS_OK;
+  int timer, precision;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
@@ -3020,9 +3049,13 @@ send_l1_psnp (struct thread *thread)
 
   send_psnp (1, circuit);
   /* set next timer thread */
-  THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
-		   isis_jitter (circuit->psnp_interval[0], PSNP_JITTER));
-
+  timer = isis_jitter (circuit->psnp_interval[0], PSNP_JITTER, &precision);
+  if (precision == ISIS_S_PRECISION)
+    THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
+		  timer);
+  else
+    THREAD_TIMER_MSEC_ON (master, circuit->t_send_psnp[0], send_l1_psnp,
+			  circuit, timer);
   return retval;
 }
 
@@ -3035,6 +3068,7 @@ send_l2_psnp (struct thread *thread)
 {
   struct isis_circuit *circuit;
   int retval = ISIS_OK;
+  int timer, precision;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
@@ -3044,9 +3078,13 @@ send_l2_psnp (struct thread *thread)
   send_psnp (2, circuit);
 
   /* set next timer thread */
-  THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
-		   isis_jitter (circuit->psnp_interval[1], PSNP_JITTER));
-
+  timer = isis_jitter (circuit->psnp_interval[1], PSNP_JITTER, &precision);
+  if (precision == ISIS_S_PRECISION)
+    THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
+		   timer);
+  else
+    THREAD_TIMER_MSEC_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
+		     timer);
   return retval;
 }
 

@@ -589,7 +589,7 @@ isis_circuit_update_all_srmflags (struct isis_circuit *circuit, int is_set)
 int
 isis_circuit_up (struct isis_circuit *circuit)
 {
-  int retv;
+  int retv, timer, precision;
 
   /* Set the flags for all the lsps of the circuit. */
   isis_circuit_update_all_srmflags (circuit, 1);
@@ -692,14 +692,25 @@ trill_area_nickname(circuit->area, htons(circuit->area->trill->nick.name));
     }
 
   /* initializing PSNP timers */
-  if (circuit->is_type & IS_LEVEL_1)
-    THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
-                     isis_jitter (circuit->psnp_interval[0], PSNP_JITTER));
+  if (circuit->is_type & IS_LEVEL_1) {
+    timer = isis_jitter (circuit->psnp_interval[0], PSNP_JITTER, &precision);
+    if (precision == ISIS_S_PRECISION)
+      THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
+                     timer);
+    else
+      THREAD_TIMER_MSEC_ON (master, circuit->t_send_psnp[0], send_l1_psnp,
+			    circuit, timer);
 
-  if (circuit->is_type & IS_LEVEL_2)
-    THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
-                     isis_jitter (circuit->psnp_interval[1], PSNP_JITTER));
-
+  }
+  if (circuit->is_type & IS_LEVEL_2) {
+    timer = isis_jitter (circuit->psnp_interval[1], PSNP_JITTER, &precision);
+    if (precision == ISIS_S_PRECISION)
+      THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
+                     timer);
+    else
+      THREAD_TIMER_MSEC_ON (master, circuit->t_send_psnp[1], send_l2_psnp,
+			    circuit, timer);
+  }
   /* unified init for circuits; ignore warnings below this level */
   retv = isis_sock_init (circuit);
   if (retv != ISIS_OK)

@@ -55,7 +55,8 @@ void zlog_dump_data (void *data, int len);
  * misc functions
  */
 int speaks (struct nlpids *nlpids, int family);
-unsigned long isis_jitter (unsigned long timer, unsigned long jitter);
+unsigned long isis_jitter (unsigned long timer, unsigned long jitter,
+			   int* precision);
 const char *unix_hostname (void);
 
 /*
@@ -78,6 +79,12 @@ enum
   ISIS_UI_LEVEL_BRIEF,
   ISIS_UI_LEVEL_DETAIL,
   ISIS_UI_LEVEL_EXTENSIVE,
+};
+
+enum
+{
+  ISIS_S_PRECISION,
+  ISIS_MS_PRECISION,
 };
 
 #endif

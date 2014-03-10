@@ -1093,7 +1093,7 @@ lsp_rem_lifetime (struct isis_area *area, int level)
 
   /* Add jitter to configured LSP lifetime */
   rem_lifetime = isis_jitter (area->max_lsp_lifetime[level - 1],
-                              MAX_AGE_JITTER);
+                              MAX_AGE_JITTER, NULL);
 
   /* No jitter if the max refresh will be less than configure gen interval */
   if (area->lsp_gen_interval[level - 1] > (rem_lifetime - 300))
@@ -1111,7 +1111,7 @@ lsp_refresh_time (struct isis_lsp *lsp, u_int16_t rem_lifetime)
 
   /* Add jitter to LSP refresh time */
   refresh_time = isis_jitter (area->lsp_refresh[level - 1],
-                              MAX_LSP_GEN_JITTER);
+                              MAX_LSP_GEN_JITTER, NULL);
 
   /* RFC 4444 : make sure the refresh time is at least less than 300
    * of the remaining lifetime and more than gen interval */

@@ -239,6 +239,7 @@ int
 isis_dr_resign (struct isis_circuit *circuit, int level)
 {
   u_char id[ISIS_SYS_ID_LEN + 2];
+  int timer, precision;
 
   zlog_debug ("isis_dr_resign l%d", level);
 
@@ -262,9 +263,14 @@ isis_dr_resign (struct isis_circuit *circuit, int level)
       THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
 		       circuit, 2 * circuit->hello_interval[0]);
 
-      THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
-		       isis_jitter (circuit->psnp_interval[level - 1],
-				    PSNP_JITTER));
+      timer = isis_jitter (circuit->psnp_interval[level - 1],
+			   PSNP_JITTER, &precision);
+      if (precision == ISIS_S_PRECISION)
+	THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp,
+			 circuit, timer);
+      else
+	THREAD_TIMER_MSEC_ON (master, circuit->t_send_psnp[0], send_l1_psnp,
+			 circuit, timer);
     }
   else
     {
@@ -275,9 +281,15 @@ isis_dr_resign (struct isis_circuit *circuit, int level)
       THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
 		       circuit, 2 * circuit->hello_interval[1]);
 
-      THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
-		       isis_jitter (circuit->psnp_interval[level - 1],
-				    PSNP_JITTER));
+      timer = isis_jitter (circuit->psnp_interval[level - 1],
+			   PSNP_JITTER, &precision);
+      if (precision == ISIS_S_PRECISION)
+	THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp,
+			 circuit, timer);
+      else
+	THREAD_TIMER_MSEC_ON (master, circuit->t_send_psnp[1], send_l2_psnp,
+			 circuit, timer);
+
     }
 
   thread_add_event (master, isis_event_dis_status_change, circuit, 0);
@@ -289,6 +301,7 @@ int
 isis_dr_commence (struct isis_circuit *circuit, int level)
 {
   u_char old_dr[ISIS_SYS_ID_LEN + 2];
+  int timer, precision;
 
   if (isis->debugs & DEBUG_EVENTS)
     zlog_debug ("isis_dr_commence l%d", level);
@@ -324,9 +337,14 @@ isis_dr_commence (struct isis_circuit *circuit, int level)
       THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
 		       circuit, 2 * circuit->hello_interval[0]);
 
-      THREAD_TIMER_ON (master, circuit->t_send_csnp[0], send_l1_csnp, circuit,
-		       isis_jitter (circuit->csnp_interval[level - 1],
-				    CSNP_JITTER));
+      timer = isis_jitter (circuit->csnp_interval[level - 1],
+			   CSNP_JITTER, &precision);
+      if (precision == ISIS_S_PRECISION)
+	THREAD_TIMER_ON (master, circuit->t_send_csnp[0], send_l1_csnp, circuit,
+			 timer);
+	else
+	  THREAD_TIMER_MSEC_ON (master, circuit->t_send_csnp[0], send_l1_csnp,
+				circuit, timer);
 
     }
   else
@@ -349,10 +367,14 @@ isis_dr_commence (struct isis_circuit *circuit, int level)
       THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[1]);
       THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
 		       circuit, 2 * circuit->hello_interval[1]);
-
-      THREAD_TIMER_ON (master, circuit->t_send_csnp[1], send_l2_csnp, circuit,
-		       isis_jitter (circuit->csnp_interval[level - 1],
-				    CSNP_JITTER));
+      timer = isis_jitter (circuit->csnp_interval[level - 1],
+			   CSNP_JITTER, &precision);
+      if (precision == ISIS_S_PRECISION)
+	THREAD_TIMER_ON (master, circuit->t_send_csnp[1], send_l2_csnp, circuit,
+		       timer);
+      else
+	THREAD_TIMER_MSEC_ON (master, circuit->t_send_csnp[1], send_l2_csnp,
+			      circuit, timer);
     }
 
   thread_add_event (master, isis_event_dis_status_change, circuit, 0);
