@@ -2,6 +2,7 @@
 
 export DH_VERBOSE=1
 export DEB_BUILD_HARDENING=1
+export WANT_SNMP=0
 
 ifeq ($(WANT_SNMP), 1)
   USE_SNMP=--enable-snmp
@@ -27,6 +28,11 @@ override_dh_auto_clean:
 	@if [ -e config.log ]; then echo "CONFIG.LOG STILL THERE"; rm config.log; fi
 
 override_dh_auto_configure:
+	aclocal
+	autoconf -i -f
+	ln -sf /usr/share/libtool/config/ltmain.sh .
+	autoheader
+	automake -a
 	# Quagga needs /proc to check some BSD vs Linux specific stuff.
 	# Else it fails with an obscure error message pointing out that
 	# IPCTL_FORWARDING is an undefined symbol which is not very helpful.
@@ -46,7 +52,7 @@ override_dh_auto_configure:
  		--enable-watchquagga \
  		--enable-ospf-te \
  		--enable-opaque-lsa \
- 		--enable-ipv6 \
+ 		--disable-ipv6 \
  		--enable-ospfclient=yes \
  		--enable-ospfapi=yes \
  		--enable-multipath=64 \
@@ -56,6 +62,7 @@ override_dh_auto_configure:
  		--enable-configfile-mask=0640 \
  		--enable-logfile-mask=0640 \
  		--enable-rtadv \
+ 		--enable-trilld \
  		--enable-gcc-rdynamic \
  		--with-libpam
 	
@@ -91,8 +98,17 @@ override_dh_auto_install:
 	install -D -m 644 ./zebra/GNOME-PRODUCT-ZEBRA-MIB debian/tmp/usr/share/snmp/mibs/GNOME-PRODUCT-ZEBRA-MIB
 	
 	# installing custom man page
+	install -d -m 0755 debian/tmp/usr/share/man/man8/
 	cp debian/my/babeld.8 debian/tmp/usr/share/man/man8/quagga-babeld.8
 	
 	# cleaning .la files
-	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la
+	if [ -d debian/tmp/usr/lib ]; then \
+	    sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la; \
+	fi
+
+override_dh_installdocs:
+	dh_installdocs -O--parallel -O--dbg-package=quagga-dbg -O--list-missing -Xgitignore
+
+override_dh_installinit:
+	dh_installinit --no-start --no-restart-on-upgrade
 
