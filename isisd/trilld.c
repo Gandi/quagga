@@ -215,7 +215,7 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
     SET_FLAG (area->trill->status, TRILL_AUTONICK);
     return true;
   }
-
+  isisd_privs.change(ZPRIVS_RAISE);
   nickname = htons(nickname);
   savednick = area->trill->nick.name;
 
@@ -551,6 +551,7 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
   uint8_t vni_count;
   u_char *pnt;
 
+  isisd_privs.change(ZPRIVS_RAISE);
   memset(recvd_nick, 0, sizeof(nickinfo_t));
   if (lsp->tlv_data.router_capabilities == NULL)
     return false;
