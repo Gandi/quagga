@@ -88,7 +88,6 @@ int receiv_nl(struct thread *thread)
   assert (area);
   nl_recvmsgs_default(sock_genl);
   area->nl_tick = NULL;
-  zlog_debug("received nl msg area %s", area->area_tag);
   THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
                     nl_socket_get_fd(sock_genl));
   return ISIS_OK;
