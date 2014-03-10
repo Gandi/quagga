@@ -1,3 +1,11 @@
+quagga (0.99.22.6~gandi) unstable; urgency=low
+
+  * [Fix by Ahmed Amamou]
+    - trill: fix privilege
+    - trill: optimize control message handling
+
+ --  Ahmed amamou <root@ahmed.gandi.net> Mon, 10 Mar 2014 17:19:07 +0100
+
 quagga (0.99.22.5~gandi) unstable; urgency=low
                                                                                 
   * [Fix by Ahmed Amamou]                                                       
