@@ -117,12 +117,33 @@ open_packet_socket (struct isis_circuit *circuit)
   struct sockaddr_ll s_addr;
   int fd, retval = ISIS_OK;
 
+  /* create a socket filter to catch only llc like packet
+   * otherwise socket will capture all packet and call isis_receive
+   * thread.
+   * do not modify this part unless you REALLY know what you do
+   * if this filter is removed the daemon cpu usage will be proportional
+   * to received packets on interface
+   */
+  struct sock_fprog filter;
+  struct sock_filter trill_code[4];
+  trill_code[0] = (struct sock_filter) { 0x28, 0, 0, 0x00000000 };
+  trill_code[1] = (struct sock_filter) { 0x15, 0, 1, 0xFEFE };
+  trill_code[2] = (struct sock_filter) { 0x6, 0, 0, 0x0000ffff };
+  trill_code[3] = (struct sock_filter) { 0x6, 0, 0, 0x00000000 };
+  filter.len = 4;
+  filter.filter = trill_code;
+
   fd = socket (PF_PACKET, SOCK_DGRAM, htons (ETH_P_ALL));
   if (fd < 0)
     {
       zlog_warn ("open_packet_socket(): socket() failed %s",
 		 safe_strerror (errno));
       return ISIS_WARNING;
+    }
+
+    if(setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter)) < 0) {
+      zlog_err("setsockopt error: %s", strerror(errno));
+      return -1;
     }
 
   /*
