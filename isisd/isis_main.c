@@ -55,6 +55,7 @@
 
 /* isisd privileges */
 zebra_capabilities_t _caps_p[] = {
+  ZCAP_NET_ADMIN,
   ZCAP_NET_RAW,
   ZCAP_BIND
 };
