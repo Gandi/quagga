@@ -1,9 +1,16 @@
+quagga (0.99.22.4-5~gandi) unstable; urgency=low
+
+  *  [Fix by Ahmed Amamou]
+    - trill: add NET_ADMIN capability to isis deamon
+
+ -- Ahmed amamou <ahmed@ahmed.gandi.net>  Tue, 11 Mar 2014 11:17:00 +0100
+
 quagga (0.99.22.4-4~gandi) unstable; urgency=low
 
   * [Fix by Ahmed Amamou]
     - fix package version
 
- --  Ahmed amamou <root@ahmed.gandi.net> Mon, 10 Mar 2014 17:19:07 +0100
+ --  Ahmed amamou <ahmed@ahmed.gandi.net> Mon, 10 Mar 2014 17:19:07 +0100
 
 quagga (0.99.22.4-3~gandi) unstable; urgency=low
 
@@ -11,13 +18,13 @@ quagga (0.99.22.4-3~gandi) unstable; urgency=low
     - trill: fix privilege
     - trill: optimize control message handling
 
- --  Ahmed amamou <root@ahmed.gandi.net> Mon, 10 Mar 2014 17:19:07 +0100
+ --  Ahmed amamou <ahmed@ahmed.gandi.net> Mon, 10 Mar 2014 17:19:07 +0100
 
 quagga (0.99.22.4-2~gandi) unstable; urgency=low
                                                                                 
   * [Fix by Ahmed Amamou]                                                       
     - add trill patch set
- -- Ahmed amamou <root@ahmed.gandi.net> Mon, 10 Mar 2014 12:38:32 +0100
+ -- Ahmed amamou <ahmed@ahmed.gandi.net> Mon, 10 Mar 2014 12:38:32 +0100
 
 quagga (0.99.22.4-1+wheezy1) stable-security; urgency=high
 
