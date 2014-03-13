@@ -101,7 +101,11 @@
 
 #define METRICS_UNSUPPORTED           0x80
 
-#define MINIMUM_SPF_INTERVAL          1
+/*
+ * We rise default SPF interval to 30
+ * this will allow buffering lsp messages for 30 before computing SPF
+ */
+#define MINIMUM_SPF_INTERVAL          30
 
 #define ISIS_MAX_PATH_SPLITS          64
 

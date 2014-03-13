@@ -1500,12 +1500,18 @@ isis_spf_schedule (struct isis_area *area, int level)
 
   /* wait configured min_spf_interval before doing the SPF */
   if (diff >= area->min_spf_interval[level-1])
-      return isis_run_spf (area, level, AF_TRILL, isis->sysid
 #ifdef HAVE_TRILL
-			   , NULL
+    /*
+     * If trill enabled we need to call trill_complete_spf in order to pulish
+     * nickname information. calling isis_run_spf will be wrong.
+     */
+    if( level == TRILL_ISIS_LEVEL)
+      trill_complete_spf(area);
+    else
+      return isis_run_spf (area, level, AF_TRILL, isis->sysid, NULL);
+#else
+      return isis_run_spf (area, level, AF_TRILL, isis->sysid);
 #endif
-      );
-
   if (level == 1)
     THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l1, area,
                      area->min_spf_interval[0] - diff);
