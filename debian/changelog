@@ -1,7 +1,13 @@
+quagga (0.99.22.4-7~gandi) unstable; urgency=low
+
+  * [Fix by Ahmed Amamou]
+    - trill: fix max pdu size to mtu size 4000
+ -- Ahmed amamou <ahmed@ahmed.gandi.net>  Thu, 13 Mar 2014 17:26:36 +0100
+
 quagga (0.99.22.4-6~gandi) unstable; urgency=low
 
   *  [Fix by Ahmed Amamou]
-    - trill:fix spf computing
+    - trill: fix spf computing
 
  -- Ahmed amamou <ahmed@ahmed.gandi.net>  Thu, 13 Mar 2014 17:14:33 +0100
 
