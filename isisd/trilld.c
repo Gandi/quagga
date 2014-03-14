@@ -745,7 +745,7 @@ static void trill_add_nickadjlist(struct isis_area *area, struct list *adjlist, 
    */
   if (!trill_fwdtbl_lookup(area, nick)){
     zlog_warn("nickname %i found in adj list but is not present"
-    "in fwd database", htons(nick));
+    " in fwd database", htons(nick));
     return;
   }
   if (listnode_lookup (adjlist, (void *)(u_long)nick) != NULL)
