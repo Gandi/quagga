@@ -101,6 +101,7 @@ int generate_supported_vni(struct isis_area *area)
   int old_count, changed;
   struct listnode *node, *tnode;
   struct list * old_list;
+  struct list * new_list;
   struct isis_circuit *circuit;
   nickfwdtblnode_t *fwdnode;
   void *vni;
@@ -110,15 +111,16 @@ int generate_supported_vni(struct isis_area *area)
   struct trill *trill = area->trill;
   old_count = listcount(trill->supported_vni);
   old_list = trill->supported_vni;
-  trill->supported_vni = list_new();
+  new_list = list_new();
 
   /* Step one check portential change on configured vni list */
   for (ALL_LIST_ELEMENTS_RO (trill->configured_vni, node, vni)) {
-      if (!listnode_lookup (old_list, vni)) {
+      if (!listnode_lookup (trill->supported_vni, vni)) {
 	changed = true;
       }
-    listnode_add(trill->supported_vni,(void *) (uint32_t)(u_long) vni);
+    listnode_add(new_list,(void *) (uint32_t)(u_long) vni);
   }
+  trill->supported_vni = new_list;
   list_delete (old_list);
 
   /* Step two is use less if circuit list has a unique interface */
