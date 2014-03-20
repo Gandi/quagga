@@ -88,7 +88,7 @@ typedef struct nickinfo
   uint16_t root_priority;	/* Root tree priority */
   uint16_t root_count;		/* Root tree count */
   uint8_t vni_count;
-  struct list* supported_vni;	/* supported VNI*/
+  struct list *supported_vni;	/* supported VNI*/
 } nickinfo_t;
 
 /* Nickname database node */

@@ -622,7 +622,6 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
 	  case RCSTLV_TRILL_VLAN_GROUP:
 	    if (!vni_recvd && subtlv_len >= TRILL_VNI_SUBTLV_MIN_LEN) {
 	      recvd_nick->vni_count = *(uint8_t*)pnt;
-	      zlog_debug("recvd_nick->vni_count = %i",recvd_nick->vni_count);
 	      pnt = (uint32_t *) ((uint8_t *) pnt + 1);
 	      for (vni_count = 0; vni_count < recvd_nick->vni_count; vni_count++) {
 		listnode_add (recvd_nick->supported_vni,
@@ -826,8 +825,9 @@ static void trill_create_nickadjlist(struct isis_area *area,
 	      trill_add_nickadjlist (area, adjlist, cvertex);
 	  }
 	}
-	list_delete(childlist);
       }
+      if (childlist)
+	list_delete(childlist);
     }
     if (nicknode != NULL)
       nicknode->adjnodes = adjlist;
@@ -1118,8 +1118,12 @@ static void trill_nickinfo_del(nickinfo_t *ni)
 static void trill_update_nickinfo (nicknode_t *tnode, nickinfo_t *recvd_nick)
 {
   trill_nickinfo_del(&tnode->info);
-  tnode->info = *recvd_nick;
-  /* clear copied nick */
+  memcpy(&tnode->info, recvd_nick, sizeof(nickinfo_t));
+  /*
+   * clear copied nick this will avoid removing
+   * pointer contained in nickinfo_t structure
+   * when deleting recvd_nick
+   */
   memset(recvd_nick, 0, sizeof (*recvd_nick));
 }
 
