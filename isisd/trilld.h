@@ -50,6 +50,7 @@
 #define TRILL_LSPDB_ACQUIRED (1 << 1)  /* LSP DB acquired before autogen nick is advertised */
 #define TRILL_NICK_SET       (1 << 2)  /* nickname configured (random/user generated) */
 #define TRILL_PRIORITY_SET   (1 << 3)  /* nickname priority configured by user */
+#define TRILL_SPF_COMPUTED   (1 << 4)
 #define TRILL_VNI_SUBTLV_MIN_LEN 4
 
 typedef u_char ether_addr_t[6];

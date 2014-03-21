@@ -1063,6 +1063,7 @@ void trill_process_spf (struct isis_area *area)
     nlmsg_free(msg);
   }
   trill_publish(area);
+  SET_FLAG(area->trill->status, TRILL_SPF_COMPUTED);
 }
 static int trill_nick_conflict(nickinfo_t *nick1, nickinfo_t *nick2)
 {
@@ -1569,6 +1570,9 @@ DEFUN (trill_nickname,
     " must select another.%s", VTY_NEWLINE);
     return CMD_WARNING;
   }
+  /* this check will avoid generating an LSP on trill start */
+  if (CHECK_FLAG(area->trill->status, TRILL_SPF_COMPUTED))
+    lsp_regenerate_now(area, TRILL_ISIS_LEVEL);
   return CMD_SUCCESS;
 }
 
@@ -1583,6 +1587,9 @@ DEFUN (no_trill_nickname,
   assert (area);
   assert (area->trill);
   trill_area_nickname (area, 0);
+  /* this check will avoid generating an LSP on trill start */
+  if (CHECK_FLAG(area->trill->status, TRILL_SPF_COMPUTED))
+    lsp_regenerate_now(area, TRILL_ISIS_LEVEL);
   return CMD_SUCCESS;
 }
 
@@ -1602,6 +1609,9 @@ DEFUN (trill_nickname_priority,
   VTY_GET_INTEGER_RANGE ("TRILL nickname priority", priority, argv[0],
 			 MIN_RBRIDGE_PRIORITY, MAX_RBRIDGE_PRIORITY);
   trill_nickname_priority_update (area, priority);
+  /* this check will avoid generating an LSP on trill start */
+  if (CHECK_FLAG(area->trill->status, TRILL_SPF_COMPUTED))
+    lsp_regenerate_now(area, TRILL_ISIS_LEVEL);
   return CMD_SUCCESS;
 }
 DEFUN (no_trill_nickname_priority,
@@ -1616,6 +1626,9 @@ DEFUN (no_trill_nickname_priority,
   assert (area);
   assert (area->trill);
   trill_nickname_priority_update (area, 0);
+  /* this check will avoid generating an LSP on trill start */
+  if (CHECK_FLAG(area->trill->status, TRILL_SPF_COMPUTED))
+    lsp_regenerate_now(area, TRILL_ISIS_LEVEL);
   return CMD_SUCCESS;
 }
 DEFUN (trill_instance, trill_instance_cmd,
