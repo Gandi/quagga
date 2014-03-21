@@ -63,6 +63,10 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
 {
   return 0;
 }
+uint16_t get_root_nick(struct isis_area *area)
+{
+  return 0;
+}
 nicknode_t * trill_nicknode_lookup(struct isis_area *area,
 				   uint16_t nick)
 {

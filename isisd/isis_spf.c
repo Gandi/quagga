@@ -1363,36 +1363,47 @@ out:
 static int
 trill_complete_spf(struct isis_area *area)
 {
-  int retval, i = 0;
+  int retval;
   dnode_t *dnode;
   nicknode_t *tnode;
   retval = isis_run_spf (area, TRILL_ISIS_LEVEL, AF_TRILL, isis->sysid, NULL);
   if (retval != ISIS_OK)
     zlog_warn ("ISIS-Spf running spf for system returned:%d", retval);
-  /*
-   * Run SPF for all other RBridges in the campus as well to
-   * compute the distribution trees with other RBridges in
-   * the campus as root.
-   */
 
-  for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)) {
-    i++;
-    /* to be sure t no recompute self adjencies */
-    if(!memcmp(tnode->info.sysid, isis->sysid, ISIS_SYS_ID_LEN))
-      continue;
-    retval = isis_run_spf (area, TRILL_ISIS_LEVEL, AF_TRILL,
-			   tnode->info.sysid, tnode->rdtree);
-    if (isis->debugs & DEBUG_SPF_EVENTS)
-      zlog_debug ("ISIS-Spf running spf for:%s",
-		  print_sys_hostname (tnode->info.sysid));
-      if (retval != ISIS_OK)
-	zlog_warn ("ISIS-Spf running spf for:%s returned:%d",
-		   print_sys_hostname (tnode->info.sysid), retval);
+  /*
+   * hey process are asynchronous don't want to wait the next call to fix
+   * a possible wrong tree root. Make sure we have
+   * elected the correct tree root before computing spf
+   */
+  area->trill->tree_root = get_root_nick(area);
+  /*
+   * For god's sake why computing all nickdb node SPF tree
+   * you need it only for multicast. just compute it for the fucking
+   * tree root. you can even have a subset of node that can be
+   * potentially a tree root so compute only for this subset
+   */
+  if (area->trill->tree_root != RBRIDGE_NICKNAME_NONE) {
+    dnode = dict_lookup (area->trill->nickdb, &area->trill->tree_root);
+    if (dnode) {
+      tnode = (nicknode_t *) dnode_get (dnode);
+      /* to be sure t no recompute self adjencies */
+      if(!memcmp(tnode->info.sysid, isis->sysid, ISIS_SYS_ID_LEN))
+	goto skip;
+      retval = isis_run_spf (area, TRILL_ISIS_LEVEL, AF_TRILL,
+			     tnode->info.sysid, tnode->rdtree);
+      if (isis->debugs & DEBUG_SPF_EVENTS)
+	zlog_debug ("ISIS-Spf running spf for:%s",
+		    print_sys_hostname (tnode->info.sysid));
+	if (retval != ISIS_OK)
+	  zlog_warn ("ISIS-Spf running spf for:%s returned:%d",
+		     print_sys_hostname (tnode->info.sysid), retval);
+    }
   }
   /*
    * Process computed SPF trees to create TRILL
    * forwarding and adjacency tables.
    */
+skip:
   trill_process_spf (area);
   return retval;
 }

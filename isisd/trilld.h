@@ -184,6 +184,7 @@ void trill_parse_router_capability_tlvs (struct isis_area *,
 
 int trill_area_nickname(struct isis_area *area, u_int16_t nickname);
 void trill_init();
+uint16_t get_root_nick(struct isis_area *area);
 /* trill_vni.c */
 extern int generate_supported_vni(struct isis_area *area);
 

@@ -958,7 +958,7 @@ static void trill_publish_nick(struct isis_area *area, int fd,
     free(ni);
   }
 }
-static uint16_t get_root_nick(struct isis_area *area)
+uint16_t get_root_nick(struct isis_area *area)
 {
   uint8_t lpriority;
   uint16_t root_nick;
@@ -978,12 +978,10 @@ static uint16_t get_root_nick(struct isis_area *area)
     if (tnode->info.nick.priority == lpriority &&
 	memcmp(tnode->info.sysid, lsysid, ISIS_SYS_ID_LEN) < 0)
       continue;
-    if (trill_fwdtbl_lookup(area, tnode->info.nick.name))
-    {
-      lpriority = tnode->info.nick.priority;
-      lsysid = tnode->info.sysid;
-      root_nick = tnode->info.nick.name;
-    }
+
+    lpriority = tnode->info.nick.priority;
+    lsysid = tnode->info.sysid;
+    root_nick = tnode->info.nick.name;
   }
   return root_nick;
 
@@ -1043,8 +1041,13 @@ void trill_process_spf (struct isis_area *area)
   trill_create_nickfwdtable(area);
   trill_create_nickadjlist(area, NULL);
 
-  for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)){
-    trill_create_nickadjlist(area, tnode);
+  if(area->trill->tree_root != RBRIDGE_NICKNAME_NONE) {
+    dnode = dict_lookup (area->trill->nickdb,
+			 &(area->trill->tree_root));
+    if (dnode) {
+      tnode = (nicknode_t *) dnode_get (dnode);
+      trill_create_nickadjlist(area, tnode);
+    }
   }
   msg = nlmsg_alloc();
   trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
@@ -1305,6 +1308,8 @@ static void trill_nick_recv(struct isis_area *area, nickinfo_t *other_nick)
   }
   /* Update our nick database */
   trill_nickdb_update (area, other_nick);
+  /* Update tree root based on new nick database */
+  area->trill->tree_root = get_root_nick(area);
 }
 void trill_nick_destroy(struct isis_lsp *lsp)
 {
