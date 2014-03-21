@@ -1542,9 +1542,11 @@ static void trill_adjtbl_print_all (struct vty *vty, struct isis_area *area)
   vty_out(vty, "Adjacencies on our RBridge distribution tree:%s", VTY_NEWLINE);
   trill_adjtbl_print (vty, area, NULL);
   for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)) {
-    vty_out(vty, "Adjacencies on RBridge %s distribution tree:%s",
-	    print_sys_hostname (tnode->info.sysid), VTY_NEWLINE);
-    trill_adjtbl_print (vty, area, tnode);
+    if (tnode->info.nick.name == area->trill->tree_root) {
+      vty_out(vty, "Adjacencies on RBridge %s distribution tree:%s",
+	      print_sys_hostname (tnode->info.sysid), VTY_NEWLINE);
+      trill_adjtbl_print (vty, area, tnode);
+    }
   }
 }
 
