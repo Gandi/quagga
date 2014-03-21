@@ -990,7 +990,6 @@ static void trill_publish (struct isis_area *area)
 {
   struct listnode *node;
   nickfwdtblnode_t *fwdnode;
-  uint16_t root_nick;
   struct nl_msg *msg;
   struct trill_nl_header *trnlhdr;
   struct isis_circuit *circuit;
@@ -1013,14 +1012,12 @@ static void trill_publish (struct isis_area *area)
 			TRILL_CMD_SET_TREEROOT_ID, TRILL_NL_VERSION);
   if(!trnlhdr)
     abort();
-  root_nick = get_root_nick(area);
   trnlhdr->ifindex = circuit->interface->ifindex;
   trnlhdr->total_length = sizeof(msg);
   trnlhdr->msg_number = 1;
-  nla_put_u16(msg, TRILL_ATTR_U16, ntohs(root_nick));
+  nla_put_u16(msg, TRILL_ATTR_U16, ntohs(area->trill->tree_root));
   nl_send_auto_complete(sock_genl, msg);
   nlmsg_free(msg);
-  area->trill->tree_root = root_nick;
 }
 /*
  * Called upon computing the SPF trees to create the forwarding
