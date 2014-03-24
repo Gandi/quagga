@@ -107,8 +107,7 @@
  */
 #define MINIMUM_SPF_INTERVAL          30
 
-#define ISIS_MAX_PATH_SPLITS          64
-
+#define ISIS_MAX_PATH_SPLITS          4096
 /*
  * NLPID values
  */
