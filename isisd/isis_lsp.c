@@ -1833,37 +1833,39 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
   struct es_neigh *es_neigh;
   struct list *adj_list;
   struct listnode *node;
-
+  struct tlvs tlv_data;
+  struct isis_lsp *lsp0 = lsp;
+  struct isis_area *area = circuit->area;
   lsp->level = level;
   /* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
   lsp->lsp_header->lsp_bits = lsp_bits_generate (level, 0);
-
+  memset (&tlv_data, 0, sizeof (struct tlvs));
   /*
    * add self to IS neighbours 
    */
   if (circuit->area->oldmetric)
     {
-      if (lsp->tlv_data.is_neighs == NULL)
+      if (tlv_data.is_neighs == NULL)
 	{
-	  lsp->tlv_data.is_neighs = list_new ();
-	  lsp->tlv_data.is_neighs->del = free_tlv;
+	  tlv_data.is_neighs = list_new ();
+	  tlv_data.is_neighs->del = free_tlv;
 	}
       is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 
       memcpy (&is_neigh->neigh_id, isis->sysid, ISIS_SYS_ID_LEN);
-      listnode_add (lsp->tlv_data.is_neighs, is_neigh);
+      listnode_add (tlv_data.is_neighs, is_neigh);
     }
   if (circuit->area->newmetric)
     {
-      if (lsp->tlv_data.te_is_neighs == NULL)
+      if (tlv_data.te_is_neighs == NULL)
 	{
-	  lsp->tlv_data.te_is_neighs = list_new ();
-	  lsp->tlv_data.te_is_neighs->del = free_tlv;
+	  tlv_data.te_is_neighs = list_new ();
+	  tlv_data.te_is_neighs->del = free_tlv;
 	}
       te_is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct te_is_neigh));
 
       memcpy (&te_is_neigh->neigh_id, isis->sysid, ISIS_SYS_ID_LEN);
-      listnode_add (lsp->tlv_data.te_is_neighs, te_is_neigh);
+      listnode_add (tlv_data.te_is_neighs, te_is_neigh);
     }
 
   adj_list = list_new ();
@@ -1884,29 +1886,29 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 		  is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 
 		  memcpy (&is_neigh->neigh_id, adj->sysid, ISIS_SYS_ID_LEN);
-		  listnode_add (lsp->tlv_data.is_neighs, is_neigh);
+		  listnode_add (tlv_data.is_neighs, is_neigh);
 		}
 	      if (circuit->area->newmetric)
 		{
 		  te_is_neigh = XCALLOC (MTYPE_ISIS_TLV,
 					 sizeof (struct te_is_neigh));
 		  memcpy (&te_is_neigh->neigh_id, adj->sysid, ISIS_SYS_ID_LEN);
-		  listnode_add (lsp->tlv_data.te_is_neighs, te_is_neigh);
+		  listnode_add (tlv_data.te_is_neighs, te_is_neigh);
 		}
 	    }
 	  else if (level == IS_LEVEL_1 && adj->sys_type == ISIS_SYSTYPE_ES)
 	    {
 	      /* an ES neigbour add it, if we are building level 1 LSP */
 	      /* FIXME: the tlv-format is hard to use here */
-	      if (lsp->tlv_data.es_neighs == NULL)
+	      if (tlv_data.es_neighs == NULL)
 		{
-		  lsp->tlv_data.es_neighs = list_new ();
-		  lsp->tlv_data.es_neighs->del = free_tlv;
+		  tlv_data.es_neighs = list_new ();
+		  tlv_data.es_neighs->del = free_tlv;
 		}
 	      es_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct es_neigh));
-	      
+
 	      memcpy (&es_neigh->first_es_neigh, adj->sysid, ISIS_SYS_ID_LEN);
-	      listnode_add (lsp->tlv_data.es_neighs, es_neigh);
+	      listnode_add (tlv_data.es_neighs, es_neigh);
 	    }
 	}
     }
@@ -1921,16 +1923,45 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
    */
   lsp_auth_add (lsp);
 
-  if (lsp->tlv_data.is_neighs && listcount (lsp->tlv_data.is_neighs) > 0)
-    tlv_add_is_neighs (lsp->tlv_data.is_neighs, lsp->pdu);
+  while (tlv_data.is_neighs && listcount (tlv_data.is_neighs))
+    {
+      if (lsp->tlv_data.is_neighs == NULL)
+	lsp->tlv_data.is_neighs = list_new ();
+      lsp_tlv_fit (lsp, &tlv_data.is_neighs,
+		   &lsp->tlv_data.is_neighs,
+		   IS_NEIGHBOURS_LEN, area->lsp_frag_threshold,
+		   tlv_add_is_neighs);
+      if (tlv_data.is_neighs && listcount (tlv_data.is_neighs))
+	lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
+			     lsp0, area, level);
+    }
 
-  if (lsp->tlv_data.te_is_neighs && listcount (lsp->tlv_data.te_is_neighs) > 0)
-    tlv_add_te_is_neighs (lsp->tlv_data.te_is_neighs, lsp->pdu);
+  while (tlv_data.te_is_neighs && listcount (tlv_data.te_is_neighs))
+    {
+      if (lsp->tlv_data.te_is_neighs == NULL)
+	lsp->tlv_data.te_is_neighs = list_new ();
+      lsp_tlv_fit (lsp, &tlv_data.te_is_neighs, &lsp->tlv_data.te_is_neighs,
+		   IS_NEIGHBOURS_LEN, area->lsp_frag_threshold,
+		   tlv_add_te_is_neighs);
+      if (tlv_data.te_is_neighs && listcount (tlv_data.te_is_neighs))
+	lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
+			     lsp0, area, level);
+    }
 
-  if (lsp->tlv_data.es_neighs && listcount (lsp->tlv_data.es_neighs) > 0)
-    tlv_add_is_neighs (lsp->tlv_data.es_neighs, lsp->pdu);
-
+    while (tlv_data.es_neighs && listcount (tlv_data.es_neighs))
+    {
+      if (lsp->tlv_data.es_neighs == NULL)
+	lsp->tlv_data.es_neighs = list_new ();
+      lsp_tlv_fit (lsp, &tlv_data.es_neighs, &lsp->tlv_data.es_neighs,
+		   IS_NEIGHBOURS_LEN, area->lsp_frag_threshold,
+		   tlv_add_is_neighs);
+      if (tlv_data.es_neighs && listcount (tlv_data.es_neighs))
+	lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
+			     lsp0, area, level);
+    }
   lsp->lsp_header->pdu_len = htons (stream_get_endp (lsp->pdu));
+
+  free_tlvs (&tlv_data);
 
   /* Recompute authentication and checksum information */
   lsp_auth_update (lsp);
@@ -1969,10 +2000,12 @@ lsp_generate_pseudo (struct isis_circuit *circuit, int level)
   lsp = lsp_new (lsp_id, rem_lifetime, 1, circuit->area->is_type, 0, level);
   lsp->area = circuit->area;
 
-  lsp_build_pseudo (lsp, circuit, level);
-
   lsp->own_lsp = 1;
   lsp_insert (lsp, lspdb);
+  lsp_build_pseudo (lsp, circuit, level);
+  lsp_seqnum_update (lsp);
+
+
   lsp_set_all_srmflags (lsp);
 
   refresh_time = lsp_refresh_time (lsp, rem_lifetime);
@@ -2029,13 +2062,14 @@ lsp_regenerate_pseudo (struct isis_circuit *circuit, int level)
     }
   lsp_clear_data (lsp);
 
+
   lsp_build_pseudo (lsp, circuit, level);
 
   /* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
   lsp->lsp_header->lsp_bits = lsp_bits_generate (level, 0);
   rem_lifetime = lsp_rem_lifetime (circuit->area, level);
   lsp->lsp_header->rem_lifetime = htons (rem_lifetime);
-  lsp_inc_seqnum (lsp, 0);
+  lsp_seqnum_update (lsp);
   lsp->last_generated = time (NULL);
   lsp_set_all_srmflags (lsp);
 
@@ -2311,6 +2345,12 @@ lsp_purge_pseudo (u_char * id, struct isis_circuit *circuit, int level)
   lsp_clear_data (lsp);
   stream_reset (lsp->pdu);
 
+  /* delete frags */
+  if (LSP_FRAGMENT (lsp->lsp_header->lsp_id) == 0 && lsp->lspu.frags)
+  {
+    list_delete (lsp->lspu.frags);
+    lsp->lspu.frags = NULL;
+  }
   /* update header */
   lsp->lsp_header->pdu_len = htons (ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
   memcpy (lsp->lsp_header->lsp_id, id, ISIS_SYS_ID_LEN + 2);
