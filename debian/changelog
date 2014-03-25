@@ -1,3 +1,16 @@
+quagga (0.99.22.4-9~gandi) unstable; urgency=low
+
+  *  [Fix by Ahmed Amamou]
+    - trill: remove warning on vif attachement and detachement
+    - trill: generate pseudo lsp frag
+    - trill: increase allowed path split
+    - trill: advertise nickame or priority change
+    - trill: show only relevant adjacency list
+    - trill: remove a tree root computing
+    - trill: compute SPF tree only for localnode and tree root
+
+ -- Ahmed amamou <ahmed@ahmed.gandi.net>  Tue, 25 Mar 2014 10:37:10 +0100
+
 quagga (0.99.22.4-8~gandi) unstable; urgency=low
 
   *  [Fix by Ahmed Amamou]
