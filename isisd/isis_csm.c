@@ -101,16 +101,8 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	  circuit->state = C_STATE_INIT;
 	  break;
 	case ISIS_DISABLE:
-	  area = listgetdata(listhead (isis->area_list));
-	  if (circuit && area && area->circuit_list)
-	    if(listnode_lookup(area->circuit_list, circuit))
-	      zlog_warn ("circuit already disabled");
 	  break;
 	case IF_DOWN_FROM_Z:
-	  area = listgetdata(listhead (isis->area_list));
-	  if (circuit && area && area->circuit_list)
-	    if(listnode_lookup(area->circuit_list, circuit))
-	      zlog_warn ("circuit already disconnected");
 	  break;
 	}
       break;
