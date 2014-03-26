@@ -3,7 +3,7 @@ quagga (0.99.22.4-10~gandi) unstable; urgency=low
   *   [Fix by Ahmed Amamou]
     - trill : remove useless warnings
 
- --  Ahmed amamou <ahmed@ahmed.gandi.net>   Wed, 26 Mar 2014 10:37:25 +0100
+ --  Ahmed amamou <ahmed@ahmed.gandi.net>  Wed, 26 Mar 2014 10:37:25 +0100
 
 quagga (0.99.22.4-9~gandi) unstable; urgency=low
 
