@@ -186,6 +186,12 @@ vid2string (struct isis_vertex *vertex, u_char * buff)
   return (char *) buff;
 }
 
+static int
+isis_vertex_cmp (struct isis_vertex *v1, struct isis_vertex *v2)
+{
+  return memcmp (v1->N.id, v2->N.id, ISIS_SYS_ID_LEN + 1);
+}
+
 static struct isis_vertex *
 isis_vertex_new (void *id, enum vertextype vtype)
 {
@@ -226,7 +232,9 @@ isis_vertex_new (void *id, enum vertextype vtype)
 
   vertex->Adj_N = list_new ();
   vertex->parents = list_new ();
+  vertex->parents->cmp = isis_vertex_cmp;
   vertex->children = list_new ();
+  vertex->children->cmp = isis_vertex_cmp;
 
   return vertex;
 }
@@ -525,9 +533,9 @@ isis_spf_add2tent (struct isis_spftree *spftree, enum vertextype vtype,
   vertex->depth = depth;
 
   if (parent) {
-    listnode_add (vertex->parents, parent);
+    listnode_add_sort (vertex->parents, parent);
     if (listnode_lookup (parent->children, vertex) == NULL)
-      listnode_add (parent->children, vertex);
+      listnode_add_sort (parent->children, vertex);
   }
 
   if (parent && parent->Adj_N && listcount(parent->Adj_N) > 0) {
@@ -593,9 +601,9 @@ isis_spf_add_local (struct isis_spftree *spftree, enum vertextype vtype,
 	  if (listcount (vertex->Adj_N) > ISIS_MAX_PATH_SPLITS)
 	    remove_excess_adjs (vertex->Adj_N);
 	  if (parent && (listnode_lookup (vertex->parents, parent) == NULL))
-	    listnode_add (vertex->parents, parent);
+	    listnode_add_sort (vertex->parents, parent);
 	  if (parent && (listnode_lookup (parent->children, vertex) == NULL))
-	    listnode_add (parent->children, vertex);
+	    listnode_add_sort (parent->children, vertex);
 	  return;
 	}
       else if (vertex->d_N < cost)
@@ -680,9 +688,9 @@ process_N (struct isis_spftree *spftree, enum vertextype vtype, void *id,
 	  if (listcount (vertex->Adj_N) > ISIS_MAX_PATH_SPLITS)
 	    remove_excess_adjs (vertex->Adj_N);
 	  if (listnode_lookup (vertex->parents, parent) == NULL)
-	    listnode_add (vertex->parents, parent);
+	    listnode_add_sort (vertex->parents, parent);
 	  if (listnode_lookup (parent->children, vertex) == NULL)
-	    listnode_add (parent->children, vertex);
+	    listnode_add_sort (parent->children, vertex);
 	  /*      3) */
 	  return;
 	}
@@ -1360,6 +1368,32 @@ out:
 }
 
 #ifdef HAVE_TRILL
+static void
+trill_tiebreak_ecmp (struct isis_spftree *spftree, u_int16_t nickname)
+{
+  struct listnode *node, *pnode, *nextnode;
+  struct isis_vertex *vertex, *pvertex;
+  unsigned int tiebreaker, idx = 0;
+
+  for (ALL_LIST_ELEMENTS_RO (spftree->paths, node, vertex))
+    {
+      if (!vertex->parents || listcount (vertex->parents) < 2)
+	continue;
+
+      tiebreaker = nickname % listcount (vertex->parents);
+      idx = 0;
+      for (ALL_LIST_ELEMENTS (vertex->parents, pnode, nextnode, pvertex))
+        {
+          if (idx != tiebreaker)
+            {
+              listnode_delete (pvertex->children, vertex);
+              listnode_delete (vertex->parents, pvertex);
+            }
+          idx++;
+        }
+    }
+}
+
 static int
 trill_complete_spf(struct isis_area *area)
 {
@@ -1369,6 +1403,9 @@ trill_complete_spf(struct isis_area *area)
   retval = isis_run_spf (area, TRILL_ISIS_LEVEL, AF_TRILL, isis->sysid, NULL);
   if (retval != ISIS_OK)
     zlog_warn ("ISIS-Spf running spf for system returned:%d", retval);
+
+  trill_tiebreak_ecmp (area->spftree[TRILL_ISIS_LEVEL - 1],
+                       area->trill->nick.name);
 
   /*
    * hey process are asynchronous don't want to wait the next call to fix
@@ -1397,6 +1434,8 @@ trill_complete_spf(struct isis_area *area)
 	if (retval != ISIS_OK)
 	  zlog_warn ("ISIS-Spf running spf for:%s returned:%d",
 		     print_sys_hostname (tnode->info.sysid), retval);
+
+    trill_tiebreak_ecmp (tnode->rdtree, tnode->info.nick.name);
     }
   }
   /*
