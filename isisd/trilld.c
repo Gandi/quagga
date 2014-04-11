@@ -70,7 +70,7 @@ static nickdb_search_result trill_search_rbridge ( struct isis_area *area,
 static int trill_nick_conflict(nickinfo_t *nick1, nickinfo_t *nick2);
 int nickavailcnt = RBRIDGE_NICKNAME_MINRES - RBRIDGE_NICKNAME_NONE - 1;
 
-int nickname_init()
+void nickname_init()
 {
   u_int i;
   memset(nickbitvector, 0, sizeof(nickbitvector));
@@ -348,6 +348,7 @@ void trill_area_init(struct isis_area *area)
 #endif
   if (!area->trill->root_count)
 	  area->trill->root_count = MIN_ROOT_COUNT;
+  nickname_init();
 }
 
 void trill_area_free(struct isis_area *area)
