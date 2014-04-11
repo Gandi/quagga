@@ -814,7 +814,8 @@ static void trill_create_nickadjlist(struct isis_area *area,
     if (rbvertex->children) {
       childlist = list_new();
       for (ALL_LIST_ELEMENTS_RO (rbvertex->children, node, vertex)) {
-	if (memcmp (vertex->N.id, area->isis->sysid, ISIS_SYS_ID_LEN) == 0)
+        if (vertex->type == VTYPE_PSEUDO_IS ||
+            vertex->type == VTYPE_PSEUDO_TE_IS)
 	  listnode_add(childlist, vertex);
 	else if (listnode_lookup (rdtree->paths, vertex))
 	  trill_add_nickadjlist (area, adjlist, vertex);
