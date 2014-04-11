@@ -798,20 +798,21 @@ static void trill_create_nickadjlist(struct isis_area *area,
   /* Determine adjacencies by looking up the parent & child nodes */
   if (rbvertex) {
     adjlist = list_new();
-    if (listcount (vertex->parents) > 0) {
+    if (listcount (rbvertex->parents) > 0) {
       /* Add only non pseudo parents to adjacency list
        * if parent is a pseudo node add the first of his non pseudo
        * parents which is the non pseudo node version of the pseudo node
        */
       for (ALL_LIST_ELEMENTS_RO (rbvertex->parents, node, pvertex)){
-	if (pvertex->type !=  VTYPE_PSEUDO_TE_IS )
+	if (pvertex->type != VTYPE_PSEUDO_IS &&
+	    pvertex->type != VTYPE_PSEUDO_TE_IS)
 	  trill_add_nickadjlist (area, adjlist, pvertex);
 	else
 	  trill_add_nickadjlist (area, adjlist,
 				 listgetdata(listhead(pvertex->parents)));
       }
     }
-    if (rbvertex->children) {
+    if (listcount (rbvertex->children) > 0) {
       childlist = list_new();
       for (ALL_LIST_ELEMENTS_RO (rbvertex->children, node, vertex)) {
         if (vertex->type == VTYPE_PSEUDO_IS ||
