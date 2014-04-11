@@ -764,7 +764,8 @@ lspfragloop:
       {
         /* C.2.6 a) */
         /* Two way connectivity */
-        if (!memcmp (is_neigh->neigh_id, root_sysid, ISIS_SYS_ID_LEN))
+        if (!LSP_PSEUDO_ID (is_neigh->neigh_id) &&
+            !memcmp (is_neigh->neigh_id, root_sysid, ISIS_SYS_ID_LEN))
           continue;
         if (!memcmp (is_neigh->neigh_id, null_sysid, ISIS_SYS_ID_LEN))
           continue;
@@ -780,7 +781,8 @@ lspfragloop:
       for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.te_is_neighs, node,
             te_is_neigh))
       {
-        if (!memcmp (te_is_neigh->neigh_id, root_sysid, ISIS_SYS_ID_LEN))
+        if (!LSP_PSEUDO_ID (te_is_neigh->neigh_id) &&
+            !memcmp (te_is_neigh->neigh_id, root_sysid, ISIS_SYS_ID_LEN))
           continue;
         if (!memcmp (te_is_neigh->neigh_id, null_sysid, ISIS_SYS_ID_LEN))
           continue;
@@ -981,18 +983,11 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
 	continue;
       if (lsp == NULL || lsp->lsp_header->rem_lifetime == 0)
 	continue;
-      if (memcmp(lsp_id, lsp->lsp_header->lsp_id, ISIS_SYS_ID_LEN) != 0)
-	continue;
-      if (LSP_PSEUDO_ID (lsp->lsp_header->lsp_id)){
-	retval = isis_spf_process_pseudo_lsp ( spftree, lsp,
-					       parent->d_N,
-					       0, AF_TRILL,
-					       root_sysid, parent);
-      } else {
+      if (!LSP_PSEUDO_ID (lsp->lsp_header->lsp_id) &&
+          memcmp (lsp_id, lsp->lsp_header->lsp_id, ISIS_SYS_ID_LEN) == 0)
 	retval = isis_spf_process_lsp ( spftree, lsp,
 					parent->d_N, parent->depth,
 				        AF_TRILL, root_sysid, parent);
-      }
     }
     return retval;
   }
@@ -1701,7 +1696,8 @@ isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
                 "Next-Hop             Interface Parent%s", VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO (paths, node, vertex)) {
-      if (memcmp (vertex->N.id, root_sysid, ISIS_SYS_ID_LEN) == 0) {
+      if (!LSP_PSEUDO_ID (vertex->N.id) &&
+          memcmp (vertex->N.id, root_sysid, ISIS_SYS_ID_LEN) == 0) {
 	vty_out (vty, "%-20s %-12s %-6s", print_sys_hostname (root_sysid),
 	         "", "");
 	vty_out (vty, "%-30s", "");
