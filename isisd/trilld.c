@@ -743,8 +743,8 @@ static void trill_add_nickadjlist(struct isis_area *area, struct list *adjlist, 
    * if nick is not found in fwd database that means that something went wrong
    */
   if (!trill_fwdtbl_lookup(area, nick)){
-    zlog_warn("nickname %i found in adj list but is not present"
-    " in fwd database", htons(nick));
+    zlog_warn("node %s found in adj list but is not present"
+    " in fwd database", sysid_print(vertex->N.id));
     return;
   }
   if (listnode_lookup (adjlist, (void *)(u_long)nick) != NULL)
