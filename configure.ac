@@ -235,6 +235,8 @@ AC_ARG_ENABLE(isisd,
 [  --enable-isisd          build isisd])
 AC_ARG_ENABLE(trilld,
 [  --enable-trilld          build trilld])
+AC_ARG_ENABLE(trilld-monitoring,
+[  --enable-trilld-monitoring          build trilld monitoring])
 AC_ARG_ENABLE(solaris,
 [  --enable-solaris          build solaris])
 AC_ARG_ENABLE(bgp-announce,
@@ -368,6 +370,10 @@ AC_SUBST(ISIS_TOPOLOGY_LIB)
 
 if test "${enable_trilld}" = "yes"; then
   AC_DEFINE(HAVE_TRILL,,Enable TRILL code)
+fi
+
+if test "${enable_trilld_monitoring}" = "yes"; then
+  AC_DEFINE(HAVE_TRILL_MONITORING,,Enable TRILL monitoring code)
 fi
 
 if test "${enable_user}" = "yes" || test x"${enable_user}" = x""; then
