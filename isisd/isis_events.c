@@ -219,6 +219,9 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 			     send_lan_l1_hello, circuit,
 		      timer);
 	  circuit->u.bc.lan_neighs[0] = list_new ();
+#ifdef HAVE_TRILL_MONITORING
+	  circuit->u.bc.dead_lan_neighs[0] = list_new ();
+#endif
 	}
     }
   else
@@ -247,6 +250,9 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 			     send_lan_l2_hello, circuit, timer);
 
 	  circuit->u.bc.lan_neighs[1] = list_new ();
+#ifdef HAVE_TRILL_MONITORING
+	  circuit->u.bc.dead_lan_neighs[1] = list_new ();
+#endif
 	}
     }
 

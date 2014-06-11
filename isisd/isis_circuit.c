@@ -662,12 +662,18 @@ trill_area_nickname(circuit->area, htons(circuit->area->trill->nick.name));
         {
           thread_add_event (master, send_lan_l1_hello, circuit, 0);
           circuit->u.bc.lan_neighs[0] = list_new ();
+#ifdef HAVE_TRILL_MONITORING
+          circuit->u.bc.dead_lan_neighs[0] = list_new ();
+#endif
         }
 
       if (circuit->is_type & IS_LEVEL_2)
         {
           thread_add_event (master, send_lan_l2_hello, circuit, 0);
           circuit->u.bc.lan_neighs[1] = list_new ();
+#ifdef HAVE_TRILL_MONITORING
+          circuit->u.bc.dead_lan_neighs[1] = list_new ();
+#endif
         }
 
       /* 8.4.1 b) FIXME: solicit ES - 8.4.6 */
@@ -762,6 +768,19 @@ isis_circuit_down (struct isis_circuit *circuit)
           list_delete (circuit->u.bc.lan_neighs[1]);
           circuit->u.bc.lan_neighs[1] = NULL;
         }
+#ifdef HAVE_TRILL_MONITORING
+      /* destroy dead neighbour lists */
+      if (circuit->u.bc.dead_lan_neighs[0])
+        {
+          list_delete (circuit->u.bc.dead_lan_neighs[0]);
+          circuit->u.bc.dead_lan_neighs[0] = NULL;
+        }
+      if (circuit->u.bc.dead_lan_neighs[1])
+        {
+          list_delete (circuit->u.bc.dead_lan_neighs[1]);
+          circuit->u.bc.dead_lan_neighs[1] = NULL;
+        }
+#endif
       /* destroy adjacency databases */
       if (circuit->u.bc.adjdb[0])
         {

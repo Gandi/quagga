@@ -344,6 +344,8 @@ int
 isis_adj_expire (struct thread *thread)
 {
   struct isis_adjacency *adj;
+  struct isis_circuit *circuit;
+  int level;
 
   /*
    * Get the adjacency
@@ -351,6 +353,9 @@ isis_adj_expire (struct thread *thread)
   adj = THREAD_ARG (thread);
   assert (adj);
   adj->t_expire = NULL;
+  circuit = adj->circuit;
+  level = adj->level;
+  listnode_add (circuit->u.bc.dead_lan_neighs[level], adj->snpa);
 
   /* trigger the adj expire event */
   isis_adj_state_change (adj, ISIS_ADJ_DOWN, "holding time expired");
