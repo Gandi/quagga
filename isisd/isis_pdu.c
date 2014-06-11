@@ -2352,14 +2352,28 @@ send_hello (struct isis_circuit *circuit, int level)
     {
       if (level == IS_LEVEL_1 && circuit->u.bc.lan_neighs[0] &&
           listcount (circuit->u.bc.lan_neighs[0]) > 0)
-	if (tlv_add_lan_neighs (circuit->u.bc.lan_neighs[0],
+	  {
+	   if (tlv_add_lan_neighs (circuit->u.bc.lan_neighs[0],
 				circuit->snd_stream))
-	  return ISIS_WARNING;
+		return ISIS_WARNING;
+#ifdef HAVE_TRILL_MONITORING
+	   if (tlv_add_dead_lan_neighs (circuit->u.bc.dead_lan_neighs[0],
+				circuit->snd_stream))
+		return ISIS_WARNING;
+#endif
+	  }
       if (level == IS_LEVEL_2 && circuit->u.bc.lan_neighs[1] &&
           listcount (circuit->u.bc.lan_neighs[1]) > 0)
-	if (tlv_add_lan_neighs (circuit->u.bc.lan_neighs[1],
+	  {
+	   if (tlv_add_lan_neighs (circuit->u.bc.lan_neighs[1],
 				circuit->snd_stream))
-	  return ISIS_WARNING;
+		return ISIS_WARNING;
+#ifdef HAVE_TRILL_MONITORING
+	   if (tlv_add_dead_lan_neighs (circuit->u.bc.dead_lan_neighs[1],
+				circuit->snd_stream))
+		return ISIS_WARNING;
+#endif
+	  }
     }
 
   /* Protocols Supported TLV */

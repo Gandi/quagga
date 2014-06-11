@@ -140,6 +140,10 @@
 #define ROUTER_CAPABILITY         242
 #define PORT_CAPABILITY           243   /* TBD TRILL port capability TLV */
 
+#ifdef HAVE_TRILL_MONITORING
+#define DEAD_LAN_NEIGHBOURS       244
+#endif
+
 /* PORT_CAPABILITY sub-TLVs for TRILL */
 
 /**     RFC6326  2.2.1  Special VLANs and Flags
@@ -573,6 +577,9 @@ struct tlvs
   struct list *router_capabilities;
   struct list *port_capabilities;
 #endif
+#ifdef HAVE_TRILL_MONITORING
+  struct list *dead_lan_neighs
+#endif
 };
 
 /*
@@ -604,6 +611,9 @@ struct tlvs
 #ifdef HAVE_TRILL
 #define TLVFLAG_ROUTER_CAPABILITY         (1<<22)
 #define TLVFLAG_PORT_CAPABILITY           (1<<23)
+#endif
+#ifdef HAVE_TRILL_MONITORING
+#define TLVFLAG_DEAD_LAN_NEIGHS           (1<<24)
 #endif
 
 void init_tlvs (struct tlvs *tlvs, uint32_t expected);

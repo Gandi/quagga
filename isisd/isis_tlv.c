@@ -92,6 +92,10 @@ free_tlvs (struct tlvs *tlvs)
   if(tlvs->port_capabilities)
     list_delete(tlvs->port_capabilities);
 #endif
+#ifdef HAVE_TRILL_MONITORING
+  if (tlvs->dead_lan_neighs)
+    list_delete (tlvs->lan_neighs);
+#endif
 
   memset (tlvs, 0, sizeof (struct tlvs));
 
@@ -326,6 +330,37 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	      pnt += length;
 	    }
 	  break;
+
+#ifdef HAVE_TRILL_MONITORING
+	case DEAD_LAN_NEIGHBOURS:
+	  /* +-------+-------+-------+-------+-------+-------+-------+-------+
+	   * |                        LAN Address                            | 
+	   * +-------+-------+-------+-------+-------+-------+-------+-------+
+	   * :                                                               :
+	   */
+	  *found |= TLVFLAG_DEAD_LAN_NEIGHS;
+#ifdef EXTREME_TLV_DEBUG
+	  zlog_debug ("ISIS-TLV (%s): DEAD LAN Neigbours length %d",
+		      areatag, length);
+#endif /* EXTREME_TLV_DEBUG */
+	  if (TLVFLAG_DEAD_LAN_NEIGHS & *expected)
+	    {
+	      while (length > value_len)
+		{
+		  lan_nei = (struct dead_lan_neigh *) pnt;
+		  if (!tlvs->dead_lan_neighs)
+		    tlvs->dead_lan_neighs = list_new ();
+		  listnode_add (tlvs->dead_lan_neighs, lan_nei);
+		  value_len += ETH_ALEN;
+		  pnt += ETH_ALEN;
+		}
+	    }
+	  else
+	    {
+	      pnt += length;
+	    }
+	  break;
+#endif
 
 	case PADDING:
 #ifdef EXTREME_TLV_DEBUG
@@ -915,6 +950,32 @@ tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream)
   return add_tlv (LAN_NEIGHBOURS, pos - value, value, stream);
 }
 
+#ifdef HAVE_TRILL_MONITORING
+int
+tlv_add_dead_lan_neighs (struct list *dead_lan_neighs, struct stream *stream)
+{
+  struct listnode *node;
+  u_char *snpa;
+  u_char value[255];
+  u_char *pos = value;
+  int retval;
+
+  for (ALL_LIST_ELEMENTS_RO (dead_lan_neighs, node, snpa))
+    {
+      if (pos - value + ETH_ALEN > 255)
+	{
+	  retval = add_tlv (DEAD_LAN_NEIGHBOURS, pos - value, value, stream);
+	  if (retval != ISIS_OK)
+	    return retval;
+	  pos = value;
+	}
+      memcpy (pos, snpa, ETH_ALEN);
+      pos += ETH_ALEN;
+    }
+
+  return add_tlv (DEAD_LAN_NEIGHBOURS, pos - value, value, stream);
+}
+#endif
 int
 tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream)
 {
