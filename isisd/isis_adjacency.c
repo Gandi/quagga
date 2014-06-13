@@ -229,6 +229,34 @@ adj_state2string (int state)
   return NULL;			/* not reached */
 }
 
+int
+destroy_dead_adj_level1 (struct thread *thread)
+{
+ struct isis_adjacency *adj;
+ struct isis_circuit *circuit;
+
+ adj = THREAD_ARG (thread);
+ assert (adj);
+ circuit = adj->circuit;
+ assert (circuit);
+
+ listnode_delete(circuit->u.bc.dead_adjdb[0], adj);
+ return ISIS_OK;
+}
+int
+destroy_dead_adj_level2 (struct thread *thread)
+{
+ struct isis_adjacency *adj;
+ struct isis_circuit *circuit;
+
+ adj = THREAD_ARG (thread);
+ assert (adj);
+ circuit = adj->circuit;
+ assert (circuit);
+
+ listnode_delete(circuit->u.bc.dead_adjdb[1], adj);
+ return ISIS_OK;
+}
 void
 isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state,
 		       const char *reason)
@@ -283,6 +311,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
           if (tmp) {
                adj->flaps += tmp->flaps;
                listnode_delete(circuit->u.bc.dead_adjdb[level - 1], tmp);
+               THREAD_TIMER_OFF(tmp->t_expire_dead);
                isis_delete_adj(tmp);
           }
           /* update counter & timers for debugging purposes */
@@ -291,7 +320,14 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
         }
         else if (new_state == ISIS_ADJ_DOWN)
         {
-          isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit, adj->flaps);
+          struct isis_adjacency *tmp;
+          tmp = isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit, adj->flaps);
+          if(level == IS_LEVEL_1)
+          THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level1, tmp,
+                          (long) adj->hold_time);
+          if(level == IS_LEVEL_2)
+           THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level2, tmp,
+                          (long) adj->hold_time);
           listnode_delete (circuit->u.bc.adjdb[level - 1], adj);
           circuit->upadjcount[level - 1]--;
           if (circuit->upadjcount[level - 1] == 0)

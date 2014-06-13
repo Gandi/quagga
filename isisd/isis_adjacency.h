@@ -98,6 +98,7 @@ struct isis_adjacency
   u_int32_t last_flap;		/* last time the adj flapped */
   int flaps;			/* number of adjacency flaps  */
   struct thread *t_expire;	/* expire after hold_time  */
+  struct thread *t_expire_dead;    /* expire after dead adj  */
   struct isis_circuit *circuit;	/* back pointer */
 };
 
