@@ -103,6 +103,53 @@ isis_new_adj (u_char * id, u_char * snpa, int level,
   return adj;
 }
 
+#ifdef HAVE_TRILL_MONITORING
+struct isis_adjacency *
+isis_new_dead_adj (u_char * id, u_char * snpa, int level,
+	      struct isis_circuit *circuit, int flaps)
+{
+  struct isis_adjacency *adj;
+  struct isis_adjacency *tmp;
+  int i;
+
+  adj = adj_alloc (id);		/* P2P kludge */
+
+  if (adj == NULL)
+    {
+      zlog_err ("Out of memory!");
+      return NULL;
+    }
+
+  if (snpa) {
+    memcpy (adj->snpa, snpa, ETH_ALEN);
+  } else {
+    memset (adj->snpa, ' ', ETH_ALEN);
+  }
+
+  adj->circuit = circuit;
+  adj->level = level;
+  adj->flaps = flaps;
+  adj->last_flap = time (NULL);
+  adj->adj_state = ISIS_ADJ_INITIALIZING;
+  if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+    {
+     tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.dead_adjdb[level - 1]);
+      if (tmp) {
+          return tmp ;
+      }
+      listnode_add (circuit->u.bc.dead_adjdb[level - 1], adj);
+      adj->dischanges[level - 1] = 0;
+      for (i = 0; i < DIS_RECORDS; i++)	/* clear N DIS state change records */
+	{
+	  adj->dis_record[(i * ISIS_LEVELS) + level - 1].dis
+	    = ISIS_UNKNOWN_DIS;
+	  adj->dis_record[(i * ISIS_LEVELS) + level - 1].last_dis_change
+	    = time (NULL);
+	}
+    }
+  return adj;
+}
+#endif
 struct isis_adjacency *
 isis_adj_lookup (u_char * sysid, struct list *adjdb)
 {
@@ -122,6 +169,8 @@ isis_adj_lookup_snpa (u_char * ssnpa, struct list *adjdb)
   struct listnode *node;
   struct isis_adjacency *adj;
 
+  if (!adjdb)
+   return NULL;
   for (ALL_LIST_ELEMENTS_RO (adjdb, node, adj))
     if (memcmp (adj->snpa, ssnpa, ETH_ALEN) == 0)
       return adj;
@@ -133,6 +182,8 @@ void
 isis_delete_adj (void *arg)
 {
   struct isis_adjacency *adj = arg;
+  struct area_addr *area_addr;
+  struct listnode *node;
 
   if (!adj)
     return;
@@ -142,8 +193,12 @@ isis_delete_adj (void *arg)
   /* remove from SPF trees */
   spftree_area_adj_del (adj->circuit->area, adj);
 
-  if (adj->area_addrs)
+  if (adj->area_addrs) {
+   for (ALL_LIST_ELEMENTS_RO (adj->area_addrs, node, area_addr)) {
+    XFREE (MTYPE_ISIS_TMP, area_addr);
+   }
     list_delete (adj->area_addrs);
+  }
   if (adj->ipv4_addrs)
     list_delete (adj->ipv4_addrs);
 #ifdef HAVE_IPV6
@@ -187,12 +242,12 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 
   circuit = adj->circuit;
 
-  if (isis->debugs & DEBUG_ADJ_PACKETS)
-    {
+   if (isis->debugs & DEBUG_ADJ_PACKETS)
+     {
       zlog_debug ("ISIS-Adj (%s): Adjacency state change %d->%d: %s",
 		 circuit->area->area_tag,
 		 old_state, new_state, reason ? reason : "unspecified");
-    }
+     }
 
   if (circuit->area->log_adj_changes)
     {
@@ -221,14 +276,22 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
           continue;
         if (new_state == ISIS_ADJ_UP)
         {
+          struct isis_adjacency *tmp;
           circuit->upadjcount[level - 1]++;
           isis_event_adjacency_state_change (adj, new_state);
+          tmp = isis_adj_lookup_snpa(adj->snpa, circuit->u.bc.dead_adjdb[level - 1]);
+          if (tmp) {
+               adj->flaps += tmp->flaps;
+               listnode_delete(circuit->u.bc.dead_adjdb[level - 1], tmp);
+               isis_delete_adj(tmp);
+          }
           /* update counter & timers for debugging purposes */
           adj->last_flap = time (NULL);
           adj->flaps++;
         }
         else if (new_state == ISIS_ADJ_DOWN)
         {
+          isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit, adj->flaps);
           listnode_delete (circuit->u.bc.adjdb[level - 1], adj);
           circuit->upadjcount[level - 1]--;
           if (circuit->upadjcount[level - 1] == 0)
@@ -344,8 +407,6 @@ int
 isis_adj_expire (struct thread *thread)
 {
   struct isis_adjacency *adj;
-  struct isis_circuit *circuit;
-  int level;
 
   /*
    * Get the adjacency
@@ -353,9 +414,6 @@ isis_adj_expire (struct thread *thread)
   adj = THREAD_ARG (thread);
   assert (adj);
   adj->t_expire = NULL;
-  circuit = adj->circuit;
-  level = adj->level;
-  listnode_add (circuit->u.bc.dead_lan_neighs[level], adj->snpa);
 
   /* trigger the adj expire event */
   isis_adj_state_change (adj, ISIS_ADJ_DOWN, "holding time expired");

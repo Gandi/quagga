@@ -644,6 +644,10 @@ trill_area_nickname(circuit->area, htons(circuit->area->trill->nick.name));
 
       circuit->u.bc.adjdb[0] = list_new ();
       circuit->u.bc.adjdb[1] = list_new ();
+#ifdef HAVE_TRILL_MONITORING
+      circuit->u.bc.dead_adjdb[0] = list_new ();
+      circuit->u.bc.dead_adjdb[1] = list_new ();
+#endif
 
       if (circuit->area->min_bcast_mtu == 0 ||
           ISO_MTU (circuit) < circuit->area->min_bcast_mtu)

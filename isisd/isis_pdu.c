@@ -2350,6 +2350,13 @@ send_hello (struct isis_circuit *circuit, int level)
   /*  LAN Neighbors TLV */
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
+#ifdef HAVE_TRILL_MONITORING
+     if(circuit->u.bc.dead_lan_neighs[level - 1]) {
+     list_delete_all_node (circuit->u.bc.dead_lan_neighs[level - 1]);
+     isis_adj_build_neigh_list (circuit->u.bc.dead_adjdb[level - 1],
+                                circuit->u.bc.dead_lan_neighs[level - 1]);
+     }
+#endif
       if (level == IS_LEVEL_1 && circuit->u.bc.lan_neighs[0] &&
           listcount (circuit->u.bc.lan_neighs[0]) > 0)
 	  {
@@ -2360,7 +2367,6 @@ send_hello (struct isis_circuit *circuit, int level)
 	   if (tlv_add_dead_lan_neighs (circuit->u.bc.dead_lan_neighs[0],
 				circuit->snd_stream))
 		return ISIS_WARNING;
-	   list_delete_all_node(circuit->u.bc.dead_lan_neighs[0]);
 #endif
 	  }
       if (level == IS_LEVEL_2 && circuit->u.bc.lan_neighs[1] &&
@@ -2373,7 +2379,6 @@ send_hello (struct isis_circuit *circuit, int level)
 	   if (tlv_add_dead_lan_neighs (circuit->u.bc.dead_lan_neighs[1],
 				circuit->snd_stream))
 		return ISIS_WARNING;
-	   list_delete_all_node(circuit->u.bc.dead_lan_neighs[1]);
 
 #endif
 	  }
