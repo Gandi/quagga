@@ -347,7 +347,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	    {
 	      while (length > value_len)
 		{
-		  lan_nei = (struct dead_lan_neigh *) pnt;
+		  lan_nei = (struct lan_neigh *) pnt;
 		  if (!tlvs->dead_lan_neighs)
 		    tlvs->dead_lan_neighs = list_new ();
 		  listnode_add (tlvs->dead_lan_neighs, lan_nei);
