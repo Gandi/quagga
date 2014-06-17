@@ -130,7 +130,7 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
   adj->level = level;
   adj->flaps = flaps;
   adj->last_flap = time (NULL);
-  adj->adj_state = ISIS_ADJ_INITIALIZING;
+  adj->adj_state = ISIS_ADJ_DEAD;
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
      tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.dead_adjdb[level - 1]);
@@ -222,6 +222,8 @@ adj_state2string (int state)
       return "Up";
     case ISIS_ADJ_DOWN:
       return "Down";
+    case ISIS_ADJ_DEAD:
+      return "Dead";
     default:
       return "Unknown";
     }
@@ -599,7 +601,8 @@ isis_adj_build_neigh_list (struct list *adjdb, struct list *list)
 	}
 
       if ((adj->adj_state == ISIS_ADJ_UP ||
-	   adj->adj_state == ISIS_ADJ_INITIALIZING))
+	   adj->adj_state == ISIS_ADJ_INITIALIZING ||
+	   adj->adj_state == ISIS_ADJ_DEAD))
 	listnode_add (list, adj->snpa);
     }
   return;

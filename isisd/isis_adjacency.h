@@ -47,7 +47,8 @@ enum isis_adj_state
   ISIS_ADJ_UNKNOWN,
   ISIS_ADJ_INITIALIZING,
   ISIS_ADJ_UP,
-  ISIS_ADJ_DOWN
+  ISIS_ADJ_DOWN,
+  ISIS_ADJ_DEAD
 };
 
 /*
