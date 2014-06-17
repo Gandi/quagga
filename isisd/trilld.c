@@ -1757,6 +1757,71 @@ DEFUN (show_trill_adjtable,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_trill_neighbor,
+       show_trill_neighbor_cmd,
+       "show trill neighbor",
+       SHOW_STR
+              "TRILL network information\n"
+              "TRILL neighbor adjacencies\n")
+{
+ return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF, false);
+}
+
+DEFUN (show_trill_neighbor_detail,
+       show_trill_neighbor_detail_cmd,
+       "show trill neighbor detail",
+       SHOW_STR
+              "TRILL network information\n"
+              "TRILL neighbor adjacencies\n"
+              "show detailed information\n")
+{
+ return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL, false);
+}
+
+DEFUN (show_trill_neighbor_arg,
+       show_trill_neighbor_arg_cmd,
+       "show trill neighbor WORD",
+       SHOW_STR
+              "trill network information\n"
+              "trill neighbor adjacencies\n"
+              "System id\n")
+{
+ return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL, false);
+}
+
+
+DEFUN (show_trill_dead_neighbor,
+       show_trill_neighbor_dead_cmd,
+       "show trill dead neighbor",
+       SHOW_STR
+                     "TRILL network information\n"
+                     "TRILL dead neighbor adjacencies\n")
+{
+ return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF, true);
+}
+
+DEFUN (show_trill_dead_neighbor_detail,
+       show_trill_dead_neighbor_detail_cmd,
+       "show trill dead neighbor detail",
+       SHOW_STR
+                     "TRILL network information\n"
+                     "TRILL dead neighbor adjacencies\n"
+                     "show detailed information\n")
+{
+ return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL, true);
+}
+
+DEFUN (show_trill_dead_neighbor_arg,
+       show_trill_dead_neighbor_arg_cmd,
+       "show trill dead neighbor WORD",
+       SHOW_STR
+                     "trill network information\n"
+                     "trill dead neighbor adjacencies\n"
+                     "System id\n")
+{
+ return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL, true);
+}
+
 void trill_init()
 {
   install_element (ISIS_NODE, &trill_nickname_cmd);
@@ -1764,18 +1829,37 @@ void trill_init()
   install_element (ISIS_NODE, &trill_nickname_priority_cmd);
   install_element (ISIS_NODE, &no_trill_nickname_priority_cmd);
   install_element (ISIS_NODE, &trill_instance_cmd);
+  install_element (ISIS_NODE, &show_trill_neighbor_cmd);
+  install_element (ISIS_NODE, &show_trill_neighbor_detail_cmd);
+  install_element (ISIS_NODE, &show_trill_neighbor_arg_cmd);
+  install_element (ISIS_NODE, &show_trill_neighbor_dead_cmd);
+  install_element (ISIS_NODE, &show_trill_dead_neighbor_detail_cmd);
+  install_element (ISIS_NODE, &show_trill_dead_neighbor_arg_cmd);
+
 
   install_element (VIEW_NODE, &show_trill_nickdatabase_cmd);
   install_element (VIEW_NODE, &show_trill_circuits_cmd);
   install_element (VIEW_NODE, &show_trill_fwdtable_cmd);
   install_element (VIEW_NODE, &show_trill_topology_cmd);
   install_element (VIEW_NODE, &show_trill_adjtable_cmd);
+  install_element (VIEW_NODE, &show_trill_neighbor_cmd);
+  install_element (VIEW_NODE, &show_trill_neighbor_detail_cmd);
+  install_element (VIEW_NODE, &show_trill_neighbor_arg_cmd);
+  install_element (VIEW_NODE, &show_trill_neighbor_dead_cmd);
+  install_element (VIEW_NODE, &show_trill_dead_neighbor_detail_cmd);
+  install_element (VIEW_NODE, &show_trill_dead_neighbor_arg_cmd);
+
 
   install_element (ENABLE_NODE, &show_trill_nickdatabase_cmd);
   install_element (ENABLE_NODE, &show_trill_circuits_cmd);
   install_element (ENABLE_NODE, &show_trill_fwdtable_cmd);
   install_element (ENABLE_NODE, &show_trill_topology_cmd);
   install_element (ENABLE_NODE, &show_trill_adjtable_cmd);
-
+  install_element (ENABLE_NODE, &show_trill_neighbor_cmd);
+  install_element (ENABLE_NODE, &show_trill_neighbor_detail_cmd);
+  install_element (ENABLE_NODE, &show_trill_neighbor_arg_cmd);
+  install_element (ENABLE_NODE, &show_trill_neighbor_dead_cmd);
+  install_element (ENABLE_NODE, &show_trill_dead_neighbor_detail_cmd);
+  install_element (ENABLE_NODE, &show_trill_dead_neighbor_arg_cmd);
 
 }

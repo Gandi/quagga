@@ -151,6 +151,7 @@ struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup (const char *);
 int isis_area_get (struct vty *vty, const char *area_tag);
 void print_debug(struct vty *, int, int);
+int show_isis_neighbor_common(struct vty *, const char *id, char, uint8_t dead);
 
 /* Master of threads. */
 extern struct thread_master *master;

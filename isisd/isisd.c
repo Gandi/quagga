@@ -70,7 +70,7 @@ int isis_area_destroy(struct vty *, const char *);
 int area_net_title(struct vty *, const char *);
 int area_clear_net_title(struct vty *, const char *);
 int show_isis_interface_common(struct vty *, const char *ifname, char);
-int show_isis_neighbor_common(struct vty *, const char *id, char);
+int show_isis_neighbor_common(struct vty *, const char *id, char, uint8_t dead );
 int clear_isis_neighbor_common(struct vty *, const char *id);
 int isis_config_write(struct vty *);
 
@@ -556,7 +556,7 @@ DEFUN (show_isis_interface_arg,
  */
 
 int
-show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
+show_isis_neighbor_common (struct vty *vty, const char *id, char detail, uint8_t dead)
 {
   struct listnode *anode, *cnode, *node, *idnode;
   struct isis_area *area;
@@ -602,7 +602,10 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
             {
               for (i = 0; i < 2; i++)
                 {
-                  adjdb = circuit->u.bc.adjdb[i];
+                  if(dead)
+                   adjdb = circuit->u.bc.dead_adjdb[i];
+                  else
+                   adjdb = circuit->u.bc.adjdb[i];
                   if (adjdb && adjdb->count)
                     {
                       for (ALL_LIST_ELEMENTS_RO (adjdb, node, adj))
@@ -712,7 +715,7 @@ DEFUN (show_isis_neighbor,
        "ISIS network information\n"
        "ISIS neighbor adjacencies\n")
 {
-  return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF);
+  return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF, false);
 }
 
 DEFUN (show_isis_neighbor_detail,
@@ -723,7 +726,7 @@ DEFUN (show_isis_neighbor_detail,
        "ISIS neighbor adjacencies\n"
        "show detailed information\n")
 {
-  return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL);
+  return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL, false);
 }
 
 DEFUN (show_isis_neighbor_arg,
@@ -734,7 +737,7 @@ DEFUN (show_isis_neighbor_arg,
        "ISIS neighbor adjacencies\n"
        "System id\n")
 {
-  return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL);
+  return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL, false);
 }
 
 DEFUN (clear_isis_neighbor,
