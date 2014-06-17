@@ -243,6 +243,7 @@ destroy_dead_adj_level1 (struct thread *thread)
  assert (circuit);
 
  listnode_delete(circuit->u.bc.dead_adjdb[0], adj);
+ XFREE (MTYPE_ISIS_ADJACENCY, adj);
  return ISIS_OK;
 }
 int
@@ -257,6 +258,7 @@ destroy_dead_adj_level2 (struct thread *thread)
  assert (circuit);
 
  listnode_delete(circuit->u.bc.dead_adjdb[1], adj);
+ XFREE (MTYPE_ISIS_ADJACENCY, adj);
  return ISIS_OK;
 }
 void
