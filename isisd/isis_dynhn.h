@@ -36,6 +36,7 @@ void isis_dynhn_insert (u_char * id, struct hostname *hostname, int level);
 void isis_dynhn_remove (u_char * id);
 struct isis_dynhn *dynhn_find_by_id (u_char * id);
 struct isis_dynhn *dynhn_find_by_name (const char *hostname);
+struct list *dynhn_grep_by_name (const char *hostname);
 void dynhn_print_all (struct vty *vty);
 
 #endif /* _ZEBRA_ISIS_DYNHN_H */

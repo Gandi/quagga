@@ -558,11 +558,12 @@ DEFUN (show_isis_interface_arg,
 int
 show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
 {
-  struct listnode *anode, *cnode, *node;
+  struct listnode *anode, *cnode, *node, *idnode;
   struct isis_area *area;
   struct isis_circuit *circuit;
   struct list *adjdb;
   struct isis_adjacency *adj;
+  struct list *temp_cache = NULL;
   struct isis_dynhn *dynhn;
   u_char sysid[ISIS_SYS_ID_LEN];
   int i;
@@ -578,13 +579,12 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
     {
       if (sysid2buff (sysid, id) == 0)
         {
-          dynhn = dynhn_find_by_name (id);
-          if (dynhn == NULL)
+          temp_cache = dynhn_grep_by_name (id);
+          if (temp_cache == NULL)
             {
               vty_out (vty, "Invalid system id %s%s", id, VTY_NEWLINE);
               return CMD_SUCCESS;
             }
-          memcpy (sysid, dynhn->id, ISIS_SYS_ID_LEN);
         }
     }
 
@@ -606,9 +606,17 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
                   if (adjdb && adjdb->count)
                     {
                       for (ALL_LIST_ELEMENTS_RO (adjdb, node, adj))
-                        if (!id || !memcmp (adj->sysid, sysid,
-                                            ISIS_SYS_ID_LEN))
+                        if (!id)
                           isis_adj_print_vty (adj, vty, detail);
+                        else
+                         if (temp_cache && temp_cache->count)
+                          for (ALL_LIST_ELEMENTS_RO(temp_cache, idnode, dynhn))
+                          {
+                           memcpy (sysid, dynhn->id, ISIS_SYS_ID_LEN);
+                           if (!memcmp (adj->sysid, dynhn->id,
+                                        ISIS_SYS_ID_LEN))
+                            isis_adj_print_vty (adj, vty, detail);
+                          }
                     }
                 }
             }
@@ -616,8 +624,12 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
                    circuit->u.p2p.neighbor)
             {
               adj = circuit->u.p2p.neighbor;
-              if (!id || !memcmp (adj->sysid, sysid, ISIS_SYS_ID_LEN))
+              for (ALL_LIST_ELEMENTS_RO(temp_cache, idnode, dynhn))
+              {
+               memcpy (sysid, dynhn->id, ISIS_SYS_ID_LEN);
+               if (!id || !memcmp (adj->sysid, sysid, ISIS_SYS_ID_LEN))
                 isis_adj_print_vty (adj, vty, detail);
+              }
             }
         }
     }

@@ -103,6 +103,23 @@ dynhn_find_by_name (const char *hostname)
   return NULL;
 }
 
+struct list *
+dynhn_grep_by_name (const char *hostname)
+{
+ struct listnode *node = NULL;
+ struct isis_dynhn *dyn = NULL;
+ struct list *dyn_temp_cache = NULL;
+ dyn_temp_cache = list_new ();
+
+ for (ALL_LIST_ELEMENTS_RO (dyn_cache, node, dyn))
+  if (strstr((char *)dyn->name.name, hostname) != NULL)
+  {
+   zlog_warn("found %s",dyn->name.name);
+   listnode_add(dyn_temp_cache, dyn);
+  }
+  return dyn_temp_cache;
+}
+
 void
 isis_dynhn_insert (u_char * id, struct hostname *hostname, int level)
 {
