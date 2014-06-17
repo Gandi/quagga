@@ -311,6 +311,30 @@ tlvs_to_adj_area_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
     }
 }
 
+#ifdef HAVE_TRILL_MONITORING
+static void
+tlvs_to_adj_dead_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
+{
+ struct listnode *node;
+ struct lan_neigh *lan_neigh, *malloced;
+
+ if (adj->dead_addrs)
+ {
+  adj->dead_addrs->del = del_addr;
+  list_delete (adj->dead_addrs);
+ }
+   adj->dead_addrs = list_new ();
+   if (tlvs->dead_lan_neighs)
+   {
+    for (ALL_LIST_ELEMENTS_RO (tlvs->dead_lan_neighs, node, lan_neigh))
+    {
+     malloced = XMALLOC (MTYPE_ISIS_TMP, sizeof (struct lan_neigh));
+     memcpy (malloced, lan_neigh, sizeof (struct lan_neigh));
+     listnode_add (adj->dead_addrs, malloced);
+    }
+   }
+}
+#endif
 static int
 tlvs_to_adj_nlpids (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
@@ -474,6 +498,9 @@ process_p2p_hello (struct isis_circuit *circuit)
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV6_ADDR;
 #endif
+#ifdef HAVE_TRILL_MONITORING
+  expected |= TLVFLAG_DEAD_LAN_NEIGHS;
+#endif
   auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
 		       STREAM_PNT (circuit->rcv_stream),
@@ -557,6 +584,9 @@ process_p2p_hello (struct isis_circuit *circuit)
 
   /* we do this now because the adj may not survive till the end... */
   tlvs_to_adj_area_addrs (&tlvs, adj);
+#ifdef HAVE_TRILL_MONITORING
+  tlvs_to_adj_dead_addrs (&tlvs, adj);
+#endif
 
   /* which protocol are spoken ??? */
   if (tlvs_to_adj_nlpids (&tlvs, adj))
@@ -966,6 +996,9 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV6_ADDR;
 #endif
+#ifdef HAVE_TRILL_MONITORING
+  expected |= TLVFLAG_DEAD_LAN_NEIGHS;
+#endif
   auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
                        STREAM_PNT (circuit->rcv_stream),
@@ -1123,6 +1156,9 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   memcpy (adj->lanid, hdr.lan_id, ISIS_SYS_ID_LEN + 1);
 
   tlvs_to_adj_area_addrs (&tlvs, adj);
+#ifdef HAVE_TRILL_MONITORING
+  tlvs_to_adj_dead_addrs (&tlvs, adj);
+#endif
 
   /* which protocol are spoken ??? */
   if (tlvs_to_adj_nlpids (&tlvs, adj))

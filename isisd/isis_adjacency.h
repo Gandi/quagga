@@ -86,6 +86,9 @@ struct isis_adjacency
   enum isis_adj_state adj_state;	/* adjacencyState */
   enum isis_adj_usage adj_usage;	/* adjacencyUsage */
   struct list *area_addrs;		/* areaAdressesOfNeighbour */
+#ifdef HAVE_TRILL_MONITORING
+  struct list *dead_addrs;      /* dead neighbors address */
+#endif
   struct nlpids nlpids;			/* protocols spoken ... */
   struct list *ipv4_addrs;
   struct in_addr router_address;

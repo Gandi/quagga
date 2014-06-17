@@ -202,6 +202,16 @@ isis_delete_adj (void *arg)
    }
     list_delete (adj->area_addrs);
   }
+#ifdef HAVE_TRILL_MONITORING
+  struct lan_neigh* lan_neigh;
+
+  if (adj->dead_addrs) {
+   for (ALL_LIST_ELEMENTS_RO (adj->dead_addrs, node, lan_neigh)) {
+    XFREE (MTYPE_ISIS_TMP, lan_neigh);
+   }
+       list_delete (adj->dead_addrs);
+  }
+#endif
   if (adj->ipv4_addrs)
     list_delete (adj->ipv4_addrs);
 #ifdef HAVE_IPV6
@@ -588,6 +598,15 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
             vty_out (vty, "      %s%s", isonet_print (area_addr->area_addr,
                      area_addr->addr_len), VTY_NEWLINE);
         }
+#ifdef HAVE_TRILL_MONITORING
+      if (adj->dead_addrs && listcount (adj->dead_addrs) > 0)
+      {
+       struct lan_neigh *lan_neigh;
+       vty_out (vty, "    dead neighbor(s) address(es):%s", VTY_NEWLINE);
+       for (ALL_LIST_ELEMENTS_RO (adj->dead_addrs, node, lan_neigh))
+        vty_out (vty, "      %s%s", snpa_print (lan_neigh->LAN_addr), VTY_NEWLINE);
+      }
+#endif
       if (adj->ipv4_addrs && listcount (adj->ipv4_addrs) > 0)
 	{
 	  vty_out (vty, "    IPv4 Address(es):%s", VTY_NEWLINE);
