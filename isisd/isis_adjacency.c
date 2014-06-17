@@ -106,7 +106,7 @@ isis_new_adj (u_char * id, u_char * snpa, int level,
 #ifdef HAVE_TRILL_MONITORING
 struct isis_adjacency *
 isis_new_dead_adj (u_char * id, u_char * snpa, int level,
-	      struct isis_circuit *circuit, int flaps)
+	      struct isis_circuit *circuit, int flaps, int hold_time)
 {
   struct isis_adjacency *adj;
   struct isis_adjacency *tmp;
@@ -131,6 +131,9 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
   adj->flaps = flaps;
   adj->last_flap = time (NULL);
   adj->adj_state = ISIS_ADJ_DEAD;
+  adj->last_upd = time (NULL);
+  adj->hold_time = hold_time * 10;
+  adj->circuit_t = level;
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
      tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.dead_adjdb[level - 1]);
@@ -261,6 +264,19 @@ destroy_dead_adj_level2 (struct thread *thread)
  XFREE (MTYPE_ISIS_ADJACENCY, adj);
  return ISIS_OK;
 }
+int
+switch_to_down (struct thread *thread)
+{
+ struct isis_adjacency *adj;
+
+ adj = THREAD_ARG (thread);
+ assert (adj);
+ adj->adj_state = ISIS_ADJ_DOWN;
+ /* when marking adj as down reset the flap counter */
+ adj->flaps = 0;
+ adj->last_flap = time (NULL);
+ return ISIS_OK;
+}
 void
 isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state,
 		       const char *reason)
@@ -316,6 +332,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                adj->flaps += tmp->flaps;
                listnode_delete(circuit->u.bc.dead_adjdb[level - 1], tmp);
                THREAD_TIMER_OFF(tmp->t_expire_dead);
+               THREAD_TIMER_OFF(tmp->t_expire);
                isis_delete_adj(tmp);
           }
           /* update counter & timers for debugging purposes */
@@ -325,13 +342,16 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
         else if (new_state == ISIS_ADJ_DOWN)
         {
           struct isis_adjacency *tmp;
-          tmp = isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit, adj->flaps);
+          tmp = isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit, adj->flaps,
+                                   adj->hold_time);
           if(level == IS_LEVEL_1)
           THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level1, tmp,
-                          (long) adj->hold_time);
+                          (long) tmp->hold_time);
           if(level == IS_LEVEL_2)
            THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level2, tmp,
-                          (long) adj->hold_time);
+                          (long) tmp->hold_time);
+           THREAD_TIMER_ON(master, tmp->t_expire, switch_to_down, tmp,
+                           (long) adj->hold_time);
           listnode_delete (circuit->u.bc.adjdb[level - 1], adj);
           circuit->upadjcount[level - 1]--;
           if (circuit->upadjcount[level - 1] == 0)
