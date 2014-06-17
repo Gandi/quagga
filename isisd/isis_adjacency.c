@@ -225,8 +225,10 @@ adj_state2string (int state)
       return "Up";
     case ISIS_ADJ_DOWN:
       return "Down";
+#ifdef HAVE_TRILL_MONITORING
     case ISIS_ADJ_DEAD:
       return "Dead";
+#endif
     default:
       return "Unknown";
     }
@@ -234,6 +236,7 @@ adj_state2string (int state)
   return NULL;			/* not reached */
 }
 
+#ifdef HAVE_TRILL_MONITORING
 int
 destroy_dead_adj_level1 (struct thread *thread)
 {
@@ -277,6 +280,7 @@ switch_to_down (struct thread *thread)
  adj->last_flap = time (NULL);
  return ISIS_OK;
 }
+#endif
 void
 isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state,
 		       const char *reason)
@@ -327,6 +331,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
           struct isis_adjacency *tmp;
           circuit->upadjcount[level - 1]++;
           isis_event_adjacency_state_change (adj, new_state);
+#ifdef HAVE_TRILL_MONITORING
           tmp = isis_adj_lookup_snpa(adj->snpa, circuit->u.bc.dead_adjdb[level - 1]);
           if (tmp) {
                adj->flaps += tmp->flaps;
@@ -335,12 +340,14 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                THREAD_TIMER_OFF(tmp->t_expire);
                isis_delete_adj(tmp);
           }
+#endif
           /* update counter & timers for debugging purposes */
           adj->last_flap = time (NULL);
           adj->flaps++;
         }
         else if (new_state == ISIS_ADJ_DOWN)
         {
+#ifdef HAVE_TRILL_MONITORING
           struct isis_adjacency *tmp;
           tmp = isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit, adj->flaps,
                                    adj->hold_time);
@@ -352,6 +359,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                           (long) tmp->hold_time);
            THREAD_TIMER_ON(master, tmp->t_expire, switch_to_down, tmp,
                            (long) adj->hold_time);
+#endif
           listnode_delete (circuit->u.bc.adjdb[level - 1], adj);
           circuit->upadjcount[level - 1]--;
           if (circuit->upadjcount[level - 1] == 0)
@@ -623,9 +631,13 @@ isis_adj_build_neigh_list (struct list *adjdb, struct list *list)
 	}
 
       if ((adj->adj_state == ISIS_ADJ_UP ||
-	   adj->adj_state == ISIS_ADJ_INITIALIZING ||
-	   adj->adj_state == ISIS_ADJ_DEAD))
-	listnode_add (list, adj->snpa);
+	   adj->adj_state == ISIS_ADJ_INITIALIZING
+#ifdef HAVE_TRILL_MONITORING
+	    || adj->adj_state == ISIS_ADJ_DEAD
+#endif
+      ))
+
+       listnode_add (list, adj->snpa);
     }
   return;
 }

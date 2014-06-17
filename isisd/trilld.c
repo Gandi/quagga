@@ -1764,7 +1764,11 @@ DEFUN (show_trill_neighbor,
               "TRILL network information\n"
               "TRILL neighbor adjacencies\n")
 {
- return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF, false);
+ return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF
+#ifdef HAVE_TRILL_MONITORING
+                                   , false
+#endif
+                                   );
 }
 
 DEFUN (show_trill_neighbor_detail,
@@ -1775,7 +1779,11 @@ DEFUN (show_trill_neighbor_detail,
               "TRILL neighbor adjacencies\n"
               "show detailed information\n")
 {
- return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL, false);
+ return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL
+#ifdef HAVE_TRILL_MONITORING
+                                   , false
+#endif
+                                   );
 }
 
 DEFUN (show_trill_neighbor_arg,
@@ -1786,7 +1794,11 @@ DEFUN (show_trill_neighbor_arg,
               "trill neighbor adjacencies\n"
               "System id\n")
 {
- return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL, false);
+ return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL
+#ifdef HAVE_TRILL_MONITORING
+                                   , false
+#endif
+                                   );
 }
 
 
@@ -1797,7 +1809,11 @@ DEFUN (show_trill_dead_neighbor,
                      "TRILL network information\n"
                      "TRILL dead neighbor adjacencies\n")
 {
- return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF, true);
+ return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF
+#ifdef HAVE_TRILL_MONITORING
+                                   , true
+#endif
+                                   );
 }
 
 DEFUN (show_trill_dead_neighbor_detail,
@@ -1808,7 +1824,11 @@ DEFUN (show_trill_dead_neighbor_detail,
                      "TRILL dead neighbor adjacencies\n"
                      "show detailed information\n")
 {
- return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL, true);
+ return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL
+#ifdef HAVE_TRILL_MONITORING
+                                   , true
+#endif
+                                   );
 }
 
 DEFUN (show_trill_dead_neighbor_arg,
@@ -1819,7 +1839,11 @@ DEFUN (show_trill_dead_neighbor_arg,
                      "trill dead neighbor adjacencies\n"
                      "System id\n")
 {
- return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL, true);
+ return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL
+#ifdef HAVE_TRILL_MONITORING
+                                   , true
+#endif
+                                   );
 }
 
 void trill_init()

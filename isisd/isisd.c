@@ -70,7 +70,6 @@ int isis_area_destroy(struct vty *, const char *);
 int area_net_title(struct vty *, const char *);
 int area_clear_net_title(struct vty *, const char *);
 int show_isis_interface_common(struct vty *, const char *ifname, char);
-int show_isis_neighbor_common(struct vty *, const char *id, char, uint8_t dead );
 int clear_isis_neighbor_common(struct vty *, const char *id);
 int isis_config_write(struct vty *);
 
@@ -556,7 +555,11 @@ DEFUN (show_isis_interface_arg,
  */
 
 int
-show_isis_neighbor_common (struct vty *vty, const char *id, char detail, uint8_t dead)
+show_isis_neighbor_common (struct vty *vty, const char *id, char detail
+#ifdef HAVE_TRILL_MONITORING
+                           , uint8_t dead
+#endif
+                          )
 {
   struct listnode *anode, *cnode, *node, *idnode;
   struct isis_area *area;
@@ -602,9 +605,11 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail, uint8_t
             {
               for (i = 0; i < 2; i++)
                 {
+#ifdef HAVE_TRILL_MONITORING
                   if(dead)
                    adjdb = circuit->u.bc.dead_adjdb[i];
                   else
+#endif
                    adjdb = circuit->u.bc.adjdb[i];
                   if (adjdb && adjdb->count)
                     {
@@ -715,7 +720,11 @@ DEFUN (show_isis_neighbor,
        "ISIS network information\n"
        "ISIS neighbor adjacencies\n")
 {
-  return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF, false);
+  return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF
+#ifdef HAVE_TRILL_MONITORING
+                                   , false
+#endif
+                                   );
 }
 
 DEFUN (show_isis_neighbor_detail,
@@ -726,7 +735,11 @@ DEFUN (show_isis_neighbor_detail,
        "ISIS neighbor adjacencies\n"
        "show detailed information\n")
 {
-  return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL, false);
+  return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL
+#ifdef HAVE_TRILL_MONITORING
+                                   , false
+#endif
+                                   );
 }
 
 DEFUN (show_isis_neighbor_arg,
@@ -737,7 +750,11 @@ DEFUN (show_isis_neighbor_arg,
        "ISIS neighbor adjacencies\n"
        "System id\n")
 {
-  return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL, false);
+  return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL
+#ifdef HAVE_TRILL_MONITORING
+                                   , false
+#endif
+                                   );
 }
 
 DEFUN (clear_isis_neighbor,
