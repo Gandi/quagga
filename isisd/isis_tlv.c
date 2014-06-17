@@ -94,7 +94,7 @@ free_tlvs (struct tlvs *tlvs)
 #endif
 #ifdef HAVE_TRILL_MONITORING
   if (tlvs->dead_lan_neighs)
-    list_delete (tlvs->lan_neighs);
+    list_delete (tlvs->dead_lan_neighs);
 #endif
 
   memset (tlvs, 0, sizeof (struct tlvs));
