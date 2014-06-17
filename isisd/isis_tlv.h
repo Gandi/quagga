@@ -578,7 +578,7 @@ struct tlvs
   struct list *port_capabilities;
 #endif
 #ifdef HAVE_TRILL_MONITORING
-  struct list *dead_lan_neighs
+  struct list *dead_lan_neighs;
 #endif
 };
 
