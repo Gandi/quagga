@@ -77,6 +77,9 @@ struct trill
   uint16_t  tree_root;
   struct list *configured_vni;	/* Configured VNI locally */
   struct list *supported_vni;	/* supported VNI*/
+#ifdef HAVE_TRILL_MONITORING
+  uint8_t passive;
+#endif
 };
 
 /* TRILL nickname information (node-specific) */
