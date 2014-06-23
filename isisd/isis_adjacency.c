@@ -134,6 +134,9 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
   adj->last_upd = time (NULL);
   adj->hold_time = hold_time * 10;
   adj->circuit_t = level;
+  if (circuit->u.bc.is_dr[level - 1])
+   zlog_warn("%s is unreachable, it will be declared as down in %i second(s)",
+             print_sys_hostname(id), hold_time);
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
      tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.dead_adjdb[level - 1]);
@@ -288,6 +291,8 @@ switch_to_down (struct thread *thread)
  /* when marking adj as down reset the flap counter */
  adj->flaps = 0;
  adj->last_flap = time (NULL);
+ if (adj->circuit->u.bc.is_dr[adj->circuit_t - 1])
+  zlog_warn("%s is down",print_sys_hostname(adj->sysid));
  return ISIS_OK;
 }
 #endif
@@ -362,12 +367,13 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
           tmp = isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit, adj->flaps,
                                    adj->hold_time);
           if(level == IS_LEVEL_1)
-          THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level1, tmp,
+           THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level1, tmp,
                           (long) tmp->hold_time);
           if(level == IS_LEVEL_2)
            THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level2, tmp,
                           (long) tmp->hold_time);
-           THREAD_TIMER_ON(master, tmp->t_expire, switch_to_down, tmp,
+
+          THREAD_TIMER_ON(master, tmp->t_expire, switch_to_down, tmp,
                            (long) adj->hold_time);
 #endif
           listnode_delete (circuit->u.bc.adjdb[level - 1], adj);
