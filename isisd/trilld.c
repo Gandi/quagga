@@ -427,8 +427,10 @@ int tlv_add_trill_nickname(struct trill_nickname *nick_info,
   void * vni;
   int rc;
 
+#ifdef HAVE_TRILL_MONITORING
   if (area->trill->passive)
    return ISIS_OK;
+#endif
 
   tlvstart = stream_get_endp (stream);
   (void) memset(&rtcap, 0, sizeof (rtcap));
