@@ -53,6 +53,7 @@
 #include "isisd/iso_checksum.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
+#include "isisd/trilld.h"
 
 #define ISIS_MINIMUM_FIXED_HDR_LEN 15
 #define ISIS_MIN_PDU_LEN           13	/* partial seqnum pdu with id_len=2 */
@@ -2761,6 +2762,11 @@ send_csnp (struct isis_circuit *circuit, int level)
   u_char num_lsps, loop = 1;
   int i, retval = ISIS_OK;
 
+#ifdef HAVE_TRILL_MONITORING
+    if(circuit->area->trill->passive)
+     return retval;
+#endif
+
   if (circuit->area->lspdb[level - 1] == NULL ||
       dict_count (circuit->area->lspdb[level - 1]) == 0)
     return retval;
@@ -3025,6 +3031,11 @@ send_psnp (int level, struct isis_circuit *circuit)
   u_char num_lsps;
   int retval = ISIS_OK;
 
+#ifdef HAVE_TRILL_MONITORING
+    if(circuit->area->trill->passive)
+     return retval;
+#endif
+
   if (circuit->circ_type == CIRCUIT_T_BROADCAST &&
       circuit->u.bc.is_dr[level - 1])
     return ISIS_OK;
@@ -3159,6 +3170,11 @@ send_lsp (struct thread *thread)
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
+
+#ifdef HAVE_TRILL_MONITORING
+  if(circuit->area->trill->passive)
+   return retval;
+#endif
 
   if (circuit->state != C_STATE_UP || circuit->is_passive == 1)
   {
