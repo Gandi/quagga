@@ -142,6 +142,7 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
      tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.dead_adjdb[level - 1]);
       if (tmp) {
           XFREE (MTYPE_ISIS_ADJACENCY, adj);
+          tmp->flaps += flaps - 1;
           return tmp ;
       }
       listnode_add (circuit->u.bc.dead_adjdb[level - 1], adj);
