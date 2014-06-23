@@ -135,8 +135,9 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
   adj->hold_time = hold_time * 10;
   adj->circuit_t = level;
   if (circuit->u.bc.is_dr[level - 1])
-   zlog_warn("%s is unreachable, it will be declared as down in %i second(s)",
-             print_sys_hostname(id), hold_time);
+   zlog_warn("%s with mac@ %s is unreachable, "
+             "it will be declared as down in %i second(s)",
+             print_sys_hostname(id), sysid_print(id), hold_time);
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
      tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.dead_adjdb[level - 1]);
@@ -294,7 +295,8 @@ switch_to_down (struct thread *thread)
  adj->flaps = 0;
  adj->last_flap = time (NULL);
  if (adj->circuit->u.bc.is_dr[adj->circuit_t - 1])
-  zlog_warn("%s is down",print_sys_hostname(adj->sysid));
+  zlog_warn("%s with mac@ %s is down !!!",print_sys_hostname(adj->sysid),
+            sysid_print(adj->sysid));
  return ISIS_OK;
 }
 #endif
