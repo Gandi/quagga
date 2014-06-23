@@ -295,7 +295,7 @@ switch_to_down (struct thread *thread)
  adj->flaps = 0;
  adj->last_flap = time (NULL);
  if (adj->circuit->u.bc.is_dr[adj->circuit_t - 1])
-  zlog_warn("%s with mac@ %s is down !!!",print_sys_hostname(adj->sysid),
+  zlog_warn("%s with mac@ %s is down !!!", print_sys_hostname(adj->sysid),
             sysid_print(adj->sysid));
  return ISIS_OK;
 }
@@ -354,6 +354,15 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
           tmp = isis_adj_lookup_snpa(adj->snpa, circuit->u.bc.dead_adjdb[level - 1]);
           if (tmp) {
                adj->flaps += tmp->flaps;
+               if (circuit->u.bc.is_dr[adj->circuit_t - 1] &&
+                   tmp->adj_state == ISIS_ADJ_DEAD
+                  )
+                zlog_warn("%s with mac@ %s alive again was just a flap.\n"
+                          "total flap count for this node %i",
+                          print_sys_hostname(adj->sysid),
+                          sysid_print(adj->sysid),
+                          tmp->flaps
+                         );
                listnode_delete(circuit->u.bc.dead_adjdb[level - 1], tmp);
                THREAD_TIMER_OFF(tmp->t_expire_dead);
                THREAD_TIMER_OFF(tmp->t_expire);
