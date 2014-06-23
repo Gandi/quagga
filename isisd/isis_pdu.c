@@ -3171,10 +3171,6 @@ send_lsp (struct thread *thread)
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
-#ifdef HAVE_TRILL_MONITORING
-  if(circuit->area->trill->passive)
-   return retval;
-#endif
 
   if (circuit->state != C_STATE_UP || circuit->is_passive == 1)
   {

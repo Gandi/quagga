@@ -427,6 +427,9 @@ int tlv_add_trill_nickname(struct trill_nickname *nick_info,
   void * vni;
   int rc;
 
+  if (area->trill->passive)
+   return ISIS_OK;
+
   tlvstart = stream_get_endp (stream);
   (void) memset(&rtcap, 0, sizeof (rtcap));
   rc = add_tlv(ROUTER_CAPABILITY, sizeof ( struct router_capability_tlv),
