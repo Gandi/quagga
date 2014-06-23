@@ -715,8 +715,11 @@ static void trill_create_nickfwdtable(struct isis_area *area)
 	fwdnode->dest_nick = sysid_to_nick (area, vertex->N.id);
 	memcpy(fwdnode->adj_snpa, adj->snpa, sizeof(fwdnode->adj_snpa));
 	fwdnode->interface = adj->circuit->interface;
-	listnode_add (fwdlist, fwdnode);
-      }
+    if(fwdnode->dest_nick)
+     listnode_add (fwdlist, fwdnode);
+    else
+     XFREE (MTYPE_ISIS_TRILL_FWDTBL_NODE, fwdnode);
+    }
   }
   area->trill->fwdtbl = fwdlist;
   if (oldfwdlist != NULL)
