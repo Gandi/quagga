@@ -257,6 +257,10 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
   area->trill->nick.priority |= CONFIGURED_NICK_PRIORITY;
   SET_FLAG(area->trill->status, TRILL_NICK_SET);
   UNSET_FLAG(area->trill->status, TRILL_AUTONICK);
+#ifdef HAVE_TRILL_MONITORING
+  if(area->trill->passive)
+   return true;
+#endif
   if (listcount(area->circuit_list) > 0) {
     struct nl_msg *msg;
     struct trill_nl_header *trnlhdr;
@@ -336,7 +340,10 @@ void trill_area_init(struct isis_area *area)
 
   /* FIXME For the moment force all TRILL area to be level 1 */
   area->is_type = IS_LEVEL_1;
-  netlink_init(area);
+#ifdef HAVE_TRILL_MONITORING
+  if(!area->trill->passive)
+   netlink_init(area);
+#endif
 }
 
 void trill_area_free(struct isis_area *area)
@@ -1046,6 +1053,10 @@ void trill_process_spf (struct isis_area *area)
       trill_create_nickadjlist(area, tnode);
     }
   }
+#ifdef HAVE_TRILL_MONITORING
+  if(area->trill->passive)
+   return;
+#endif
   msg = nlmsg_alloc();
   trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
 		      sizeof(struct trill_nl_header), NLM_F_REQUEST,
