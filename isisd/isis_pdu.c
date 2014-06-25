@@ -318,7 +318,11 @@ tlvs_to_adj_dead_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
  struct listnode *node;
  struct lan_neigh *lan_neigh, *malloced;
+ int level;
 
+ struct isis_circuit *circuit;
+ level = adj->level;
+ circuit = adj->circuit;
  if (adj->dead_addrs)
  {
   adj->dead_addrs->del = del_addr;
@@ -329,6 +333,31 @@ tlvs_to_adj_dead_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
    {
     for (ALL_LIST_ELEMENTS_RO (tlvs->dead_lan_neighs, node, lan_neigh))
     {
+     if (circuit->area->trill->passive)
+     {
+      struct isis_adjacency *tmp_dead_adj;
+      tmp_dead_adj = isis_adj_lookup_snpa(lan_neigh->LAN_addr,
+                                          circuit->u.bc.dead_adjdb[level - 1]);
+      if (!tmp_dead_adj)
+       tmp_dead_adj = isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit,
+                                    adj->flaps, adj->hold_time, true);
+      if (!listnode_lookup_val(tmp_dead_adj->dead_addrs, adj->snpa,
+                               sizeof (struct lan_neigh)
+                              )
+         )
+      {
+       struct lan_neigh *tmp;
+       tmp = XMALLOC (MTYPE_ISIS_TMP, sizeof (struct lan_neigh));
+       memcpy (tmp, adj->snpa, sizeof (struct lan_neigh));
+       listnode_add (tmp_dead_adj->dead_addrs, tmp);
+       THREAD_TIMER_ON(master, tmp_dead_adj->t_check_expire,
+                       monitor_down_neighbor,
+                       tmp_dead_adj,
+                       (long) (circuit->hello_interval[level - 1] * 2)
+                      );
+
+      }
+     }
      malloced = XMALLOC (MTYPE_ISIS_TMP, sizeof (struct lan_neigh));
      memcpy (malloced, lan_neigh, sizeof (struct lan_neigh));
      listnode_add (adj->dead_addrs, malloced);

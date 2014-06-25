@@ -106,7 +106,8 @@ isis_new_adj (u_char * id, u_char * snpa, int level,
 #ifdef HAVE_TRILL_MONITORING
 struct isis_adjacency *
 isis_new_dead_adj (u_char * id, u_char * snpa, int level,
-	      struct isis_circuit *circuit, int flaps, int hold_time)
+	      struct isis_circuit *circuit, int flaps, int hold_time,
+          int still_alive)
 {
   struct isis_adjacency *adj;
   struct isis_adjacency *tmp;
@@ -134,6 +135,7 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
   adj->last_upd = time (NULL);
   adj->hold_time = hold_time * 10;
   adj->circuit_t = level;
+  adj->dead_addrs = list_new ();
   if (circuit->u.bc.is_dr[level - 1])
    zlog_warn("%s with mac@ %s is unreachable, "
              "it will be declared as down in %i second(s)",
@@ -143,6 +145,12 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
      tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.dead_adjdb[level - 1]);
       if (tmp) {
           XFREE (MTYPE_ISIS_ADJACENCY, adj);
+          if (!still_alive){
+           struct lan_neigh *tmp_addr;
+           tmp_addr = XMALLOC (MTYPE_ISIS_TMP, sizeof(struct lan_neigh));
+           memcpy (tmp_addr, circuit->u.bc.snpa, ETH_ALEN);
+           listnode_add (tmp->dead_addrs, tmp_addr);
+          }
           tmp->flaps += flaps - 1;
           return tmp ;
       }
@@ -156,6 +164,12 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
 	    = time (NULL);
 	}
     }
+  if (!still_alive) {
+   struct lan_neigh *tmp_addr;
+   tmp_addr = XMALLOC (MTYPE_ISIS_TMP, sizeof(struct lan_neigh));
+   memcpy (tmp_addr, circuit->u.bc.snpa, ETH_ALEN);
+   listnode_add (adj->dead_addrs, tmp_addr);
+  }
   return adj;
 }
 #endif
@@ -299,6 +313,39 @@ switch_to_down (struct thread *thread)
             sysid_print(adj->sysid));
  return ISIS_OK;
 }
+
+int
+monitor_down_neighbor (struct thread *thread)
+{
+ struct isis_adjacency *adj;
+ struct isis_circuit *circuit;
+ uint16_t total_neighbor;
+ struct listnode *node;
+ struct lan_neigh *lan_neigh;
+
+ adj = THREAD_ARG (thread);
+ assert (adj);
+ circuit = adj->circuit;
+ assert (circuit);
+ total_neighbor = listcount(circuit->u.bc.adjdb[adj->circuit_t - 1]) - 1;
+ if (listcount(adj->dead_addrs) >= total_neighbor)
+  zlog_warn("monitor : %s with mac@ %s is down !!!",
+            print_sys_hostname(adj->sysid),
+            sysid_print(adj->sysid));
+ else {
+  zlog_warn("monitor : %s with mac@ %s is down for"
+            " a subset of nodes !!!",
+            print_sys_hostname(adj->sysid),
+            sysid_print(adj->sysid));
+  zlog_warn("monitor : nodes that have lost %s are : ",
+            print_sys_hostname(adj->sysid));
+  for (ALL_LIST_ELEMENTS_RO (adj->dead_addrs, node, lan_neigh))
+   zlog_warn ("%s (%s)", snpa_print (lan_neigh->LAN_addr),
+              print_sys_hostname(lan_neigh->LAN_addr));
+ }
+ return ISIS_OK;
+
+}
 #endif
 void
 isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state,
@@ -378,7 +425,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 #ifdef HAVE_TRILL_MONITORING
           struct isis_adjacency *tmp;
           tmp = isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit, adj->flaps,
-                                   adj->hold_time);
+                                   adj->hold_time, false);
           if(level == IS_LEVEL_1)
            THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level1, tmp,
                           (long) tmp->hold_time);

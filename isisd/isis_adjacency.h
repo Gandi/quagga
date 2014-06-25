@@ -105,6 +105,9 @@ struct isis_adjacency
   u_int32_t last_flap;		/* last time the adj flapped */
   int flaps;			/* number of adjacency flaps  */
   struct thread *t_expire;	/* expire after hold_time  */
+  struct thread *t_check_expire;  /* for monitor check expiration
+                                   * status of neighbor after 2 hello
+                                   */
   struct thread *t_expire_dead;    /* expire after dead adj  */
   struct isis_circuit *circuit;	/* back pointer */
 };
@@ -122,5 +125,8 @@ int isis_adj_expire (struct thread *thread);
 void isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail);
 void isis_adj_build_neigh_list (struct list *adjdb, struct list *list);
 void isis_adj_build_up_list (struct list *adjdb, struct list *list);
+#ifdef HAVE_TRILL_MONITORING
+int monitor_down_neighbor (struct thread *thread);
+#endif
 
 #endif /* ISIS_ADJACENCY_H */

@@ -70,6 +70,10 @@ extern void listnode_add_sort (struct list *, void *);
 extern void listnode_add_after (struct list *, struct listnode *, void *);
 extern void listnode_delete (struct list *, void *);
 extern struct listnode *listnode_lookup (struct list *, void *);
+extern struct listnode *listnode_lookup_val (struct list *list,
+                                             void *val,
+                                             size_t length);
+
 extern void *listnode_head (struct list *);
 
 extern void list_delete (struct list *);

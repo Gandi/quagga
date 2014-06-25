@@ -242,7 +242,18 @@ listnode_lookup (struct list *list, void *data)
       return node;
   return NULL;
 }
-
+
+extern struct listnode *
+listnode_lookup_val (struct list *list, void *val, size_t length)
+{
+ struct listnode *node;
+
+ assert(list);
+ for (node = listhead(list); node; node = listnextnode (node))
+  if (!memcmp(val, listgetdata (node), length))
+   return node;
+  return NULL;
+}
 /* Delete the node from list.  For ospfd and ospf6d. */
 void
 list_delete_node (struct list *list, struct listnode *node)
