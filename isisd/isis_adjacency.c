@@ -48,6 +48,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_events.h"
+#include "isisd/trilld.h"
 
 extern struct isis *isis;
 
@@ -136,10 +137,10 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
   adj->hold_time = hold_time * 10;
   adj->circuit_t = level;
   adj->dead_addrs = list_new ();
-  if (circuit->u.bc.is_dr[level - 1])
-   zlog_warn("%s with mac@ %s is unreachable, "
-             "it will be declared as down in %i second(s)",
-             print_sys_hostname(id), sysid_print(id), hold_time);
+  if (circuit->area->trill->passive)
+   zlog_warn("monitor: %s with mac@ %s is unreachable, "
+             "checking others neighbor to confirm down state",
+             print_sys_hostname(id), sysid_print(id));
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
      tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.dead_adjdb[level - 1]);
@@ -152,7 +153,7 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
            listnode_add (tmp->dead_addrs, tmp_addr);
           }
           tmp->flaps += flaps - 1;
-          return tmp ;
+          return tmp;
       }
       listnode_add (circuit->u.bc.dead_adjdb[level - 1], adj);
       adj->dischanges[level - 1] = 0;
