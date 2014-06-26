@@ -341,10 +341,12 @@ tlvs_to_adj_dead_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
       if (!tmp_dead_adj)
        tmp_dead_adj = isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit,
                                     adj->flaps, adj->hold_time, true);
-      if (!listnode_lookup_val(tmp_dead_adj->dead_addrs, adj->snpa,
+      if ((listcount(tmp_dead_adj->dead_addrs)) ||
+          (!listnode_lookup_val(tmp_dead_adj->dead_addrs,
+                               adj->snpa,
                                sizeof (struct lan_neigh)
                               )
-         )
+         ))
       {
        struct lan_neigh *tmp;
        tmp = XMALLOC (MTYPE_ISIS_TMP, sizeof (struct lan_neigh));
