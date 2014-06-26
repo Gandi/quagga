@@ -138,9 +138,15 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
   adj->circuit_t = level;
   adj->dead_addrs = list_new ();
   if (circuit->area->trill->passive)
-   zlog_warn("monitor: %s with mac@ %s is unreachable, "
-             "checking others neighbor to confirm down state",
-             print_sys_hostname(id), sysid_print(id));
+   if(!still_alive)
+    zlog_warn("monitor: %s with mac@ %s is unreachable, "
+              "waiting for neighbors confirmation",
+               print_sys_hostname(id), sysid_print(id));
+   else
+    zlog_warn("monitor: %s with mac@ %s has lost connectivity "
+              "with a neighbor or more",
+              print_sys_hostname(id), sysid_print(id));
+
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
      tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.dead_adjdb[level - 1]);
