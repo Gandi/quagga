@@ -407,7 +407,11 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 #ifdef HAVE_TRILL_MONITORING
           tmp = isis_adj_lookup_snpa(adj->snpa, circuit->u.bc.dead_adjdb[level - 1]);
           if (tmp) {
+
                adj->flaps += tmp->flaps;
+               THREAD_TIMER_OFF(tmp->t_expire_dead);
+               THREAD_TIMER_OFF(tmp->t_check_expire);
+               THREAD_TIMER_OFF(tmp->t_expire);
                if (circuit->area->trill->passive &&
                    tmp->adj_state == ISIS_ADJ_DEAD
                   )
@@ -423,8 +427,6 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 
                }
                listnode_delete(circuit->u.bc.dead_adjdb[level - 1], tmp);
-               THREAD_TIMER_OFF(tmp->t_expire_dead);
-               THREAD_TIMER_OFF(tmp->t_expire);
                isis_delete_adj(tmp);
           }
 #endif
