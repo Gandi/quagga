@@ -349,7 +349,7 @@ tlvs_to_adj_dead_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
        else
         continue;
       }
-      if ((listcount(tmp_dead_adj->dead_addrs)) ||
+      if ((listcount(tmp_dead_adj->dead_addrs)) == 0 ||
           (!listnode_lookup_val(tmp_dead_adj->dead_addrs,
                                adj->snpa,
                                sizeof (struct lan_neigh)
