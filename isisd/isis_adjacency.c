@@ -336,18 +336,18 @@ monitor_down_neighbor (struct thread *thread)
  assert (circuit);
  total_neighbor = listcount(circuit->u.bc.adjdb[adj->circuit_t - 1]) - 1;
  if (listcount(adj->dead_addrs) >= total_neighbor)
-  zlog_warn("monitor : %s with mac@ %s is down !!!",
+  zlog_warn("monitor: %s with mac@ %s is down !!!",
             print_sys_hostname(adj->sysid),
             sysid_print(adj->sysid));
  else {
-  zlog_warn("monitor : %s with mac@ %s is down for"
+  zlog_warn("monitor: %s with mac@ %s is down for"
             " a subset of nodes !!!",
             print_sys_hostname(adj->sysid),
             sysid_print(adj->sysid));
-  zlog_warn("monitor : nodes that have lost %s are : ",
+  zlog_warn("monitor: nodes that have lost %s are : ",
             print_sys_hostname(adj->sysid));
   for (ALL_LIST_ELEMENTS_RO (adj->dead_addrs, node, lan_neigh))
-   zlog_warn ("%s (%s)", snpa_print (lan_neigh->LAN_addr),
+   zlog_warn ("monitor: %s (%s)", snpa_print (lan_neigh->LAN_addr),
               print_sys_hostname(lan_neigh->LAN_addr));
  }
  return ISIS_OK;
@@ -408,15 +408,20 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
           tmp = isis_adj_lookup_snpa(adj->snpa, circuit->u.bc.dead_adjdb[level - 1]);
           if (tmp) {
                adj->flaps += tmp->flaps;
-               if (circuit->u.bc.is_dr[adj->circuit_t - 1] &&
+               if (circuit->area->trill->passive &&
                    tmp->adj_state == ISIS_ADJ_DEAD
                   )
-                zlog_warn("%s with mac@ %s alive again was just a flap.\n"
-                          "total flap count for this node %i",
+               {
+                zlog_warn("monitor: %s with mac@ %s alive again was a flap.",
                           print_sys_hostname(adj->sysid),
-                          sysid_print(adj->sysid),
-                          tmp->flaps
+                          sysid_print(adj->sysid)
                          );
+                zlog_warn("monitor: total flap count for %s : %i",
+                          print_sys_hostname(adj->sysid),
+                          tmp->flaps
+                );
+
+               }
                listnode_delete(circuit->u.bc.dead_adjdb[level - 1], tmp);
                THREAD_TIMER_OFF(tmp->t_expire_dead);
                THREAD_TIMER_OFF(tmp->t_expire);
