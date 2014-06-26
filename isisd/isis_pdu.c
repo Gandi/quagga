@@ -336,11 +336,19 @@ tlvs_to_adj_dead_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
      if (circuit->area->trill->passive)
      {
       struct isis_adjacency *tmp_dead_adj;
+      struct isis_adjacency * tmp_adj;
       tmp_dead_adj = isis_adj_lookup_snpa(lan_neigh->LAN_addr,
                                           circuit->u.bc.dead_adjdb[level - 1]);
       if (!tmp_dead_adj)
-       tmp_dead_adj = isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit,
-                                    adj->flaps, adj->hold_time, true);
+      {
+       tmp_adj = isis_adj_lookup_snpa(lan_neigh->LAN_addr,
+                                      circuit->u.bc.adjdb[level - 1]);
+       if (tmp_adj)
+        tmp_dead_adj = isis_new_dead_adj (tmp_adj->sysid, tmp_adj->snpa, level, circuit,
+                                    tmp_adj->flaps, tmp_adj->hold_time, true);
+       else
+        continue;
+      }
       if ((listcount(tmp_dead_adj->dead_addrs)) ||
           (!listnode_lookup_val(tmp_dead_adj->dead_addrs,
                                adj->snpa,
