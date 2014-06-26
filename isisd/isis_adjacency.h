@@ -127,6 +127,13 @@ void isis_adj_build_neigh_list (struct list *adjdb, struct list *list);
 void isis_adj_build_up_list (struct list *adjdb, struct list *list);
 #ifdef HAVE_TRILL_MONITORING
 int monitor_down_neighbor (struct thread *thread);
+struct isis_adjacency *isis_new_dead_adj (u_char * id,
+                                          u_char * snpa,
+                                          int level,
+                                          struct isis_circuit *circuit,
+                                          int flaps,
+                                          int hold_time,
+                                          int still_alive);
 #endif
 
 #endif /* ISIS_ADJACENCY_H */
