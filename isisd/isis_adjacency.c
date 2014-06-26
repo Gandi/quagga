@@ -413,7 +413,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                THREAD_TIMER_OFF(tmp->t_check_expire);
                THREAD_TIMER_OFF(tmp->t_expire);
                if (circuit->area->trill->passive &&
-                   tmp->adj_state == ISIS_ADJ_DEAD
+                   tmp->adj_state == ISIS_ADJ_UNKNOWN
                   )
                {
                 zlog_warn("monitor: %s with mac@ %s alive again was a flap.",

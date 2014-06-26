@@ -1197,6 +1197,19 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
 
   tlvs_to_adj_area_addrs (&tlvs, adj);
 #ifdef HAVE_TRILL_MONITORING
+  struct isis_adjacency *tmp_adj;
+  /*
+   * Avoid Hello Race: declare dead adj state as unknown if receiving a Hello
+   * this will avoid monitor to declare a flapping adj as down for
+   * a subset of node
+   * Monitor can receive a hello from the dead adj X and just after a hello from Y
+   * declaring X as dead (Y still did not removed X from dead adj)
+   * By delaring X as unknown as soon as receiving the first hello this should resolve
+   * the problem as adj in unknown state are not advertised
+   */
+  tmp_adj =  isis_adj_lookup (hdr.source_id, circuit->u.bc.dead_adjdb[level - 1]);
+  if (tmp_adj)
+   isis_adj_state_change (tmp_adj, ISIS_ADJ_UNKNOWN, "flapping adj");
   tlvs_to_adj_dead_addrs (&tlvs, adj);
 #endif
 
