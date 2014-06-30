@@ -422,7 +422,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                          );
                 zlog_warn("monitor: total flap count for %s : %i",
                           print_sys_hostname(adj->sysid),
-                          tmp->flaps
+                          adj->flaps
                 );
 
                }

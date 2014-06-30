@@ -1208,7 +1208,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
    * the problem as adj in unknown state are not advertised
    */
   tmp_adj =  isis_adj_lookup (hdr.source_id, circuit->u.bc.dead_adjdb[level - 1]);
-  if (tmp_adj)
+  if (tmp_adj && tmp_adj->adj_state == ISIS_ADJ_DEAD)
    isis_adj_state_change (tmp_adj, ISIS_ADJ_UNKNOWN, "flapping adj");
   tlvs_to_adj_dead_addrs (&tlvs, adj);
 #endif
