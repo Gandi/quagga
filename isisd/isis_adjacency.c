@@ -134,7 +134,7 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
   adj->last_flap = time (NULL);
   adj->adj_state = ISIS_ADJ_DEAD;
   adj->last_upd = time (NULL);
-  adj->hold_time = hold_time * 10;
+  adj->hold_time = hold_time;
   adj->circuit_t = level;
   adj->dead_addrs = list_new ();
   if (circuit->area->trill->passive)
@@ -445,10 +445,10 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                           (long) tmp->hold_time);
           if(level == IS_LEVEL_2)
            THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level2, tmp,
-                          (long) tmp->hold_time);
+                           (long) (tmp->hold_time* 10));
 
           THREAD_TIMER_ON(master, tmp->t_expire, switch_to_down, tmp,
-                           (long) adj->hold_time);
+                           (long) tmp->hold_time);
 #endif
           listnode_delete (circuit->u.bc.adjdb[level - 1], adj);
           circuit->upadjcount[level - 1]--;
