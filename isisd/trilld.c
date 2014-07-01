@@ -1815,10 +1815,10 @@ DEFUN (show_trill_neighbor_arg,
 
 DEFUN (show_trill_dead_neighbor,
        show_trill_neighbor_dead_cmd,
-       "show trill dead neighbor",
+       "show trill lost neighbor",
        SHOW_STR
                      "TRILL network information\n"
-                     "TRILL dead neighbor adjacencies\n")
+                     "TRILL lost neighbor adjacencies\n")
 {
  return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_BRIEF
 #ifdef HAVE_TRILL_MONITORING
@@ -1829,10 +1829,10 @@ DEFUN (show_trill_dead_neighbor,
 
 DEFUN (show_trill_dead_neighbor_detail,
        show_trill_dead_neighbor_detail_cmd,
-       "show trill dead neighbor detail",
+       "show trill lost neighbor detail",
        SHOW_STR
                      "TRILL network information\n"
-                     "TRILL dead neighbor adjacencies\n"
+                     "TRILL lost neighbor adjacencies\n"
                      "show detailed information\n")
 {
  return show_isis_neighbor_common (vty, NULL, ISIS_UI_LEVEL_DETAIL
@@ -1844,10 +1844,10 @@ DEFUN (show_trill_dead_neighbor_detail,
 
 DEFUN (show_trill_dead_neighbor_arg,
        show_trill_dead_neighbor_arg_cmd,
-       "show trill dead neighbor WORD",
+       "show trill lost neighbor WORD",
        SHOW_STR
                      "trill network information\n"
-                     "trill dead neighbor adjacencies\n"
+                     "trill lost neighbor adjacencies\n"
                      "System id\n")
 {
  return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL
