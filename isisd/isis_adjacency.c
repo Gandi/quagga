@@ -211,6 +211,18 @@ isis_adj_lookup_snpa (u_char * ssnpa, struct list *adjdb)
 void
 isis_delete_adj (void *arg)
 {
+#ifdef HAVE_TRILL_MONITORING
+ isis_delete_adj_commun(arg, false);
+}
+
+void isis_delete_adj_dead(void *arg)
+{
+ isis_delete_adj_commun(arg, true);
+}
+void
+isis_delete_adj_commun (void *arg, int dead)
+{
+#endif
   struct isis_adjacency *adj = arg;
   struct area_addr *area_addr;
   struct listnode *node;
@@ -221,7 +233,10 @@ isis_delete_adj (void *arg)
   THREAD_TIMER_OFF (adj->t_expire);
 
   /* remove from SPF trees */
-  spftree_area_adj_del (adj->circuit->area, adj);
+#ifdef HAVE_TRILL_MONITORING
+  if (!dead)
+#endif
+   spftree_area_adj_del (adj->circuit->area, adj);
 
   if (adj->area_addrs) {
    for (ALL_LIST_ELEMENTS_RO (adj->area_addrs, node, area_addr)) {
@@ -249,6 +264,7 @@ isis_delete_adj (void *arg)
   XFREE (MTYPE_ISIS_ADJACENCY, adj);
   return;
 }
+
 
 static const char *
 adj_state2string (int state)
@@ -411,7 +427,6 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                adj->flaps += tmp->flaps;
                THREAD_TIMER_OFF(tmp->t_expire_dead);
                THREAD_TIMER_OFF(tmp->t_check_expire);
-               THREAD_TIMER_OFF(tmp->t_expire);
                if (circuit->area->trill->passive &&
                    tmp->adj_state == ISIS_ADJ_UNKNOWN
                   )
@@ -427,7 +442,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 
                }
                listnode_delete(circuit->u.bc.dead_adjdb[level - 1], tmp);
-               isis_delete_adj(tmp);
+               isis_delete_adj_dead(tmp);
           }
 #endif
           /* update counter & timers for debugging purposes */
