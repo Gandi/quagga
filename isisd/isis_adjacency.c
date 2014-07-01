@@ -132,7 +132,7 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
   adj->level = level;
   adj->flaps = flaps;
   adj->last_flap = time (NULL);
-  adj->adj_state = ISIS_ADJ_DEAD;
+  adj->adj_state = ISIS_ADJ_UNREACHABLE;
   adj->last_upd = time (NULL);
   adj->hold_time = hold_time;
   adj->circuit_t = level;
@@ -279,8 +279,8 @@ adj_state2string (int state)
     case ISIS_ADJ_DOWN:
       return "Down";
 #ifdef HAVE_TRILL_MONITORING
-    case ISIS_ADJ_DEAD:
-      return "Dead";
+    case ISIS_ADJ_UNREACHABLE:
+      return "unreachable";
 #endif
     default:
       return "Unknown";
@@ -351,11 +351,12 @@ monitor_down_neighbor (struct thread *thread)
  circuit = adj->circuit;
  assert (circuit);
  total_neighbor = listcount(circuit->u.bc.adjdb[adj->circuit_t - 1]) - 1;
- if (listcount(adj->dead_addrs) >= total_neighbor)
+ if (listcount(adj->dead_addrs) >= total_neighbor) {
+  adj->adj_state = ISIS_ADJ_DOWN;
   zlog_warn("monitor: %s with mac@ %s is down !!!",
             print_sys_hostname(adj->sysid),
             sysid_print(adj->sysid));
- else {
+ } else {
   zlog_warn("monitor: %s with mac@ %s is down for"
             " a subset of nodes !!!",
             print_sys_hostname(adj->sysid),
@@ -423,12 +424,13 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 #ifdef HAVE_TRILL_MONITORING
           tmp = isis_adj_lookup_snpa(adj->snpa, circuit->u.bc.dead_adjdb[level - 1]);
           if (tmp) {
-
+               int rem_lifetime;
+               rem_lifetime = tmp->last_upd + tmp->hold_time - time(NULL);
                adj->flaps += tmp->flaps;
                THREAD_TIMER_OFF(tmp->t_expire_dead);
                THREAD_TIMER_OFF(tmp->t_check_expire);
                if (circuit->area->trill->passive &&
-                   tmp->adj_state == ISIS_ADJ_UNKNOWN
+                   rem_lifetime < tmp->hold_time
                   )
                {
                 zlog_warn("monitor: %s with mac@ %s alive again was a flap.",
@@ -747,7 +749,7 @@ isis_adj_build_neigh_list (struct list *adjdb, struct list *list)
       if ((adj->adj_state == ISIS_ADJ_UP ||
 	   adj->adj_state == ISIS_ADJ_INITIALIZING
 #ifdef HAVE_TRILL_MONITORING
-	    || adj->adj_state == ISIS_ADJ_DEAD
+	    || adj->adj_state == ISIS_ADJ_UNREACHABLE
 #endif
       ))
 
