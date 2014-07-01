@@ -141,7 +141,7 @@
 #define PORT_CAPABILITY           243   /* TBD TRILL port capability TLV */
 
 #ifdef HAVE_TRILL_MONITORING
-#define DEAD_LAN_NEIGHBOURS       244
+#define LOST_LAN_NEIGHBOURS       244
 #endif
 
 /* PORT_CAPABILITY sub-TLVs for TRILL */
@@ -578,7 +578,7 @@ struct tlvs
   struct list *port_capabilities;
 #endif
 #ifdef HAVE_TRILL_MONITORING
-  struct list *dead_lan_neighs;
+  struct list *lost_lan_neighs;
 #endif
 };
 
@@ -613,7 +613,7 @@ struct tlvs
 #define TLVFLAG_PORT_CAPABILITY           (1<<23)
 #endif
 #ifdef HAVE_TRILL_MONITORING
-#define TLVFLAG_DEAD_LAN_NEIGHS           (1<<24)
+#define TLVFLAG_LOST_LAN_NEIGHS           (1<<24)
 #endif
 
 void init_tlvs (struct tlvs *tlvs, uint32_t expected);

@@ -93,8 +93,8 @@ free_tlvs (struct tlvs *tlvs)
     list_delete(tlvs->port_capabilities);
 #endif
 #ifdef HAVE_TRILL_MONITORING
-  if (tlvs->dead_lan_neighs)
-    list_delete (tlvs->dead_lan_neighs);
+  if (tlvs->lost_lan_neighs)
+    list_delete (tlvs->lost_lan_neighs);
 #endif
 
   memset (tlvs, 0, sizeof (struct tlvs));
@@ -332,25 +332,25 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  break;
 
 #ifdef HAVE_TRILL_MONITORING
-	case DEAD_LAN_NEIGHBOURS:
+	case LOST_LAN_NEIGHBOURS:
 	  /* +-------+-------+-------+-------+-------+-------+-------+-------+
 	   * |                        LAN Address                            | 
 	   * +-------+-------+-------+-------+-------+-------+-------+-------+
 	   * :                                                               :
 	   */
-	  *found |= TLVFLAG_DEAD_LAN_NEIGHS;
+	  *found |= TLVFLAG_LOST_LAN_NEIGHS;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_debug ("ISIS-TLV (%s): DEAD LAN Neigbours length %d",
+	  zlog_debug ("ISIS-TLV (%s): LOST LAN Neigbours length %d",
 		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
-	  if (TLVFLAG_DEAD_LAN_NEIGHS & *expected)
+	  if (TLVFLAG_LOST_LAN_NEIGHS & *expected)
 	    {
 	      while (length > value_len)
 		{
 		  lan_nei = (struct lan_neigh *) pnt;
-		  if (!tlvs->dead_lan_neighs)
-		    tlvs->dead_lan_neighs = list_new ();
-		  listnode_add (tlvs->dead_lan_neighs, lan_nei);
+		  if (!tlvs->lost_lan_neighs)
+		    tlvs->lost_lan_neighs = list_new ();
+		  listnode_add (tlvs->lost_lan_neighs, lan_nei);
 		  value_len += ETH_ALEN;
 		  pnt += ETH_ALEN;
 		}
@@ -952,7 +952,7 @@ tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream)
 
 #ifdef HAVE_TRILL_MONITORING
 int
-tlv_add_dead_lan_neighs (struct list *dead_lan_neighs, struct stream *stream)
+tlv_add_lost_lan_neighs (struct list *lost_lan_neighs, struct stream *stream)
 {
   struct listnode *node;
   u_char *snpa;
@@ -960,11 +960,11 @@ tlv_add_dead_lan_neighs (struct list *dead_lan_neighs, struct stream *stream)
   u_char *pos = value;
   int retval;
 
-  for (ALL_LIST_ELEMENTS_RO (dead_lan_neighs, node, snpa))
+  for (ALL_LIST_ELEMENTS_RO (lost_lan_neighs, node, snpa))
     {
       if (pos - value + ETH_ALEN > 255)
 	{
-	  retval = add_tlv (DEAD_LAN_NEIGHBOURS, pos - value, value, stream);
+	  retval = add_tlv (LOST_LAN_NEIGHBOURS, pos - value, value, stream);
 	  if (retval != ISIS_OK)
 	    return retval;
 	  pos = value;
@@ -973,7 +973,7 @@ tlv_add_dead_lan_neighs (struct list *dead_lan_neighs, struct stream *stream)
       pos += ETH_ALEN;
     }
 
-  return add_tlv (DEAD_LAN_NEIGHBOURS, pos - value, value, stream);
+  return add_tlv (LOST_LAN_NEIGHBOURS, pos - value, value, stream);
 }
 #endif
 int

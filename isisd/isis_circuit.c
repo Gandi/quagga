@@ -645,8 +645,8 @@ trill_area_nickname(circuit->area, htons(circuit->area->trill->nick.name));
       circuit->u.bc.adjdb[0] = list_new ();
       circuit->u.bc.adjdb[1] = list_new ();
 #ifdef HAVE_TRILL_MONITORING
-      circuit->u.bc.dead_adjdb[0] = list_new ();
-      circuit->u.bc.dead_adjdb[1] = list_new ();
+      circuit->u.bc.lost_adjdb[0] = list_new ();
+      circuit->u.bc.lost_adjdb[1] = list_new ();
 #endif
 
       if (circuit->area->min_bcast_mtu == 0 ||
@@ -667,7 +667,7 @@ trill_area_nickname(circuit->area, htons(circuit->area->trill->nick.name));
           thread_add_event (master, send_lan_l1_hello, circuit, 0);
           circuit->u.bc.lan_neighs[0] = list_new ();
 #ifdef HAVE_TRILL_MONITORING
-          circuit->u.bc.dead_lan_neighs[0] = list_new ();
+          circuit->u.bc.lost_lan_neighs[0] = list_new ();
 #endif
         }
 
@@ -676,7 +676,7 @@ trill_area_nickname(circuit->area, htons(circuit->area->trill->nick.name));
           thread_add_event (master, send_lan_l2_hello, circuit, 0);
           circuit->u.bc.lan_neighs[1] = list_new ();
 #ifdef HAVE_TRILL_MONITORING
-          circuit->u.bc.dead_lan_neighs[1] = list_new ();
+          circuit->u.bc.lost_lan_neighs[1] = list_new ();
 #endif
         }
 
@@ -773,16 +773,16 @@ isis_circuit_down (struct isis_circuit *circuit)
           circuit->u.bc.lan_neighs[1] = NULL;
         }
 #ifdef HAVE_TRILL_MONITORING
-      /* destroy dead neighbour lists */
-      if (circuit->u.bc.dead_lan_neighs[0])
+      /* destroy lost neighbour lists */
+      if (circuit->u.bc.lost_lan_neighs[0])
         {
-          list_delete (circuit->u.bc.dead_lan_neighs[0]);
-          circuit->u.bc.dead_lan_neighs[0] = NULL;
+          list_delete (circuit->u.bc.lost_lan_neighs[0]);
+          circuit->u.bc.lost_lan_neighs[0] = NULL;
         }
-      if (circuit->u.bc.dead_lan_neighs[1])
+      if (circuit->u.bc.lost_lan_neighs[1])
         {
-          list_delete (circuit->u.bc.dead_lan_neighs[1]);
-          circuit->u.bc.dead_lan_neighs[1] = NULL;
+          list_delete (circuit->u.bc.lost_lan_neighs[1]);
+          circuit->u.bc.lost_lan_neighs[1] = NULL;
         }
 #endif
       /* destroy adjacency databases */

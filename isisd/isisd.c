@@ -557,7 +557,7 @@ DEFUN (show_isis_interface_arg,
 int
 show_isis_neighbor_common (struct vty *vty, const char *id, char detail
 #ifdef HAVE_TRILL_MONITORING
-                           , uint8_t dead
+                           , uint8_t lost
 #endif
                           )
 {
@@ -606,8 +606,8 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail
               for (i = 0; i < 2; i++)
                 {
 #ifdef HAVE_TRILL_MONITORING
-                  if(dead)
-                   adjdb = circuit->u.bc.dead_adjdb[i];
+                  if(lost)
+                   adjdb = circuit->u.bc.lost_adjdb[i];
                   else
 #endif
                    adjdb = circuit->u.bc.adjdb[i];

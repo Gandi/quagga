@@ -87,7 +87,7 @@ struct isis_adjacency
   enum isis_adj_usage adj_usage;	/* adjacencyUsage */
   struct list *area_addrs;		/* areaAdressesOfNeighbour */
 #ifdef HAVE_TRILL_MONITORING
-  struct list *dead_addrs;      /* dead neighbors address */
+  struct list *lost_addrs;      /* lost neighbors address */
 #endif
   struct nlpids nlpids;			/* protocols spoken ... */
   struct list *ipv4_addrs;
@@ -108,7 +108,7 @@ struct isis_adjacency
   struct thread *t_check_expire;  /* for monitor check expiration
                                    * status of neighbor after 2 hello
                                    */
-  struct thread *t_expire_dead;    /* expire after dead adj  */
+  struct thread *t_expire_lost;    /* expire after lost adj  */
   struct isis_circuit *circuit;	/* back pointer */
 };
 
@@ -127,7 +127,7 @@ void isis_adj_build_neigh_list (struct list *adjdb, struct list *list);
 void isis_adj_build_up_list (struct list *adjdb, struct list *list);
 #ifdef HAVE_TRILL_MONITORING
 int monitor_down_neighbor (struct thread *thread);
-struct isis_adjacency *isis_new_dead_adj (u_char * id,
+struct isis_adjacency *isis_new_lost_adj (u_char * id,
                                           u_char * snpa,
                                           int level,
                                           struct isis_circuit *circuit,

@@ -106,7 +106,7 @@ isis_new_adj (u_char * id, u_char * snpa, int level,
 
 #ifdef HAVE_TRILL_MONITORING
 struct isis_adjacency *
-isis_new_dead_adj (u_char * id, u_char * snpa, int level,
+isis_new_lost_adj (u_char * id, u_char * snpa, int level,
 	      struct isis_circuit *circuit, int flaps, int hold_time,
           int still_alive)
 {
@@ -136,7 +136,7 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
   adj->last_upd = time (NULL);
   adj->hold_time = hold_time;
   adj->circuit_t = level;
-  adj->dead_addrs = list_new ();
+  adj->lost_addrs = list_new ();
   if (circuit->area->trill->passive)
    if(!still_alive)
     zlog_warn("monitor: %s with mac@ %s is unreachable, "
@@ -149,19 +149,19 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
-     tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.dead_adjdb[level - 1]);
+     tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.lost_adjdb[level - 1]);
       if (tmp) {
           XFREE (MTYPE_ISIS_ADJACENCY, adj);
           if (!still_alive){
            struct lan_neigh *tmp_addr;
            tmp_addr = XMALLOC (MTYPE_ISIS_TMP, sizeof(struct lan_neigh));
            memcpy (tmp_addr, circuit->u.bc.snpa, ETH_ALEN);
-           listnode_add (tmp->dead_addrs, tmp_addr);
+           listnode_add (tmp->lost_addrs, tmp_addr);
           }
           tmp->flaps += flaps - 1;
           return tmp;
       }
-      listnode_add (circuit->u.bc.dead_adjdb[level - 1], adj);
+      listnode_add (circuit->u.bc.lost_adjdb[level - 1], adj);
       adj->dischanges[level - 1] = 0;
       for (i = 0; i < DIS_RECORDS; i++)	/* clear N DIS state change records */
 	{
@@ -175,7 +175,7 @@ isis_new_dead_adj (u_char * id, u_char * snpa, int level,
    struct lan_neigh *tmp_addr;
    tmp_addr = XMALLOC (MTYPE_ISIS_TMP, sizeof(struct lan_neigh));
    memcpy (tmp_addr, circuit->u.bc.snpa, ETH_ALEN);
-   listnode_add (adj->dead_addrs, tmp_addr);
+   listnode_add (adj->lost_addrs, tmp_addr);
   }
   return adj;
 }
@@ -215,12 +215,12 @@ isis_delete_adj (void *arg)
  isis_delete_adj_commun(arg, false);
 }
 
-void isis_delete_adj_dead(void *arg)
+void isis_delete_adj_lost(void *arg)
 {
  isis_delete_adj_commun(arg, true);
 }
 void
-isis_delete_adj_commun (void *arg, int dead)
+isis_delete_adj_commun (void *arg, int lost)
 {
 #endif
   struct isis_adjacency *adj = arg;
@@ -234,7 +234,7 @@ isis_delete_adj_commun (void *arg, int dead)
 
   /* remove from SPF trees */
 #ifdef HAVE_TRILL_MONITORING
-  if (!dead)
+  if (!lost)
 #endif
    spftree_area_adj_del (adj->circuit->area, adj);
 
@@ -247,11 +247,11 @@ isis_delete_adj_commun (void *arg, int dead)
 #ifdef HAVE_TRILL_MONITORING
   struct lan_neigh* lan_neigh;
 
-  if (adj->dead_addrs) {
-   for (ALL_LIST_ELEMENTS_RO (adj->dead_addrs, node, lan_neigh)) {
+  if (adj->lost_addrs) {
+   for (ALL_LIST_ELEMENTS_RO (adj->lost_addrs, node, lan_neigh)) {
     XFREE (MTYPE_ISIS_TMP, lan_neigh);
    }
-       list_delete (adj->dead_addrs);
+       list_delete (adj->lost_addrs);
   }
 #endif
   if (adj->ipv4_addrs)
@@ -291,7 +291,7 @@ adj_state2string (int state)
 
 #ifdef HAVE_TRILL_MONITORING
 int
-destroy_dead_adj_level1 (struct thread *thread)
+destroy_lost_adj_level1 (struct thread *thread)
 {
  struct isis_adjacency *adj;
  struct isis_circuit *circuit;
@@ -301,12 +301,12 @@ destroy_dead_adj_level1 (struct thread *thread)
  circuit = adj->circuit;
  assert (circuit);
 
- listnode_delete(circuit->u.bc.dead_adjdb[0], adj);
+ listnode_delete(circuit->u.bc.lost_adjdb[0], adj);
  XFREE (MTYPE_ISIS_ADJACENCY, adj);
  return ISIS_OK;
 }
 int
-destroy_dead_adj_level2 (struct thread *thread)
+destroy_lost_adj_level2 (struct thread *thread)
 {
  struct isis_adjacency *adj;
  struct isis_circuit *circuit;
@@ -316,7 +316,7 @@ destroy_dead_adj_level2 (struct thread *thread)
  circuit = adj->circuit;
  assert (circuit);
 
- listnode_delete(circuit->u.bc.dead_adjdb[1], adj);
+ listnode_delete(circuit->u.bc.lost_adjdb[1], adj);
  XFREE (MTYPE_ISIS_ADJACENCY, adj);
  return ISIS_OK;
 }
@@ -351,7 +351,7 @@ monitor_down_neighbor (struct thread *thread)
  circuit = adj->circuit;
  assert (circuit);
  total_neighbor = listcount(circuit->u.bc.adjdb[adj->circuit_t - 1]) - 1;
- if (listcount(adj->dead_addrs) >= total_neighbor) {
+ if (listcount(adj->lost_addrs) >= total_neighbor) {
   adj->adj_state = ISIS_ADJ_DOWN;
   zlog_warn("monitor: %s with mac@ %s is down !!!",
             print_sys_hostname(adj->sysid),
@@ -363,7 +363,7 @@ monitor_down_neighbor (struct thread *thread)
             sysid_print(adj->sysid));
   zlog_warn("monitor: nodes that have lost %s are : ",
             print_sys_hostname(adj->sysid));
-  for (ALL_LIST_ELEMENTS_RO (adj->dead_addrs, node, lan_neigh))
+  for (ALL_LIST_ELEMENTS_RO (adj->lost_addrs, node, lan_neigh))
    zlog_warn ("monitor: %s (%s)", snpa_print (lan_neigh->LAN_addr),
               print_sys_hostname(lan_neigh->LAN_addr));
  }
@@ -422,12 +422,12 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
           circuit->upadjcount[level - 1]++;
           isis_event_adjacency_state_change (adj, new_state);
 #ifdef HAVE_TRILL_MONITORING
-          tmp = isis_adj_lookup_snpa(adj->snpa, circuit->u.bc.dead_adjdb[level - 1]);
+          tmp = isis_adj_lookup_snpa(adj->snpa, circuit->u.bc.lost_adjdb[level - 1]);
           if (tmp) {
                int rem_lifetime;
                rem_lifetime = tmp->last_upd + tmp->hold_time - time(NULL);
                adj->flaps += tmp->flaps;
-               THREAD_TIMER_OFF(tmp->t_expire_dead);
+               THREAD_TIMER_OFF(tmp->t_expire_lost);
                THREAD_TIMER_OFF(tmp->t_check_expire);
                if (circuit->area->trill->passive &&
                    rem_lifetime < tmp->hold_time
@@ -443,8 +443,8 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                 );
 
                }
-               listnode_delete(circuit->u.bc.dead_adjdb[level - 1], tmp);
-               isis_delete_adj_dead(tmp);
+               listnode_delete(circuit->u.bc.lost_adjdb[level - 1], tmp);
+               isis_delete_adj_lost(tmp);
           }
 #endif
           /* update counter & timers for debugging purposes */
@@ -455,13 +455,13 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
         {
 #ifdef HAVE_TRILL_MONITORING
           struct isis_adjacency *tmp;
-          tmp = isis_new_dead_adj (adj->sysid, adj->snpa, level, circuit, adj->flaps,
+          tmp = isis_new_lost_adj (adj->sysid, adj->snpa, level, circuit, adj->flaps,
                                    adj->hold_time, false);
           if(level == IS_LEVEL_1)
-           THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level1, tmp,
+           THREAD_TIMER_ON(master, tmp->t_expire_lost, destroy_lost_adj_level1, tmp,
                           (long) tmp->hold_time);
           if(level == IS_LEVEL_2)
-           THREAD_TIMER_ON(master, tmp->t_expire_dead, destroy_dead_adj_level2, tmp,
+           THREAD_TIMER_ON(master, tmp->t_expire_lost, destroy_lost_adj_level2, tmp,
                            (long) (tmp->hold_time* 10));
 
           THREAD_TIMER_ON(master, tmp->t_expire, switch_to_down, tmp,
@@ -696,11 +696,11 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
                      area_addr->addr_len), VTY_NEWLINE);
         }
 #ifdef HAVE_TRILL_MONITORING
-      if (adj->dead_addrs && listcount (adj->dead_addrs) > 0)
+      if (adj->lost_addrs && listcount (adj->lost_addrs) > 0)
       {
        struct lan_neigh *lan_neigh;
-       vty_out (vty, "    dead neighbor(s) address(es):%s", VTY_NEWLINE);
-       for (ALL_LIST_ELEMENTS_RO (adj->dead_addrs, node, lan_neigh))
+       vty_out (vty, "    lost neighbor(s) address(es):%s", VTY_NEWLINE);
+       for (ALL_LIST_ELEMENTS_RO (adj->lost_addrs, node, lan_neigh))
         vty_out (vty, "      %s%s", snpa_print (lan_neigh->LAN_addr), VTY_NEWLINE);
       }
 #endif

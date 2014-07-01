@@ -1813,8 +1813,8 @@ DEFUN (show_trill_neighbor_arg,
 }
 
 
-DEFUN (show_trill_dead_neighbor,
-       show_trill_neighbor_dead_cmd,
+DEFUN (show_trill_lost_neighbor,
+       show_trill_lost_neighbor_cmd,
        "show trill lost neighbor",
        SHOW_STR
                      "TRILL network information\n"
@@ -1827,8 +1827,8 @@ DEFUN (show_trill_dead_neighbor,
                                    );
 }
 
-DEFUN (show_trill_dead_neighbor_detail,
-       show_trill_dead_neighbor_detail_cmd,
+DEFUN (show_trill_lost_neighbor_detail,
+       show_trill_lost_neighbor_detail_cmd,
        "show trill lost neighbor detail",
        SHOW_STR
                      "TRILL network information\n"
@@ -1842,8 +1842,8 @@ DEFUN (show_trill_dead_neighbor_detail,
                                    );
 }
 
-DEFUN (show_trill_dead_neighbor_arg,
-       show_trill_dead_neighbor_arg_cmd,
+DEFUN (show_trill_lost_neighbor_arg,
+       show_trill_lost_neighbor_arg_cmd,
        "show trill lost neighbor WORD",
        SHOW_STR
                      "trill network information\n"
@@ -1885,9 +1885,9 @@ void trill_init()
   install_element (ISIS_NODE, &show_trill_neighbor_cmd);
   install_element (ISIS_NODE, &show_trill_neighbor_detail_cmd);
   install_element (ISIS_NODE, &show_trill_neighbor_arg_cmd);
-  install_element (ISIS_NODE, &show_trill_neighbor_dead_cmd);
-  install_element (ISIS_NODE, &show_trill_dead_neighbor_detail_cmd);
-  install_element (ISIS_NODE, &show_trill_dead_neighbor_arg_cmd);
+  install_element (ISIS_NODE, &show_trill_lost_neighbor_cmd);
+  install_element (ISIS_NODE, &show_trill_lost_neighbor_detail_cmd);
+  install_element (ISIS_NODE, &show_trill_lost_neighbor_arg_cmd);
 
 
   install_element (VIEW_NODE, &show_trill_nickdatabase_cmd);
@@ -1898,9 +1898,9 @@ void trill_init()
   install_element (VIEW_NODE, &show_trill_neighbor_cmd);
   install_element (VIEW_NODE, &show_trill_neighbor_detail_cmd);
   install_element (VIEW_NODE, &show_trill_neighbor_arg_cmd);
-  install_element (VIEW_NODE, &show_trill_neighbor_dead_cmd);
-  install_element (VIEW_NODE, &show_trill_dead_neighbor_detail_cmd);
-  install_element (VIEW_NODE, &show_trill_dead_neighbor_arg_cmd);
+  install_element (VIEW_NODE, &show_trill_lost_neighbor_cmd);
+  install_element (VIEW_NODE, &show_trill_lost_neighbor_detail_cmd);
+  install_element (VIEW_NODE, &show_trill_lost_neighbor_arg_cmd);
 
 
   install_element (ENABLE_NODE, &show_trill_nickdatabase_cmd);
@@ -1911,8 +1911,8 @@ void trill_init()
   install_element (ENABLE_NODE, &show_trill_neighbor_cmd);
   install_element (ENABLE_NODE, &show_trill_neighbor_detail_cmd);
   install_element (ENABLE_NODE, &show_trill_neighbor_arg_cmd);
-  install_element (ENABLE_NODE, &show_trill_neighbor_dead_cmd);
-  install_element (ENABLE_NODE, &show_trill_dead_neighbor_detail_cmd);
-  install_element (ENABLE_NODE, &show_trill_dead_neighbor_arg_cmd);
+  install_element (ENABLE_NODE, &show_trill_lost_neighbor_cmd);
+  install_element (ENABLE_NODE, &show_trill_lost_neighbor_detail_cmd);
+  install_element (ENABLE_NODE, &show_trill_lost_neighbor_arg_cmd);
 
 }

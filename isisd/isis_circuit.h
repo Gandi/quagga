@@ -49,8 +49,8 @@ struct isis_bcast_info
   struct list *adjdb[2];	/* adjacency dbs */
   struct list *lan_neighs[2];	/* list of lx neigh snpa */
 #ifdef HAVE_TRILL_MONITORING
-  struct list *dead_adjdb[2];  /* adjacency dbs */
-  struct list *dead_lan_neighs[2];	/* dead adjacency dbs */
+  struct list *lost_adjdb[2];  /* adjacency dbs */
+  struct list *lost_lan_neighs[2];	/* lost adjacency dbs */
 #endif
   char is_dr[2];		/* Are we level x DR ? */
   u_char l1_desig_is[ISIS_SYS_ID_LEN + 1];	/* level-1 DR */

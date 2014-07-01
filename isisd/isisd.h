@@ -153,7 +153,7 @@ int isis_area_get (struct vty *vty, const char *area_tag);
 void print_debug(struct vty *, int, int);
 int show_isis_neighbor_common(struct vty *, const char *id, char
 #ifdef HAVE_TRILL_MONITORING
-                              , uint8_t dead
+                              , uint8_t lost
 #endif
                              );
 

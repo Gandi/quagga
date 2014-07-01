@@ -220,7 +220,7 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 		      timer);
 	  circuit->u.bc.lan_neighs[0] = list_new ();
 #ifdef HAVE_TRILL_MONITORING
-	  circuit->u.bc.dead_lan_neighs[0] = list_new ();
+	  circuit->u.bc.lost_lan_neighs[0] = list_new ();
 #endif
 	}
     }
@@ -251,7 +251,7 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 
 	  circuit->u.bc.lan_neighs[1] = list_new ();
 #ifdef HAVE_TRILL_MONITORING
-	  circuit->u.bc.dead_lan_neighs[1] = list_new ();
+	  circuit->u.bc.lost_lan_neighs[1] = list_new ();
 #endif
 	}
     }
