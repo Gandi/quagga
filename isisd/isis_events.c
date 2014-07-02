@@ -50,6 +50,7 @@
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_spf.h"
+#include "isisd/trilld.h"
 
 /* debug isis-spf spf-events 
  4w4d: ISIS-Spf (tlt): L2 SPF needed, new adjacency, from 0x609229F4
@@ -191,6 +192,10 @@ static void
 circuit_commence_level (struct isis_circuit *circuit, int level)
 {
   int timer, precison;
+#ifdef HAVE_TRILL_MONITORING
+  if(circuit->area->trill->passive)
+   return;
+#endif
   if (level == 1)
     {
       if (! circuit->is_passive) {
@@ -264,6 +269,10 @@ circuit_resign_level (struct isis_circuit *circuit, int level)
 {
   int idx = level - 1;
 
+#ifdef HAVE_TRILL_MONITORING
+  if(circuit->area->trill->passive)
+   return;
+#endif
   THREAD_TIMER_OFF (circuit->t_send_csnp[idx]);
   THREAD_TIMER_OFF (circuit->t_send_psnp[idx]);
 

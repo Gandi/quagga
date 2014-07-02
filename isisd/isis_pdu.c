@@ -1209,9 +1209,12 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
    * By delaring X as unknown as soon as receiving the first hello this should resolve
    * the problem as adj in unknown state are not advertised
    */
-  tmp_adj =  isis_adj_lookup (hdr.source_id, circuit->u.bc.lost_adjdb[level - 1]);
-  if (tmp_adj && tmp_adj->adj_state == ISIS_ADJ_UNREACHABLE)
-   isis_adj_state_change (tmp_adj, ISIS_ADJ_UNKNOWN, "flapping adj");
+
+  if (!circuit->area->trill->passive) {
+   tmp_adj =  isis_adj_lookup (hdr.source_id, circuit->u.bc.lost_adjdb[level - 1]);
+   if (tmp_adj && tmp_adj->adj_state == ISIS_ADJ_UNREACHABLE)
+    isis_adj_state_change (tmp_adj, ISIS_ADJ_UNKNOWN, "flapping adj");
+  }
   tlvs_to_adj_lost_addrs (&tlvs, adj);
 #endif
 
@@ -1946,6 +1949,10 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 static int
 process_csnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 {
+#ifdef HAVE_TRILL_MONITORING
+  if(circuit->area->trill->passive)
+   return ISIS_OK;
+#endif
   if (isis->debugs & DEBUG_SNP_PACKETS)
     {
       zlog_debug ("ISIS-Snp (%s): Rcvd L%d CSNP on %s, cirType %s, cirID %u",
@@ -1970,6 +1977,10 @@ process_csnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 static int
 process_psnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 {
+#ifdef HAVE_TRILL_MONITORING
+  if(circuit->area->trill->passive)
+   return ISIS_OK;
+#endif
   if (isis->debugs & DEBUG_SNP_PACKETS)
     {
       zlog_debug ("ISIS-Snp (%s): Rcvd L%d PSNP on %s, cirType %s, cirID %u",
@@ -2469,7 +2480,8 @@ send_hello (struct isis_circuit *circuit, int level)
 				circuit->snd_stream))
 		return ISIS_WARNING;
 #ifdef HAVE_TRILL_MONITORING
-	   if (tlv_add_lost_lan_neighs (circuit->u.bc.lost_lan_neighs[1],
+       if (!circuit->area->trill->passive)
+        if (tlv_add_lost_lan_neighs (circuit->u.bc.lost_lan_neighs[1],
 				circuit->snd_stream))
 		return ISIS_WARNING;
 
