@@ -331,7 +331,7 @@ switch_to_down (struct thread *thread)
  /* when marking adj as down reset the flap counter */
  adj->flaps = 0;
  adj->last_flap = time (NULL);
- if (adj->circuit->u.bc.is_dr[adj->circuit_t - 1])
+ if (adj->circuit->u.bc.is_dr[adj->level - 1])
   zlog_warn("%s with mac@ %s is down !!!", print_sys_hostname(adj->sysid),
             sysid_print(adj->sysid));
  return ISIS_OK;
@@ -350,7 +350,7 @@ monitor_down_neighbor (struct thread *thread)
  assert (adj);
  circuit = adj->circuit;
  assert (circuit);
- total_neighbor = listcount(circuit->u.bc.adjdb[adj->circuit_t - 1]) - 1;
+ total_neighbor = listcount(circuit->u.bc.adjdb[adj->level - 1]) - 1;
  if (listcount(adj->lost_addrs) >= total_neighbor) {
   adj->adj_state = ISIS_ADJ_DOWN;
   zlog_warn("monitor: %s with mac@ %s is down !!!",
