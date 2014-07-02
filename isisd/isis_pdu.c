@@ -1215,7 +1215,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
    if (tmp_adj && tmp_adj->adj_state == ISIS_ADJ_UNREACHABLE)
     isis_adj_state_change (tmp_adj, ISIS_ADJ_UNKNOWN, "flapping adj");
   }
-  tlvs_to_adj_lost_addrs (&tlvs, adj);
+  if (adj->adj_state == ISIS_ADJ_UP)
+   tlvs_to_adj_lost_addrs (&tlvs, adj);
 #endif
 
   /* which protocol are spoken ??? */
