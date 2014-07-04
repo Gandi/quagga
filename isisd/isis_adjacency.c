@@ -309,7 +309,7 @@ destroy_lost_adj_level1 (struct thread *thread)
  assert (circuit);
 
  listnode_delete(circuit->u.bc.lost_adjdb[0], adj);
- XFREE (MTYPE_ISIS_ADJACENCY, adj);
+ isis_delete_adj_lost(adj);
  return ISIS_OK;
 }
 int
@@ -324,7 +324,7 @@ destroy_lost_adj_level2 (struct thread *thread)
  assert (circuit);
 
  listnode_delete(circuit->u.bc.lost_adjdb[1], adj);
- XFREE (MTYPE_ISIS_ADJACENCY, adj);
+ isis_delete_adj_lost(adj);
  return ISIS_OK;
 }
 int
@@ -434,9 +434,6 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                int rem_lifetime;
                rem_lifetime = tmp->last_upd + tmp->hold_time - time(NULL);
                adj->flaps += tmp->flaps;
-               THREAD_TIMER_OFF(tmp->t_expire_lost);
-               THREAD_TIMER_OFF (tmp->t_lost_hello);
-               THREAD_TIMER_OFF(tmp->t_check_expire);
                if (circuit->area->trill->passive &&
                    rem_lifetime < tmp->hold_time
                   )
