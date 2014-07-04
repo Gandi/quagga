@@ -622,6 +622,16 @@ process_p2p_hello (struct isis_circuit *circuit)
 
   /* 8.2.6 Monitoring point-to-point adjacencies */
   adj->hold_time = ntohs (hdr->hold_time);
+#ifdef HAVE_TRILL_MONITORING
+  if (adj->hello_time == 0) {
+   if(adj->last_upd != 0)
+    adj->hello_time = time(NULL) - adj->last_upd + 1;
+  } else {
+   /* Avoid wrong hello value */
+   if (adj->lost_hello == 0)
+    adj->hello_time = (adj->hello_time + (time(NULL) - adj->last_upd + 1)) / 2;
+  }
+#endif
   adj->last_upd = time (NULL);
 
   /* we do this now because the adj may not survive till the end... */
@@ -653,6 +663,13 @@ process_p2p_hello (struct isis_circuit *circuit)
   THREAD_TIMER_ON (master, adj->t_expire, isis_adj_expire, adj,
 		   (long) adj->hold_time);
 
+#ifdef HAVE_TRILL_MONITORING
+  if(adj->hello_time > 0) {
+   THREAD_TIMER_OFF (adj->t_lost_hello);
+   THREAD_TIMER_ON (master, adj->t_lost_hello, isis_adj_lost_hello, adj,
+                    (long) adj->hello_time);
+  }
+#endif
   /* 8.2.5.2 a) a match was detected */
   if (area_match (circuit->area->area_addrs, tlvs.area_addrs))
     {
@@ -1192,6 +1209,16 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       }
 
   adj->hold_time = hdr.hold_time;
+#ifdef HAVE_TRILL_MONITORING
+  if (adj->hello_time == 0) {
+   if(adj->last_upd != 0)
+    adj->hello_time = time(NULL) - adj->last_upd + 1;
+  } else {
+   /* Avoid wrong hello value */
+   if (adj->lost_hello == 0)
+   adj->hello_time = (adj->hello_time + (time(NULL) - adj->last_upd + 1)) / 2;
+  }
+#endif
   adj->last_upd = time (NULL);
   adj->prio[level - 1] = hdr.prio;
 
@@ -1241,6 +1268,13 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   THREAD_TIMER_OFF (adj->t_expire);
   THREAD_TIMER_ON (master, adj->t_expire, isis_adj_expire, adj,
                    (long) adj->hold_time);
+#ifdef HAVE_TRILL_MONITORING
+  if (adj->hello_time > 0) {
+   THREAD_TIMER_OFF (adj->t_lost_hello);
+   THREAD_TIMER_ON (master, adj->t_lost_hello, isis_adj_lost_hello, adj,
+                    (long) adj->hello_time);
+  }
+#endif
 
   /*
    * If the snpa for this circuit is found from LAN Neighbours TLV

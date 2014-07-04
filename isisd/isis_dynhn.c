@@ -114,7 +114,6 @@ dynhn_grep_by_name (const char *hostname)
  for (ALL_LIST_ELEMENTS_RO (dyn_cache, node, dyn))
   if (strstr((char *)dyn->name.name, hostname) != NULL)
   {
-   zlog_warn("found %s",dyn->name.name);
    listnode_add(dyn_temp_cache, dyn);
   }
   return dyn_temp_cache;

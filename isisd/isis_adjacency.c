@@ -88,6 +88,10 @@ isis_new_adj (u_char * id, u_char * snpa, int level,
   adj->level = level;
   adj->flaps = 0;
   adj->last_flap = time (NULL);
+#ifdef HAVE_TRILL_MONITORING
+  adj->lost_hello = 0;
+  adj->hello_time = 0;
+#endif
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
       listnode_add (circuit->u.bc.adjdb[level - 1], adj);
@@ -231,9 +235,12 @@ isis_delete_adj_commun (void *arg, int lost)
     return;
 
   THREAD_TIMER_OFF (adj->t_expire);
+#ifdef HAVE_TRILL_MONITORING
+  THREAD_TIMER_OFF (adj->t_lost_hello);
+  THREAD_TIMER_OFF (adj->t_check_expire);
+  THREAD_TIMER_OFF (adj->t_expire_lost);
 
   /* remove from SPF trees */
-#ifdef HAVE_TRILL_MONITORING
   if (!lost)
 #endif
    spftree_area_adj_del (adj->circuit->area, adj);
@@ -428,6 +435,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                rem_lifetime = tmp->last_upd + tmp->hold_time - time(NULL);
                adj->flaps += tmp->flaps;
                THREAD_TIMER_OFF(tmp->t_expire_lost);
+               THREAD_TIMER_OFF (tmp->t_lost_hello);
                THREAD_TIMER_OFF(tmp->t_check_expire);
                if (circuit->area->trill->passive &&
                    rem_lifetime < tmp->hold_time
@@ -466,6 +474,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 
           THREAD_TIMER_ON(master, tmp->t_expire, switch_to_down, tmp,
                            (long) tmp->hold_time);
+          THREAD_TIMER_OFF (adj->t_lost_hello);
 #endif
           listnode_delete (circuit->u.bc.adjdb[level - 1], adj);
           circuit->upadjcount[level - 1]--;
@@ -595,6 +604,19 @@ isis_adj_expire (struct thread *thread)
 
   return 0;
 }
+#ifdef HAVE_TRILL_MONITORING
+int isis_adj_lost_hello (struct thread *thread)
+{
+ struct isis_adjacency *adj;
+ adj =THREAD_ARG (thread);
+ assert(adj);
+ adj->t_lost_hello = NULL;
+ if (adj->adj_state == ISIS_ADJ_UP)
+  adj->lost_hello ++;
+ THREAD_TIMER_ON (master, adj->t_lost_hello, isis_adj_lost_hello, adj,
+                  (long) adj->hello_time);
+}
+#endif
 
 /*
  * show isis neighbor [detail]
@@ -632,6 +654,9 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
 	vty_out (vty, "NULL circuit!");
       vty_out (vty, "%-3u", adj->level);	/* level */
       vty_out (vty, "%-13s", adj_state2string (adj->adj_state));
+#ifdef HAVE_TRILL_MONITORING
+      vty_out (vty, "%-11lu", adj->lost_hello);
+#endif
       now = time (NULL);
       if (adj->last_upd)
 	vty_out (vty, "%-9lu", adj->last_upd + adj->hold_time - now);
@@ -687,6 +712,10 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
       }
       vty_out (vty, "%s", VTY_NEWLINE);
 
+#ifdef HAVE_TRILL_MONITORING
+      vty_out (vty, "    lost Hello: %i,", adj->lost_hello);
+      vty_out (vty, " hello time~ %i %s", adj->hello_time, VTY_NEWLINE);
+#endif
       if (adj->area_addrs && listcount (adj->area_addrs) > 0)
         {
           struct area_addr *area_addr;

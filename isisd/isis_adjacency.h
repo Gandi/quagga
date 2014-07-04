@@ -88,6 +88,8 @@ struct isis_adjacency
   struct list *area_addrs;		/* areaAdressesOfNeighbour */
 #ifdef HAVE_TRILL_MONITORING
   struct list *lost_addrs;      /* lost neighbors address */
+  int lost_hello;
+  int hello_time;
 #endif
   struct nlpids nlpids;			/* protocols spoken ... */
   struct list *ipv4_addrs;
@@ -105,10 +107,13 @@ struct isis_adjacency
   u_int32_t last_flap;		/* last time the adj flapped */
   int flaps;			/* number of adjacency flaps  */
   struct thread *t_expire;	/* expire after hold_time  */
+#ifdef HAVE_TRILL_MONITORING
+  struct thread *t_lost_hello;    /* monitor lost hello */
   struct thread *t_check_expire;  /* for monitor check expiration
                                    * status of neighbor after 2 hello
                                    */
   struct thread *t_expire_lost;    /* expire after lost adj  */
+#endif
   struct isis_circuit *circuit;	/* back pointer */
 };
 
@@ -134,6 +139,7 @@ struct isis_adjacency *isis_new_lost_adj (u_char * id,
                                           int flaps,
                                           int hold_time,
                                           int still_alive);
+int isis_adj_lost_hello (struct thread *thread);
 #endif
 
 #endif /* ISIS_ADJACENCY_H */

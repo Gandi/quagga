@@ -597,7 +597,12 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail
 
       if (detail == ISIS_UI_LEVEL_BRIEF)
         vty_out (vty, "  System Id           Interface   L  State"
+#ifdef HAVE_TRILL_MONITORING
+                      "        Lost Hello Holdtime SNPA%s",
+                 VTY_NEWLINE);
+#else
                       "        Holdtime SNPA%s", VTY_NEWLINE);
+#endif
 
       for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
         {
