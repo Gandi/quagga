@@ -471,7 +471,6 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 
           THREAD_TIMER_ON(master, tmp->t_expire, switch_to_down, tmp,
                            (long) tmp->hold_time);
-          THREAD_TIMER_OFF (adj->t_lost_hello);
 #endif
           listnode_delete (circuit->u.bc.adjdb[level - 1], adj);
           circuit->upadjcount[level - 1]--;
