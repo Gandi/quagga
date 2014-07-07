@@ -439,12 +439,12 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                   )
                {
                 zlog_warn("monitor: %s with mac@ %s alive again was a flap.",
-                          print_sys_hostname(adj->sysid),
-                          sysid_print(adj->sysid)
+                          print_sys_hostname(tmp->sysid),
+                          sysid_print(tmp->sysid)
                          );
                 zlog_warn("monitor: total flap count for %s : %i",
-                          print_sys_hostname(adj->sysid),
-                          adj->flaps
+                          print_sys_hostname(tmp->sysid),
+                          tmp->flaps
                 );
 
                }
