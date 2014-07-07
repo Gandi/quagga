@@ -610,8 +610,8 @@ int isis_adj_lost_hello (struct thread *thread)
  adj->t_lost_hello = NULL;
  if (adj->adj_state == ISIS_ADJ_UP)
   adj->lost_hello ++;
- THREAD_TIMER_ON (master, adj->t_lost_hello, isis_adj_lost_hello, adj,
-                  (long) adj->hello_time);
+ THREAD_TIMER_MSEC_ON (master, adj->t_lost_hello, isis_adj_lost_hello, adj,
+                  (long) ((adj->hello_time * 1000) + 300));
 }
 #endif
 

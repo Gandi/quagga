@@ -1271,8 +1271,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
 #ifdef HAVE_TRILL_MONITORING
   if (adj->hello_time > 0) {
    THREAD_TIMER_OFF (adj->t_lost_hello);
-   THREAD_TIMER_ON (master, adj->t_lost_hello, isis_adj_lost_hello, adj,
-                    (long) adj->hello_time);
+   THREAD_TIMER_MSEC_ON (master, adj->t_lost_hello, isis_adj_lost_hello, adj,
+                    (long) ((adj->hello_time * 1000) + 300));
   }
 #endif
 
