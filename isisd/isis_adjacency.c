@@ -305,6 +305,7 @@ destroy_lost_adj_level1 (struct thread *thread)
 
  adj = THREAD_ARG (thread);
  assert (adj);
+ adj->t_expire_lost = NULL;
  circuit = adj->circuit;
  assert (circuit);
 
@@ -320,6 +321,7 @@ destroy_lost_adj_level2 (struct thread *thread)
 
  adj = THREAD_ARG (thread);
  assert (adj);
+ adj->t_expire_lost = NULL;
  circuit = adj->circuit;
  assert (circuit);
 
@@ -355,6 +357,7 @@ monitor_down_neighbor (struct thread *thread)
 
  adj = THREAD_ARG (thread);
  assert (adj);
+ adj->t_check_expire = NULL;
  circuit = adj->circuit;
  assert (circuit);
  total_neighbor = listcount(circuit->u.bc.adjdb[adj->level - 1]) - 1;
