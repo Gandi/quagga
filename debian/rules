@@ -66,6 +66,7 @@ override_dh_auto_configure:
  		--enable-logfile-mask=0640 \
  		--enable-rtadv \
  		--enable-trilld \
+                --enable-trilld-monitoring \
  		--enable-gcc-rdynamic \
  		--with-libpam
 	
