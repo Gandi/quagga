@@ -1414,11 +1414,13 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area)
   struct listnode *node;
   void *data;
   uint32_t vni;
+  int nbvni = 0;
 
   u_char *lsysid;
   u_int16_t lpriority;
 
-  vty_out(vty, "    System ID          Hostname     Nickname   Priority  %s",
+  vty_out(vty, "  Hostname                       System ID             "
+               "Nickname   Priority  %s",
 	  VTY_NEWLINE);
   lpriority = area->trill->nick.priority;
   lsysid = area->isis->sysid;
@@ -1426,20 +1428,27 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area)
 
   for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)) {
     sysid = sysid_print (tnode->info.sysid);
-    vty_out (vty, "%-21s %-10s  %8d  %8d%s", sysid,
-	     print_sys_hostname (tnode->info.sysid),
+    vty_out (vty, "  %-30s %-21s %-9d  %3d",
+	     print_sys_hostname (tnode->info.sysid), sysid,
 	     ntohs (tnode->info.nick.name),
 	     tnode->info.nick.priority,VTY_NEWLINE);
-    vty_out(vty, "\tSupported VNI:%s\t",VTY_NEWLINE);
+    if (listcount(tnode->info.supported_vni) > 0)
+     vty_out(vty, "%s      Supported VNI:",VTY_NEWLINE);
 
     for (ALL_LIST_ELEMENTS_RO(tnode->info.supported_vni, node, data)) {
+      nbvni++;
+      if (nbvni > 5){
+       vty_out(vty, "%s                    ",VTY_NEWLINE);
+       nbvni = 0;
+      }
+
       vni = (uint32_t) (u_long) data;
-      vty_out(vty, "%i    ",(((vni >>4)&0x00FFF000) | (vni &0x00000FFF)));
+      vty_out(vty, "  %-8i",(((vni >>4)&0x00FFF000) | (vni &0x00000FFF)));
     }
-    vty_out(vty, "%s",VTY_NEWLINE);
+    vty_out(vty, "%s", VTY_NEWLINE);
   }
   if(area->trill->tree_root)
-    vty_out (vty,"    TREE_ROOT:       %8d    %s",
+    vty_out (vty,"  TREE_ROOT: %8d%s",
 	     ntohs (area->trill->tree_root),VTY_NEWLINE);
 }
 
@@ -1487,9 +1496,10 @@ static void trill_fwdtbl_print (struct vty *vty, struct isis_area *area)
   if (area->trill->fwdtbl == NULL)
     return;
 
-  vty_out(vty, "RBridge        nickname   interface  nexthop MAC%s", VTY_NEWLINE);
+  vty_out(vty, "RBridge                         nickname   interface  nexthop"
+               "MAC%s", VTY_NEWLINE);
   for (ALL_LIST_ELEMENTS_RO (area->trill->fwdtbl, node, fwdnode)) {
-    vty_out (vty, "%-15s   %-5d      %-5s  %-15s%s",
+    vty_out (vty, "%-30s  %-5d      %-9s  %-15s%s",
 	     print_sys_hostname (nick_to_sysid (area, fwdnode->dest_nick)),
 	     ntohs (fwdnode->dest_nick), fwdnode->interface->name,
 	     snpa_print (fwdnode->adj_snpa), VTY_NEWLINE);
@@ -1680,7 +1690,7 @@ DEFUN (show_trill_nickdatabase,
 	     ntohs(area->trill->nick.name),
 	     area->trill->nick.priority,VTY_NEWLINE);
 
-    vty_out(vty, "\tConfigured VNI%s\t",VTY_NEWLINE);
+    vty_out(vty, "  Configured VNI%s\t",VTY_NEWLINE);
     for (ALL_LIST_ELEMENTS_RO(area->trill->configured_vni, vninode, data)) {
       vni = (uint32_t) (u_long) data;
       vty_out(vty, "%i    ",(((vni >>4)&0x00FFF000) | (vni &0x00000FFF)));
