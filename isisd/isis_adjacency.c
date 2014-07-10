@@ -635,10 +635,10 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
 
   dyn = dynhn_find_by_id (adj->sysid);
   if (dyn)
-    vty_out (vty, "  %-20s", dyn->name.name);
+    vty_out (vty, "  %-30s", dyn->name.name);
   else if (adj->sysid)
     {
-      vty_out (vty, "  %-20s", sysid_print (adj->sysid));
+      vty_out (vty, "  %-30s", sysid_print (adj->sysid));
     }
   else
     {
