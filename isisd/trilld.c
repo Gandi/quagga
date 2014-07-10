@@ -1880,7 +1880,9 @@ void trill_init()
   install_element (ISIS_NODE, &no_trill_nickname_cmd);
   install_element (ISIS_NODE, &trill_nickname_priority_cmd);
   install_element (ISIS_NODE, &no_trill_nickname_priority_cmd);
+#ifdef HAVE_TRILL_MONITORING
   install_element (ISIS_NODE, &trill_monitor_cmd);
+#endif
   install_element (ISIS_NODE, &trill_instance_cmd);
   install_element (ISIS_NODE, &show_trill_neighbor_cmd);
   install_element (ISIS_NODE, &show_trill_neighbor_detail_cmd);
