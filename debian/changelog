@@ -1,3 +1,23 @@
+quagga (0.99.22.4-30~gandi) unstable; urgency=medium
+
+  * [fix by Ahmed Amamou]
+    - trill : Add show trill neighbor [detail] command
+    - trill : Add a grep command to trill neighbor
+    - trill : Add lost hello count in each node
+    - trill : Add unreachable node in hello message for all node
+    - trill : Add unreachable node information in node neighbor
+              detail
+    - trill : Add show lost trill neighbor [detail] command to show
+              unreachable nodes
+    - trill : Add a grep WORD to lost neighbor
+    - trill : Add "trill monitor" option to switch a node to a collector
+    - trill : Compare unreachable node information within collector to
+              determin if node is down or simply diconnected from a part
+              of the topology
+    - trill : fix log messages
+
+ -- Ahmed amamou <ahmed@gandi.net>  Thu, 10 Jul 2014 10:08:45 +0200
+
 quagga (0.99.22.4-11~gandi) unstable; urgency=low
 
   * [Fix by Ahmed Amamou]
