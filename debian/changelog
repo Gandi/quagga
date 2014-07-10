@@ -1,7 +1,17 @@
+quagga (0.99.22.4-32~gandi) unstable; urgency=medium
+
+  * [fix by Ahmed Amamou]
+    - trill : fix hostname padding in various show command
+    - trill : slip show trill nickname command to two: one detailed with vni
+              and the other without detail
+    - trill : add auto grep command to trill nickname command
+
+ -- Ahmed amamou <ahmed@ahmed.gandi.net>  Thu, 10 Jul 2014 13:47:46 +0200
+
 quagga (0.99.22.4-31~gandi) unstable; urgency=medium
 
   * [fix by Ahmed Amamou]
-    - trill : Add monitoring confi option in package build rule
+    - trill : Add monitoring config option in package build rule
 
  -- Ahmed amamou <ahmed@gandi.net>  Thu, 10 Jul 2014 11:05:33 +0200
 
