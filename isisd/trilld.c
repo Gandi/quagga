@@ -53,6 +53,8 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/netlink.h"
+#include "isisd/isis_dynhn.h"
+
 
 /* Global variables needed for netlink genl socket*/
 extern struct zebra_privs_t isisd_privs;
@@ -1406,19 +1408,37 @@ void trill_parse_router_capability_tlvs (struct isis_area *area,
     }
     trill_nickinfo_del (&recvd_nick);
 }
-void trill_nickdb_print (struct vty *vty, struct isis_area *area)
+void trill_nickdb_print (struct vty *vty, struct isis_area *area, int detail,
+                         char* id)
 {
   dnode_t *dnode;
   nicknode_t *tnode;
   const char *sysid;
-  struct listnode *node;
+  struct listnode *node, *idnode;
   void *data;
   uint32_t vni;
   int nbvni = 0;
+  int found = true;
+  struct list *temp_cache = NULL;
+  struct isis_dynhn *dynhn;
+  u_char tmpsysid[ISIS_SYS_ID_LEN];
 
   u_char *lsysid;
   u_int16_t lpriority;
 
+  memset (tmpsysid, 0, ISIS_SYS_ID_LEN);
+  if (id)
+    {
+      if (sysid2buff (tmpsysid, id) == 0)
+        {
+          temp_cache = dynhn_grep_by_name (id);
+          if (temp_cache == NULL)
+            {
+              vty_out (vty, "Invalid system id %s%s", id, VTY_NEWLINE);
+              return CMD_SUCCESS;
+            }
+        }
+    }
   vty_out(vty, "  Hostname                       System ID             "
                "Nickname   Priority  %s",
 	  VTY_NEWLINE);
@@ -1428,26 +1448,38 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area)
 
   for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)) {
     sysid = sysid_print (tnode->info.sysid);
+    if(id) {
+     found = false;
+     for (ALL_LIST_ELEMENTS_RO(temp_cache, idnode, dynhn))
+     {
+      if(!memcmp(tnode->info.sysid, dynhn->id, ISIS_SYS_ID_LEN)) {
+       found = true;
+       break;
+      }
+     }
+    }
+    if (!found)
+     continue;
     vty_out (vty, "  %-30s %-21s %-9d  %3d",
 	     print_sys_hostname (tnode->info.sysid), sysid,
 	     ntohs (tnode->info.nick.name),
 	     tnode->info.nick.priority,VTY_NEWLINE);
-    if (listcount(tnode->info.supported_vni) > 0)
-     vty_out(vty, "%s      Supported VNI:",VTY_NEWLINE);
-
-    for (ALL_LIST_ELEMENTS_RO(tnode->info.supported_vni, node, data)) {
+    if (detail) {
+     if (listcount(tnode->info.supported_vni) > 0)
+      vty_out(vty, "%s      Supported VNI:",VTY_NEWLINE);
+     for (ALL_LIST_ELEMENTS_RO(tnode->info.supported_vni, node, data)) {
       nbvni++;
-      if (nbvni > 5){
+      if (nbvni > 5) {
        vty_out(vty, "%s                    ",VTY_NEWLINE);
        nbvni = 0;
       }
-
       vni = (uint32_t) (u_long) data;
       vty_out(vty, "  %-8i",(((vni >>4)&0x00FFF000) | (vni &0x00000FFF)));
+     }
     }
     vty_out(vty, "%s", VTY_NEWLINE);
   }
-  if(area->trill->tree_root)
+  if(area->trill->tree_root && !id)
     vty_out (vty,"  TREE_ROOT: %8d%s",
 	     ntohs (area->trill->tree_root),VTY_NEWLINE);
 }
@@ -1669,7 +1701,7 @@ DEFUN (trill_instance, trill_instance_cmd,
 
 DEFUN (show_trill_nickdatabase,
        show_trill_nickdatabase_cmd,
-       "show trill nickname database",
+       "show trill nickname",
        SHOW_STR TRILL_STR "TRILL IS-IS nickname information\n"
        "IS-IS TRILL nickname database\n")
 {
@@ -1697,10 +1729,65 @@ DEFUN (show_trill_nickdatabase,
     }
     vty_out (vty, "%s", VTY_NEWLINE);
     vty_out (vty, "IS-IS TRILL nickname database:%s", VTY_NEWLINE);
-    trill_nickdb_print (vty, area);
+    trill_nickdb_print (vty, area, false, NULL);
   }
   vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
   return CMD_SUCCESS;
+}
+DEFUN (show_trill_nickdatabase_detail,
+       show_trill_nickdatabase_detail_cmd,
+       "show trill nickname detail",
+       SHOW_STR TRILL_STR "TRILL IS-IS nickname information\n"
+       "IS-IS TRILL nickname database detail\n")
+{
+
+ struct listnode *node;
+ struct listnode *vninode;
+ struct isis_area *area;
+ dnode_t *dnode;
+ void *data;
+ uint32_t vni;
+
+ if (isis->area_list->count == 0)
+  return CMD_SUCCESS;
+
+ for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area)) {
+  vty_out (vty, "Area %s nickname:%d priority:%d %s",
+           area->area_tag ? area->area_tag : "null",
+           ntohs(area->trill->nick.name),
+           area->trill->nick.priority,VTY_NEWLINE);
+
+  vty_out(vty, "  Configured VNI%s\t",VTY_NEWLINE);
+  for (ALL_LIST_ELEMENTS_RO(area->trill->configured_vni, vninode, data)) {
+   vni = (uint32_t) (u_long) data;
+   vty_out(vty, "%i    ",(((vni >>4)&0x00FFF000) | (vni &0x00000FFF)));
+  }
+      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, "IS-IS TRILL nickname database:%s", VTY_NEWLINE);
+      trill_nickdb_print (vty, area, true, NULL);
+ }
+   vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
+   return CMD_SUCCESS;
+}
+
+DEFUN (show_trill_nickdatabase_arg,
+       show_trill_nickdatabase_arg_cmd,
+       "show trill nickname WORD",
+       SHOW_STR TRILL_STR "TRILL IS-IS nickname information\n"
+       "IS-IS TRILL nickname WORD detail\n")
+{
+
+ struct listnode *node;
+ struct isis_area *area;
+
+ if (isis->area_list->count == 0)
+  return CMD_SUCCESS;
+
+ for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area)) {
+        trill_nickdb_print (vty, area, true, argv[0]);
+ }
+    vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
+    return CMD_SUCCESS;
 }
 DEFUN (show_trill_circuits,
        show_trill_circuits_cmd,
@@ -1901,8 +1988,9 @@ void trill_init()
   install_element (ISIS_NODE, &show_trill_lost_neighbor_detail_cmd);
   install_element (ISIS_NODE, &show_trill_lost_neighbor_arg_cmd);
 
-
   install_element (VIEW_NODE, &show_trill_nickdatabase_cmd);
+  install_element (VIEW_NODE, &show_trill_nickdatabase_detail_cmd);
+  install_element (VIEW_NODE, &show_trill_nickdatabase_arg_cmd);
   install_element (VIEW_NODE, &show_trill_circuits_cmd);
   install_element (VIEW_NODE, &show_trill_fwdtable_cmd);
   install_element (VIEW_NODE, &show_trill_topology_cmd);
@@ -1916,6 +2004,9 @@ void trill_init()
 
 
   install_element (ENABLE_NODE, &show_trill_nickdatabase_cmd);
+  install_element (ENABLE_NODE, &show_trill_nickdatabase_detail_cmd);
+  install_element (ENABLE_NODE, &show_trill_nickdatabase_arg_cmd);
+
   install_element (ENABLE_NODE, &show_trill_circuits_cmd);
   install_element (ENABLE_NODE, &show_trill_fwdtable_cmd);
   install_element (ENABLE_NODE, &show_trill_topology_cmd);
