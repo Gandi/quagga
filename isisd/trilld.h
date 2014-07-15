@@ -77,6 +77,7 @@ struct trill
   uint16_t  tree_root;
   struct list *configured_vni;	/* Configured VNI locally */
   struct list *supported_vni;	/* supported VNI*/
+  uint16_t root_count;
 #ifdef HAVE_TRILL_MONITORING
   uint8_t passive;
 #endif
@@ -123,6 +124,7 @@ static u_char nickbitvector[NICKNAMES_BITARRAY_SIZE];
 #define NICK_IS_USED(n)		(nickbitvector[(n)/8] & (1<<((n)%8)))
 #define NICK_SET_USED(n)	(nickbitvector[(n)/8] |= (1<<((n)%8)))
 #define NICK_CLR_USED(n)	(nickbitvector[(n)/8] &= ~(1<<((n)%8)))
+#define MIN_ROOT_COUNT	1
 
 #define AF_TRILL        31
 typedef enum

@@ -346,6 +346,8 @@ void trill_area_init(struct isis_area *area)
   if(!area->trill->passive)
    netlink_init(area);
 #endif
+  if (!area->trill->root_count)
+	  area->trill->root_count = MIN_ROOT_COUNT;
 }
 
 void trill_area_free(struct isis_area *area)
@@ -1971,10 +1973,43 @@ DEFUN (trill_monitor,
 }
 #endif
 
+DEFUN (trill_rootcount,
+	   trill_rootcount_cmd,
+	   "trill root count WORD",
+	   TRILL_STR
+	   TRILL_NICK_STR
+	   "<1-65534>\n")
+{
+	struct isis_area *area;
+	uint16_t count;
+	area = vty->index;
+	assert (area);
+	assert (area->trill);
+	VTY_GET_INTEGER_RANGE ("TRILL root count", count, argv[0],
+						   MIN_ROOT_COUNT, RBRIDGE_NICKNAME_MAX);
+	area->trill->root_count = count;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_trill_rootcount,
+	   no_trill_rootcount_cmd,
+	   "no trill root count WORD",
+	   TRILL_STR
+	          TRILL_NICK_STR)
+{
+	struct isis_area *area;
+	area = vty->index;
+	assert (area);
+	assert (area->trill);
+	area->trill->root_count =  MIN_ROOT_COUNT;
+	return CMD_SUCCESS;
+}
 void trill_init()
 {
   install_element (ISIS_NODE, &trill_nickname_cmd);
   install_element (ISIS_NODE, &no_trill_nickname_cmd);
+  install_element (ISIS_NODE, &trill_rootcount_cmd);
+  install_element (ISIS_NODE, &no_trill_rootcount_cmd);
   install_element (ISIS_NODE, &trill_nickname_priority_cmd);
   install_element (ISIS_NODE, &no_trill_nickname_priority_cmd);
 #ifdef HAVE_TRILL_MONITORING
