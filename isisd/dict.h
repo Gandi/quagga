@@ -50,6 +50,7 @@ typedef struct dnode_t {
 } dnode_t;
 
 typedef int (*dict_comp_t)(const void *, const void *);
+typedef int (*dict_grep_t)(const void *, const void *, int);
 typedef dnode_t *(*dnode_alloc_t)(void *);
 typedef void (*dnode_free_t)(dnode_t *, void *);
 
@@ -58,6 +59,7 @@ typedef struct dict_t {
     dictcount_t dict_nodecount;
     dictcount_t dict_maxcount;
     dict_comp_t dict_compare;
+    dict_grep_t dict_grep;
     dnode_alloc_t dict_allocnode;
     dnode_free_t dict_freenode;
     void *dict_context;
@@ -76,11 +78,12 @@ extern void dict_set_allocator(dict_t *, dnode_alloc_t, dnode_free_t, void *);
 extern void dict_destroy(dict_t *);
 extern void dict_free_nodes(dict_t *);
 extern void dict_free(dict_t *);
-extern dict_t *dict_init(dict_t *, dictcount_t, dict_comp_t);
+extern dict_t *dict_init(dict_t *, dictcount_t, dict_comp_t, dict_grep_t);
 extern void dict_init_like(dict_t *, const dict_t *);
 extern int dict_verify(dict_t *);
 extern int dict_similar(const dict_t *, const dict_t *);
 extern dnode_t *dict_lookup(dict_t *, const void *);
+extern dnode_t *dict_lookup_length(dict_t *, const void *, int);
 extern dnode_t *dict_lower_bound(dict_t *, const void *);
 extern dnode_t *dict_upper_bound(dict_t *, const void *);
 extern void dict_insert(dict_t *, dnode_t *, const void *);

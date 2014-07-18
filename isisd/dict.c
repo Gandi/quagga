@@ -19,6 +19,7 @@
 #include "zassert.h"
 #include "memory.h"
 #include "dict.h"
+#include "linklist.h"
 
 /*
  * These macros provide short convenient names for structure members,
@@ -43,6 +44,7 @@
 #define nodecount dict_nodecount
 #define maxcount dict_maxcount
 #define compare dict_compare
+#define grep dict_grep
 #define allocnode dict_allocnode
 #define freenode dict_freenode
 #define context dict_context
@@ -57,6 +59,10 @@
 static dnode_t *dnode_alloc(void *context);
 static void dnode_free(dnode_t *node, void *context);
 
+static int grepfun(const void *key1, const void *key2, int length)
+{
+	return strncmp(key1, key2, length);
+}
 /*
  * Perform a ``left rotation'' adjustment on the tree.  The given node P and
  * its right child C are rearranged so that the P instead becomes the left
@@ -241,6 +247,7 @@ dict_t *dict_create(dictcount_t maxcount, dict_comp_t comp)
 
     if (new) {
 	new->compare = comp;
+	new->grep = grepfun;
 	new->allocnode = dnode_alloc;
 	new->freenode = dnode_free;
 	new->context = NULL;
@@ -308,9 +315,11 @@ void dict_free(dict_t *dict)
  * Initialize a user-supplied dictionary object.
  */
 
-dict_t *dict_init(dict_t *dict, dictcount_t maxcount, dict_comp_t comp)
+dict_t *dict_init(dict_t *dict, dictcount_t maxcount, dict_comp_t comp,
+				  dict_grep_t grep)
 {
     dict->compare = comp;
+    dict->grep = grepfun;
     dict->allocnode = dnode_alloc;
     dict->freenode = dnode_free;
     dict->context = NULL;
@@ -456,6 +465,42 @@ dnode_t *dict_lookup(dict_t *dict, const void *key)
     return NULL;
 }
 
+/*
+ * Locate a node in the dictionary having a substring of a the given key.
+ * return a list of found node with containing the grepped substring.
+ */
+
+dnode_t *dict_lookup_length(dict_t *dict, const void *key, int length)
+{
+    dnode_t *root = dict_root(dict);
+    dnode_t *nil = dict_nil(dict);
+    dnode_t *saved;
+    int result;
+
+    /* simple binary search adapted for trees that contain duplicate keys */
+
+    while (root != nil) {
+        result = dict->grep(key, root->key, length);
+        if (result < 0)
+            root = root->left;
+        else if (result > 0)
+            root = root->right;
+        else {
+            if (!dict->dupes) { /* no duplicates, return match		*/
+                return root;
+            } else {        /* could be dupes, find leftmost one	*/
+                do {
+                    saved = root;
+                    root = root->left;
+                    while (root != nil && dict->compare(key, root->key))
+                    root = root->right;
+                } while (root != nil);
+                return saved;
+            }
+        }
+    }
+    return NULL;
+}
 /*
  * Look for the node corresponding to the lowest key that is equal to or
  * greater than the given key.  If there is no such node, return null.
@@ -1339,7 +1384,7 @@ int main(void)
 	"q                      quit";
 
     for (i = 0; i < 10; i++)
-	dict_init(&darray[i], DICTCOUNT_T_MAX, comparef);
+	dict_init(&darray[i], DICTCOUNT_T_MAX, comparef, grepfun);
 
     for (;;) {
 	if (prompt)
