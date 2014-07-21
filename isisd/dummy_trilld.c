@@ -72,4 +72,5 @@ nicknode_t * trill_nicknode_lookup(struct isis_area *area,
 {
   return NULL;
 }
+void trill_nick_destroy(struct isis_lsp *lsp){}
 void trill_init() {}

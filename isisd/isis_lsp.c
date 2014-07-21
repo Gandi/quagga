@@ -269,6 +269,7 @@ adjacency_lsp_search_and_destroy (u_char * id, dict_t * lspdb)
 		  if (lsp->lspu.zero_lsp && lsp->lspu.zero_lsp->lspu.frags)
 			  listnode_delete (lsp->lspu.zero_lsp->lspu.frags, lsp);
 	  }
+	  trill_nick_destroy(lsp);
 	  lsp_destroy (lsp);
 	  dnode_destroy (node);
 	  node = dict_lookup_length (lspdb, id, ISIS_SYS_ID_LEN);
