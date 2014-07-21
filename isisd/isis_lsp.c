@@ -242,6 +242,39 @@ lsp_search_and_destroy (u_char * id, dict_t * lspdb)
     }
 }
 
+void
+adjacency_lsp_search_and_destroy (u_char * id, dict_t * lspdb)
+{
+  dnode_t *node;
+  struct listnode *lnode;
+  struct isis_lsp *lsp;
+
+  node = dict_lookup_length (lspdb, id, ISIS_SYS_ID_LEN);
+
+  while (node != NULL) {
+	  node = dict_delete (lspdb, node);
+	  lsp = dnode_get (node);
+	  if(lsp)
+		  isis_spf_schedule (lsp->area, lsp->level);
+	  /*
+	   * If this is a zero lsp, remove all the frags now
+	   */
+	  if (LSP_FRAGMENT (lsp->lsp_header->lsp_id) == 0) {
+		  if (lsp->lspu.frags)
+			  lsp_remove_frags (lsp->lspu.frags, lspdb);
+	  } else {
+		  /*
+		   * else just remove this frag, from the zero lsps' frag list
+		   */
+		  if (lsp->lspu.zero_lsp && lsp->lspu.zero_lsp->lspu.frags)
+			  listnode_delete (lsp->lspu.zero_lsp->lspu.frags, lsp);
+	  }
+	  lsp_destroy (lsp);
+	  dnode_destroy (node);
+	  node = dict_lookup_length (lspdb, id, ISIS_SYS_ID_LEN);
+  }
+}
+
 /*
  * Compares a LSP to given values
  * Params are given in net order

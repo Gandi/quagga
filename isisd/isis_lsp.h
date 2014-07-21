@@ -85,6 +85,7 @@ void lsp_build_list_ssn (struct isis_circuit *circuit, u_char num_lsps,
                          struct list *list, dict_t * lspdb);
 
 void lsp_search_and_destroy (u_char * id, dict_t * lspdb);
+void adjacency_lsp_search_and_destroy (u_char *, dict_t *);
 void lsp_purge_pseudo (u_char * id, struct isis_circuit *circuit, int level);
 void lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
 			  struct isis_area *area);
