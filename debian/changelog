@@ -1,3 +1,12 @@
+quagga (0.99.22.4-33~ubuntu1) unstable; urgency=medium
+
+  * [fix by Ahmed Amamou]
+    - trill : parse root count from config file
+    - trill : remove nickname from db when lsp is destroyed
+    - trill : remove LSP when adjacency go to lost state
+
+ -- Ahmed amamou <ahmed@gandi.net>  Mon, 21 Jul 2014 14:11:47 +0200
+
 quagga (0.99.22.4-32~gandi) unstable; urgency=medium
 
   * [fix by Ahmed Amamou]
