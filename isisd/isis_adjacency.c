@@ -234,9 +234,10 @@ isis_delete_adj_commun (void *arg, int lost)
   if (!adj)
     return;
 
-  adjacency_lsp_search_and_destroy(adj->sysid,
-                                   adj->circuit->area->lspdb[adj->level - 1]
-                                  );
+  if(!lost)
+    adjacency_lsp_search_and_destroy(adj->sysid,
+                                     adj->circuit->area->lspdb[adj->level - 1]
+                                    );
   THREAD_TIMER_OFF (adj->t_expire);
 #ifdef HAVE_TRILL_MONITORING
   THREAD_TIMER_OFF (adj->t_lost_hello);

@@ -61,7 +61,7 @@ static void dnode_free(dnode_t *node, void *context);
 
 static int grepfun(const void *key1, const void *key2, int length)
 {
-	return strncmp(key1, key2, length);
+	return memcmp(key1, key2, length);
 }
 /*
  * Perform a ``left rotation'' adjustment on the tree.  The given node P and
@@ -492,7 +492,7 @@ dnode_t *dict_lookup_length(dict_t *dict, const void *key, int length)
                 do {
                     saved = root;
                     root = root->left;
-                    while (root != nil && dict->compare(key, root->key))
+                    while (root != nil && dict->grep(key, root->key, length))
                     root = root->right;
                 } while (root != nil);
                 return saved;

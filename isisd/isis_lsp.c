@@ -249,7 +249,8 @@ adjacency_lsp_search_and_destroy (u_char * id, dict_t * lspdb)
   struct listnode *lnode;
   struct isis_lsp *lsp;
 
-  node = dict_lookup_length (lspdb, id, ISIS_SYS_ID_LEN);
+  int length = sizeof(char[ISIS_SYS_ID_LEN]);
+  node = dict_lookup_length (lspdb, id, length);
 
   while (node != NULL) {
 	  node = dict_delete (lspdb, node);
@@ -270,7 +271,7 @@ adjacency_lsp_search_and_destroy (u_char * id, dict_t * lspdb)
 	  trill_nick_destroy(lsp);
 	  lsp_destroy (lsp);
 	  dnode_destroy (node);
-	  node = dict_lookup_length (lspdb, id, ISIS_SYS_ID_LEN);
+	  node = dict_lookup_length (lspdb, id, length);
   }
 }
 
