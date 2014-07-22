@@ -254,8 +254,6 @@ adjacency_lsp_search_and_destroy (u_char * id, dict_t * lspdb)
   while (node != NULL) {
 	  node = dict_delete (lspdb, node);
 	  lsp = dnode_get (node);
-	  if(lsp)
-		  isis_spf_schedule (lsp->area, lsp->level);
 	  /*
 	   * If this is a zero lsp, remove all the frags now
 	   */
