@@ -164,6 +164,12 @@
 
 #define LLC_LEN 3
 
+/*
+ * default monitoring values
+ */
+#ifdef HAVE_TRILL_MONITORING
+#define DEFAULT_LOST_HELLO_RESET_TIMER  86400
+#endif
 /* we need to be aware of the fact we are using ISO sized
  * packets, using isomtu = mtu - LLC_LEN
  */

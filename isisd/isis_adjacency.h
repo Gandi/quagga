@@ -109,6 +109,8 @@ struct isis_adjacency
   struct thread *t_expire;	/* expire after hold_time  */
 #ifdef HAVE_TRILL_MONITORING
   struct thread *t_lost_hello;    /* monitor lost hello */
+  struct thread *t_reset_lost_hello;   /* reset lost hello */
+
   struct thread *t_check_expire;  /* for monitor check expiration
                                    * status of neighbor after 2 hello
                                    */

@@ -1609,6 +1609,83 @@ static void trill_adjtbl_print_all (struct vty *vty, struct isis_area *area)
   }
 }
 
+#ifdef HAVE_TRILL_MONITORING
+int reset_trill_lost_hello_counter(struct vty *vty, const char *id)
+{
+  struct listnode *anode, *cnode, *node, *idnode;
+  struct isis_area *area;
+  struct isis_circuit *circuit;
+  struct list *adjdb;
+  struct isis_adjacency *adj;
+  struct list *temp_cache = NULL;
+  struct isis_dynhn *dynhn;
+  u_char sysid[ISIS_SYS_ID_LEN];
+  int i;
+
+  if (!isis)
+    {
+      vty_out (vty, "IS-IS Routing Process not enabled%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
+
+  memset (sysid, 0, ISIS_SYS_ID_LEN);
+  if (id)
+    {
+      if (sysid2buff (sysid, id) == 0)
+        {
+          temp_cache = dynhn_grep_by_name (id);
+          if (temp_cache == NULL)
+            {
+              vty_out (vty, "Invalid system id %s%s", id, VTY_NEWLINE);
+              return CMD_SUCCESS;
+            }
+        }
+    }
+
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, anode, area))
+    {
+      for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
+        {
+          if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+            {
+              for (i = 0; i < 2; i++)
+                {
+                   adjdb = circuit->u.bc.adjdb[i];
+                  if (adjdb && adjdb->count)
+                    {
+                      for (ALL_LIST_ELEMENTS_RO (adjdb, node, adj))
+                        if (!id)
+                          adj->lost_hello = 0;
+                        else
+                         if (temp_cache && temp_cache->count)
+                          for (ALL_LIST_ELEMENTS_RO(temp_cache, idnode, dynhn))
+                          {
+                           memcpy (sysid, dynhn->id, ISIS_SYS_ID_LEN);
+                           if (!memcmp (adj->sysid, dynhn->id,
+                                        ISIS_SYS_ID_LEN))
+                            adj->lost_hello = 0;
+                          }
+                    }
+                }
+            }
+          else if (circuit->circ_type == CIRCUIT_T_P2P &&
+                   circuit->u.p2p.neighbor)
+            {
+              adj = circuit->u.p2p.neighbor;
+              for (ALL_LIST_ELEMENTS_RO(temp_cache, idnode, dynhn))
+              {
+               memcpy (sysid, dynhn->id, ISIS_SYS_ID_LEN);
+               if (!id || !memcmp (adj->sysid, sysid, ISIS_SYS_ID_LEN))
+                adj->lost_hello = 0;
+              }
+            }
+        }
+    }
+
+  return CMD_SUCCESS;
+}
+#endif
+
 DEFUN (trill_nickname,
        trill_nickname_cmd,
        "trill nickname WORD",
@@ -1960,6 +2037,26 @@ DEFUN (show_trill_lost_neighbor_arg,
 }
 
 #ifdef HAVE_TRILL_MONITORING
+DEFUN (clear_trill_reset_neighbor_all,
+       clear_trill_reset_neighbor_all_cmd,
+       "clear trill neighbor lost_hello",
+       SHOW_STR
+       "reset lost trill hello for all neighbors\n"
+      )
+{
+ return reset_trill_lost_hello_counter(vty, NULL);
+}
+
+DEFUN (clear_trill_reset_neighbor_arg,
+       clear_trill_reset_neighbor_arg_cmd,
+       "clear trill neighbor lost_hello WORD",
+       SHOW_STR
+       "reset lost trill hello for given neighbor\n"
+      )
+{
+ return reset_trill_lost_hello_counter(vty, argv[0]);
+}
+
 DEFUN (trill_monitor,
        trill_monitor_cmd,
        "trill monitor",
@@ -2044,6 +2141,11 @@ void trill_init()
   install_element (ENABLE_NODE, &show_trill_nickdatabase_cmd);
   install_element (ENABLE_NODE, &show_trill_nickdatabase_detail_cmd);
   install_element (ENABLE_NODE, &show_trill_nickdatabase_arg_cmd);
+
+#ifdef HAVE_TRILL_MONITORING
+  install_element (ENABLE_NODE, &clear_trill_reset_neighbor_all_cmd);
+  install_element (ENABLE_NODE, &clear_trill_reset_neighbor_arg_cmd);
+#endif
 
   install_element (ENABLE_NODE, &show_trill_circuits_cmd);
   install_element (ENABLE_NODE, &show_trill_fwdtable_cmd);

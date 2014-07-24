@@ -241,6 +241,7 @@ isis_delete_adj_commun (void *arg, int lost)
   THREAD_TIMER_OFF (adj->t_expire);
 #ifdef HAVE_TRILL_MONITORING
   THREAD_TIMER_OFF (adj->t_lost_hello);
+  THREAD_TIMER_OFF (adj->t_reset_lost_hello);
   THREAD_TIMER_OFF (adj->t_check_expire);
   THREAD_TIMER_OFF (adj->t_expire_lost);
 
@@ -608,12 +609,30 @@ isis_adj_expire (struct thread *thread)
   return 0;
 }
 #ifdef HAVE_TRILL_MONITORING
+int isis_adj_lost_hello_reset(struct thread  *thread)
+{
+ struct isis_adjacency *adj;
+ adj = THREAD_ARG (thread);
+ assert(adj);
+ adj->t_reset_lost_hello = NULL;
+ if (adj->adj_state == ISIS_ADJ_UP)
+  adj->lost_hello = 0;
+
+}
 int isis_adj_lost_hello (struct thread *thread)
 {
  struct isis_adjacency *adj;
  adj =THREAD_ARG (thread);
  assert(adj);
  adj->t_lost_hello = NULL;
+
+ /*
+  * reset lost hello counter when connection has been
+  * stable for 24h (not a single hello lost)
+  */
+ THREAD_TIMER_OFF (adj->t_reset_lost_hello);
+ THREAD_TIMER_ON (master, adj->t_reset_lost_hello, isis_adj_lost_hello_reset,
+		  adj, (long) DEFAULT_LOST_HELLO_RESET_TIMER);
  if (adj->adj_state == ISIS_ADJ_UP)
   adj->lost_hello ++;
  THREAD_TIMER_MSEC_ON (master, adj->t_lost_hello, isis_adj_lost_hello, adj,
