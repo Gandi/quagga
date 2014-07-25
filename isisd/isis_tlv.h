@@ -536,6 +536,31 @@ struct trill_nickname_subtlv
     uint16_t tn_treecount;
 } __attribute__ ((packed));
 
+/* RCSTLV_TRILL_TREE */
+struct tree_subtlv
+{
+    uint8_t len;
+    uint16_t tr_nb_to_compute;
+    uint16_t tr_nb_able_to_compute;
+    uint16_t tr_nb_to_use;
+} __attribute__ ((packed));
+
+/* RCSTLV_TRILL_TREE_ROOTS */
+struct tree_root_subtlv
+{
+    uint8_t len;
+    uint16_t start_tr_nb;
+    /* nickname list dynamic size */
+} __attribute__ ((packed));
+
+/* RCSTLV_TRILL_TREE_ROOTS_ID */
+struct tree_root_id_subtlv
+{
+   uint8_t len;
+   uint16_t start_tr_nb;
+   /* nickname list dynamic size */
+} __attribute__ ((packed));
+
 #ifdef __SUNPRO_C
 #pragma pack()
 #endif
