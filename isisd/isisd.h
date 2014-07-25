@@ -136,7 +136,10 @@ struct isis_area
   u_int32_t circuit_state_changes;
 #ifdef HAVE_TRILL
   struct trill *trill;     /* TRILL structure */
-#endif
+#ifdef HAVE_TRILL_MONITORING
+  int lost_hello_reset_timer;
+#endif /* HAVE_TRILL_MONITORING */
+#endif /* HAVE_TRILL */
 #ifdef TOPOLOGY_GENERATE
   struct list *topology;
   u_char topology_baseis[ISIS_SYS_ID_LEN];  /* IS for the first IS emulated. */

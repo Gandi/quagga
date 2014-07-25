@@ -622,17 +622,22 @@ int isis_adj_lost_hello_reset(struct thread  *thread)
 int isis_adj_lost_hello (struct thread *thread)
 {
  struct isis_adjacency *adj;
+ struct isis_area *area;
  adj =THREAD_ARG (thread);
  assert(adj);
  adj->t_lost_hello = NULL;
+ area = adj->circuit->area;
+ assert(area);
 
  /*
   * reset lost hello counter when connection has been
   * stable for 24h (not a single hello lost)
   */
- THREAD_TIMER_OFF (adj->t_reset_lost_hello);
- THREAD_TIMER_ON (master, adj->t_reset_lost_hello, isis_adj_lost_hello_reset,
-		  adj, (long) DEFAULT_LOST_HELLO_RESET_TIMER);
+ if(area->lost_hello_reset_timer > 0 ) {
+  THREAD_TIMER_OFF (adj->t_reset_lost_hello);
+  THREAD_TIMER_ON (master, adj->t_reset_lost_hello, isis_adj_lost_hello_reset,
+		   adj, (long) area->lost_hello_reset_timer);
+ }
  if (adj->adj_state == ISIS_ADJ_UP)
   adj->lost_hello ++;
  THREAD_TIMER_MSEC_ON (master, adj->t_lost_hello, isis_adj_lost_hello, adj,

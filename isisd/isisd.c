@@ -170,6 +170,9 @@ isis_area_create (const char *area_tag)
   area->oldmetric = 0;
   area->newmetric = 1;
   area->lsp_frag_threshold = 90;
+#ifdef HAVE_TRILL_MONITORING
+  area->lost_hello_reset_timer = DEFAULT_LOST_HELLO_RESET_TIMER;
+#endif
 #ifdef TOPOLOGY_GENERATE
   memcpy (area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS, ISIS_SYS_ID_LEN);
 #endif /* TOPOLOGY_GENERATE */
@@ -1299,6 +1302,13 @@ DEFUN (show_isis_summary,
   {
     vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
         VTY_NEWLINE);
+    if (area)
+      if (area->lost_hello_reset_timer)
+      vty_out (vty, "  lost_hello reset timer : %d Second(s)%s", area->lost_hello_reset_timer,
+        VTY_NEWLINE);
+      else
+      vty_out (vty, "  lost_hello reset timer : Disabled%s",
+        VTY_NEWLINE);
 
     if (listcount (area->area_addrs) > 0)
     {
@@ -1363,6 +1373,11 @@ DEFUN (show_isis_summary,
 
   return CMD_SUCCESS;
 }
+ALIAS (show_isis_summary,
+       show_trill_summary_cmd,
+       "show trill summary",
+       SHOW_STR "IS-IS information\n" "IS-IS trill summary\n")
+
 
 /*
  * This function supports following display options:
@@ -2738,6 +2753,37 @@ DEFUN (no_log_adj_changes,
 
   return CMD_SUCCESS;
 }
+#ifdef HAVE_TRILL_MONITORING
+DEFUN (trill_lost_hello_timer,
+       trill_lost_hello_timer_cmd,
+       "trill lost_hello timer <1-86400>",
+       NO_STR
+       "timout to reset hello timer\n")
+{
+  struct isis_area *area;
+  int interval;
+
+  area = vty->index;
+  interval = atoi (argv[0]);
+  area->lost_hello_reset_timer = interval;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_trill_lost_hello_timer,
+       no_trill_lost_hello_timer_cmd,
+       "no trill lost_hello timer",
+       NO_STR
+       "timout to reset hello timer\n")
+{
+  struct isis_area *area;
+
+  area = vty->index;
+  area->lost_hello_reset_timer = 0;
+
+  return CMD_SUCCESS;
+}
+#endif
 
 #ifdef TOPOLOGY_GENERATE
 
@@ -3143,6 +3189,7 @@ isis_init ()
   install_node (&isis_node, isis_config_write);
 
   install_element (VIEW_NODE, &show_isis_summary_cmd);
+  install_element (VIEW_NODE, &show_trill_summary_cmd);
 
   install_element (VIEW_NODE, &show_isis_interface_cmd);
   install_element (VIEW_NODE, &show_isis_interface_detail_cmd);
@@ -3162,6 +3209,7 @@ isis_init ()
   install_element (VIEW_NODE, &show_database_detail_arg_cmd);
 
   install_element (ENABLE_NODE, &show_isis_summary_cmd);
+  install_element (ENABLE_NODE, &show_trill_summary_cmd);
 
   install_element (ENABLE_NODE, &show_isis_interface_cmd);
   install_element (ENABLE_NODE, &show_isis_interface_detail_cmd);
@@ -3307,6 +3355,10 @@ isis_init ()
 
   install_element (ISIS_NODE, &log_adj_changes_cmd);
   install_element (ISIS_NODE, &no_log_adj_changes_cmd);
+#ifdef HAVE_TRILL_MONITORING
+  install_element (ISIS_NODE, &trill_lost_hello_timer_cmd);
+  install_element (ISIS_NODE, &no_trill_lost_hello_timer_cmd);
+#endif
 
 #ifdef TOPOLOGY_GENERATE
   install_element (ISIS_NODE, &topology_generate_grid_cmd);
