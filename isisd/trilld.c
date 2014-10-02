@@ -344,8 +344,8 @@ void trill_area_init(struct isis_area *area)
   area->is_type = IS_LEVEL_1;
 #ifdef HAVE_TRILL_MONITORING
   if(!area->trill->passive)
-   netlink_init(area);
 #endif
+   netlink_init(area);
   if (!area->trill->root_count)
 	  area->trill->root_count = MIN_ROOT_COUNT;
   nickname_init();
