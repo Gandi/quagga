@@ -647,6 +647,15 @@ int isis_adj_lost_hello (struct thread *thread)
 }
 #endif
 
+#ifdef HAVE_TRILL_MONITORING
+void isis_adj_print_json(struct isis_adjacency *adj, char *json)
+{
+	sprintf(json, "{\"snpa\": \"%s\", \"state\": \"%s\", \"lost\": %d}",
+		snpa_print(adj->snpa), adj_state2string(adj->adj_state),
+		adj->lost_hello);
+}
+#endif
+
 /*
  * show isis neighbor [detail]
  */

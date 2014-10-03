@@ -52,6 +52,9 @@
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
 /* Default vty port */
 #define ISISD_VTY_PORT       2608
+#ifdef HAVE_TRILL_MONITORING
+#define TRILLD_MONITORING_PORT 2023
+#endif
 
 /* isisd privileges */
 zebra_capabilities_t _caps_p[] = {
@@ -232,6 +235,9 @@ main (int argc, char **argv, char **envp)
 {
   char *p;
   int opt, vty_port = ISISD_VTY_PORT;
+#ifdef HAVE_TRILL_MONITORING
+  int mport = TRILLD_MONITORING_PORT;
+#endif
   struct thread thread;
   char *config_file = NULL;
   char *vty_addr = NULL;
@@ -256,7 +262,7 @@ main (int argc, char **argv, char **envp)
   /* Command line argument treatment. */
   while (1)
     {
-      opt = getopt_long (argc, argv, "df:i:z:hA:p:P:u:g:vC", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:z:hA:p:P:m:u:g:vC", longopts, 0);
 
       if (opt == EOF)
 	break;
@@ -291,6 +297,11 @@ main (int argc, char **argv, char **envp)
 	  vty_port = atoi (optarg);
 	  vty_port = (vty_port ? vty_port : ISISD_VTY_PORT);
 	  break;
+#ifdef HAVE_TRILL_MONITORING
+	case 'm':
+	  mport = atoi (optarg);
+	  break;
+#endif
 	case 'u':
 	  isisd_privs.user = optarg;
 	  break;
@@ -339,7 +350,7 @@ main (int argc, char **argv, char **envp)
   isis_spf_cmds_init ();
 
   /* create the global 'isis' instance */
-  isis_new (1);
+  isis_new (1, mport);
 
   isis_zebra_init ();
 

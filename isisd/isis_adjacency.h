@@ -133,6 +133,7 @@ void isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detai
 void isis_adj_build_neigh_list (struct list *adjdb, struct list *list);
 void isis_adj_build_up_list (struct list *adjdb, struct list *list);
 #ifdef HAVE_TRILL_MONITORING
+void isis_adj_print_json(struct isis_adjacency *adj, char *json);
 int monitor_down_neighbor (struct thread *thread);
 struct isis_adjacency *isis_new_lost_adj (u_char * id,
                                           u_char * snpa,

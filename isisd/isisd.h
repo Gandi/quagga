@@ -77,6 +77,10 @@ struct isis
     } rmap[ZEBRA_ROUTE_MAX + 1];
   } inet6_afmode;
 #endif
+#ifdef HAVE_TRILL_MONITORING
+  int mport;
+  int mfd;
+#endif
 };
 
 extern struct isis *isis;
@@ -97,6 +101,9 @@ struct isis_area
   struct thread *t_tick;	/* LSP walker */
 #ifdef HAVE_TRILL
   struct thread *nl_tick; /*netlink recev tick*/
+#ifdef HAVE_TRILL_MONITORING
+  struct thread *mon_tick; /* monitoring tick */
+#endif
 #endif
   struct thread *t_lsp_refresh[ISIS_LEVELS];
   int lsp_regenerate_pending[ISIS_LEVELS];
@@ -149,7 +156,7 @@ struct isis_area
 };
 
 void isis_init (void);
-void isis_new(unsigned long);
+void isis_new(unsigned long, int );
 struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup (const char *);
 int isis_area_get (struct vty *vty, const char *area_tag);

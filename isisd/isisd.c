@@ -76,7 +76,7 @@ int isis_config_write(struct vty *);
 
 
 void
-isis_new (unsigned long process_id)
+isis_new (unsigned long process_id, int port)
 {
   isis = XCALLOC (MTYPE_ISIS, sizeof (struct isis));
   /*
@@ -102,7 +102,117 @@ isis_new (unsigned long process_id)
    * uncomment the next line for full debugs
    */
   /* isis->debugs = 0xFFFF; */
+#ifdef HAVE_TRILL_MONITORING
+  isis->mport = port;
+#endif
 }
+
+#ifdef HAVE_TRILL_MONITORING
+void die(char *s)
+{
+    zlog_err(s);
+    exit(1);
+}
+
+void format_msg(struct isis_area *area, char *msg, int length)
+{
+	struct listnode *node, *cnode;
+	struct isis_circuit *circuit;
+	struct list *adjdb;
+	struct isis_adjacency *adj;
+	int i;
+
+	bzero(msg, length);
+	sprintf(msg, "{\"data\":[");
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
+		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+			char circuit_header[100];
+
+			sprintf(circuit_header,
+				"{\"circuit\": {\"snpa\": \"%s\"}",
+				snpa_print(circuit->u.bc.snpa));
+			strcat(msg, circuit_header);
+			for (i = 0; i < 2; i++) {
+				adjdb = circuit->u.bc.adjdb[i];
+
+				if (adjdb && adjdb->count) {
+					char level_header[30];
+					sprintf(level_header,
+						" ,\"level %i\":[", i + 1);
+					strcat(msg, level_header);
+					for (ALL_LIST_ELEMENTS_RO
+					     (adjdb, node, adj)) {
+						char node_json[100];
+						isis_adj_print_json(adj,
+								    node_json);
+						strcat(msg, node_json);
+						strcat(msg, " ,");
+					}
+					msg[strlen(msg) - 1] = 0;
+					strcat(msg, "]");
+				}
+			}
+			strcat(msg, "},");
+		}
+	}
+	msg[strlen(msg) - 1] = 0;
+	strcat(msg, "]}");
+
+}
+
+
+
+int monitor_sock(struct thread *thread)
+{
+	struct isis_area *area;
+	socklen_t address_length;
+	struct sockaddr_in address;
+	char buffer[65000];
+
+	memset(&address, 0, sizeof(struct sockaddr_in));
+	area = THREAD_ARG(thread);
+	assert(area);
+	THREAD_TIMER_OFF(area->mon_tick);
+	address_length = sizeof(address);
+	if (recvfrom(area->isis->mfd, buffer, 1000, 0,
+		     (struct sockaddr *)&address, &address_length) == -1)
+		die("recvfrom()");
+	format_msg(area, buffer, 65000);
+	if (sendto(area->isis->mfd, buffer, sizeof(buffer), 0,
+		   (struct sockaddr *)&address, sizeof(address)) == -1)
+		die("sendto()");
+	THREAD_READ_ON(master, area->mon_tick, monitor_sock, area,
+		       area->isis->mfd);
+
+}
+
+int init_monitor_sock(struct isis_area *area)
+{
+	struct sockaddr_in address;
+	int fd;
+	int one = 1;
+
+	fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (fd < 0)
+		die("init_monitor_sock : socket() failed\n");
+	if(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) <0)
+		die("set socket options");
+	memset(&address, 0, sizeof(struct sockaddr_in));
+
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr = htonl(INADDR_ANY);
+	address.sin_port = htons(area->isis->mport);
+
+	if (bind(fd, (struct sockaddr *)&address, sizeof(address))
+	    != 0)
+		die("init_monitor_sock: bind() failed\n");
+
+	area->isis->mfd = fd;
+	THREAD_READ_ON(master, area->mon_tick, monitor_sock, area,
+		       area->isis->mfd);
+
+}
+#endif
 
 struct isis_area *
 isis_area_create (const char *area_tag)
@@ -183,6 +293,9 @@ isis_area_create (const char *area_tag)
   area->area_tag = strdup (area_tag);
   listnode_add (isis->area_list, area);
   area->isis = isis;
+#ifdef HAVE_TRILL_MONITORING
+  init_monitor_sock(area);
+#endif
 
   return area;
 }
