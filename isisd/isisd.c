@@ -1415,13 +1415,16 @@ DEFUN (show_isis_summary,
   {
     vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
         VTY_NEWLINE);
-    if (area)
+#ifdef HAVE_TRILL_MONITORING
+    if (area) {
       if (area->lost_hello_reset_timer)
       vty_out (vty, "  lost_hello reset timer : %d Second(s)%s", area->lost_hello_reset_timer,
         VTY_NEWLINE);
       else
       vty_out (vty, "  lost_hello reset timer : Disabled%s",
         VTY_NEWLINE);
+	}
+#endif
 
     if (listcount (area->area_addrs) > 0)
     {
