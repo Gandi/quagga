@@ -76,7 +76,11 @@ int isis_config_write(struct vty *);
 
 
 void
-isis_new (unsigned long process_id, int port)
+isis_new (unsigned long process_id
+#ifdef HAVE_TRILL_MONITORING
+			, int port
+#endif
+)
 {
   isis = XCALLOC (MTYPE_ISIS, sizeof (struct isis));
   /*

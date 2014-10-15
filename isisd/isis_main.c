@@ -350,7 +350,11 @@ main (int argc, char **argv, char **envp)
   isis_spf_cmds_init ();
 
   /* create the global 'isis' instance */
+#ifdef HAVE_TRILL_MONITORING
   isis_new (1, mport);
+#else
+  isis_new (1);
+#endif
 
   isis_zebra_init ();
 

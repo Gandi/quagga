@@ -156,7 +156,11 @@ struct isis_area
 };
 
 void isis_init (void);
-void isis_new(unsigned long, int );
+void isis_new(unsigned long
+#ifdef HAVE_TRILL_MONITORING
+				, int
+#endif
+);
 struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup (const char *);
 int isis_area_get (struct vty *vty, const char *area_tag);
