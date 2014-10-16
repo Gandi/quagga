@@ -758,6 +758,12 @@ static void trill_add_nickadjlist(struct isis_area *area, struct list *adjlist, 
   nick = sysid_to_nick (area, vertex->N.id);
   if (!nick)
     return;
+  /*
+   * check if nickname is availeable in forwarding database
+   * if nick is not found in fwd database that means that something went wrong
+   */
+  if (!trill_fwdtbl_lookup(area, nick))
+    return;
 
   if (listnode_lookup (adjlist, (void *)(u_long)nick) != NULL)
     return;
