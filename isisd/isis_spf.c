@@ -1350,13 +1350,13 @@ out:
   if (family != AF_TRILL)
 #endif
   isis_route_validate (area);
-  spftree->pending = 0;
   spftree->runcount++;
   spftree->last_run_timestamp = time (NULL);
   quagga_gettime(QUAGGA_CLK_MONOTONIC, &time_now);
   end_time = time_now.tv_sec;
   end_time = (end_time * 1000000) + time_now.tv_usec;
   spftree->last_run_duration = end_time - start_time;
+  spftree->pending = 0;
 
 
   return retval;
