@@ -122,7 +122,7 @@ void format_msg(struct isis_area *area, char *msg, int length)
 {
 	struct listnode *node, *cnode;
 	struct isis_circuit *circuit;
-	struct list *adjdb;
+	struct list *adjdb, *lost_adjdb;
 	struct isis_adjacency *adj;
 	int i;
 
@@ -138,7 +138,7 @@ void format_msg(struct isis_area *area, char *msg, int length)
 			strcat(msg, circuit_header);
 			for (i = 0; i < 2; i++) {
 				adjdb = circuit->u.bc.adjdb[i];
-
+                lost_adjdb = circuit->u.bc.lost_adjdb[i];
 				if (adjdb && adjdb->count) {
 					char level_header[30];
 					sprintf(level_header,
@@ -146,6 +146,14 @@ void format_msg(struct isis_area *area, char *msg, int length)
 					strcat(msg, level_header);
 					for (ALL_LIST_ELEMENTS_RO
 					     (adjdb, node, adj)) {
+						char node_json[100];
+						isis_adj_print_json(adj,
+								    node_json);
+						strcat(msg, node_json);
+						strcat(msg, " ,");
+					}
+					for (ALL_LIST_ELEMENTS_RO
+					     (lost_adjdb, node, adj)) {
 						char node_json[100];
 						isis_adj_print_json(adj,
 								    node_json);

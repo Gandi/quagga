@@ -294,7 +294,7 @@ adj_state2string (int state)
       return "Down";
 #ifdef HAVE_TRILL_MONITORING
     case ISIS_ADJ_UNREACHABLE:
-      return "unreachable";
+      return "Unreachable";
 #endif
     default:
       return "Unknown";
