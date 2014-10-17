@@ -2610,7 +2610,7 @@ send_lan_l1_hello (struct thread *thread)
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
-  circuit->u.bc.t_send_lan_hello[0] = NULL;
+  THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[0]);
 
   if (circuit->u.bc.run_dr_elect[0])
     retval = isis_dr_elect (circuit, 1);
@@ -2638,7 +2638,7 @@ send_lan_l2_hello (struct thread *thread)
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
-  circuit->u.bc.t_send_lan_hello[1] = NULL;
+  THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[1]);
 
   if (circuit->u.bc.run_dr_elect[1])
     retval = isis_dr_elect (circuit, 2);

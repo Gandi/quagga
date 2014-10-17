@@ -215,6 +215,7 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 
 	  timer = isis_jitter (circuit->hello_interval[0], IIH_JITTER,
 			       &precison);
+	  THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[0]);
 	  if (precison == ISIS_S_PRECISION)
 	    THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[0],
 			   send_lan_l1_hello, circuit,
@@ -247,6 +248,7 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 
 	  timer = isis_jitter (circuit->hello_interval[1],
 			       IIH_JITTER, &precison);
+      THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[1]);
 	  if(precison == ISIS_S_PRECISION)
 	    THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[1],
 			   send_lan_l2_hello, circuit, timer);
