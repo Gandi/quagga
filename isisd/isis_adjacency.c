@@ -474,10 +474,10 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                                    adj->hold_time, false);
           if(level == IS_LEVEL_1)
            THREAD_TIMER_ON(master, tmp->t_expire_lost, destroy_lost_adj_level1, tmp,
-                          (long) tmp->hold_time);
+                          (long) (tmp->hold_time * 10));
           if(level == IS_LEVEL_2)
            THREAD_TIMER_ON(master, tmp->t_expire_lost, destroy_lost_adj_level2, tmp,
-                           (long) (tmp->hold_time* 10));
+                           (long) (tmp->hold_time * 10));
 
           THREAD_TIMER_ON(master, tmp->t_expire, switch_to_down, tmp,
                            (long) tmp->hold_time);
