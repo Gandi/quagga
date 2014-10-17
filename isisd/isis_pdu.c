@@ -1349,6 +1349,9 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
   u_char lspid[ISIS_SYS_ID_LEN + 2];
   struct isis_passwd *passwd;
   uint16_t pdu_len;
+#ifdef HAVE_TRILL_MONITORING
+  struct isis_adjacency *lost_adj = NULL;
+#endif
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
@@ -1382,6 +1385,11 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 
       return ISIS_WARNING;
     }
+#ifdef HAVE_TRILL_MONITORING
+    lost_adj = isis_adj_lookup (hdr->lsp_id, circuit->u.bc.lost_adjdb[level - 1]);
+    if (lost_adj)
+          return retval;
+#endif
 
   /*
    * Set the stream endp to PDU length, ignoring additional padding

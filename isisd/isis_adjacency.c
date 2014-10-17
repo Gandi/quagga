@@ -235,10 +235,12 @@ isis_delete_adj_commun (void *arg, int lost)
     return;
 
 #ifdef HAVE_TRILL_MONITORING
-  if(!lost)
+  if(!lost) {
     adjacency_lsp_search_and_destroy(adj->sysid,
                                      adj->circuit->area->lspdb[adj->level - 1]
                                     );
+    lsp_regenerate_now(adj->circuit->area, adj->level);
+    }
 #endif
   THREAD_TIMER_OFF (adj->t_expire);
 #ifdef HAVE_TRILL_MONITORING
