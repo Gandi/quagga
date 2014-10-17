@@ -985,6 +985,10 @@ uint16_t get_root_nick(struct isis_area *area)
   u_char *lsysid;
   dnode_t *dnode;
   nicknode_t *tnode;
+  uint16_t nick;
+  struct listnode *node;
+  struct list *tmp = list_new();
+
   int i;
   lpriority = area->trill->nick.priority;
   lsysid = area->isis->sysid;
@@ -993,6 +997,13 @@ uint16_t get_root_nick(struct isis_area *area)
   for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode))
   {
     i++;
+    if (listcount(area->trill->fwdtbl)){
+      if (!trill_fwdtbl_lookup(area, tnode->info.nick.name)) {
+	     listnode_add(tmp,(void *)(u_long) tnode->info.nick.name);
+	      continue;
+	  }
+	}
+
     if (tnode->info.nick.priority < lpriority)
       continue;
     if (tnode->info.nick.priority == lpriority &&
@@ -1003,6 +1014,13 @@ uint16_t get_root_nick(struct isis_area *area)
     lsysid = tnode->info.sysid;
     root_nick = tnode->info.nick.name;
   }
+
+  for (ALL_LIST_ELEMENTS_RO (tmp, node, nick)) {
+	nicknode_t *n_node = trill_nicknode_lookup(area, nick);
+	zlog_warn("removing node with id %s", sysid_print(n_node->info.sysid));
+	adjacency_lsp_search_and_destroy(n_node->info.sysid, area->lspdb[0]);
+  }
+  list_delete(tmp);
   return root_nick;
 
 }
@@ -1057,6 +1075,7 @@ void trill_process_spf (struct isis_area *area)
 
   trill_create_nickfwdtable(area);
   trill_create_nickadjlist(area, NULL);
+  area->trill->tree_root = get_root_nick(area);
 
   if(area->trill->tree_root != RBRIDGE_NICKNAME_NONE) {
     dnode = dict_lookup (area->trill->nickdb,
