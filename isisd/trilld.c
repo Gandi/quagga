@@ -308,7 +308,7 @@ static void trill_nickname_priority_update(struct isis_area *area,
     area->trill->nick.priority |= CONFIGURED_NICK_PRIORITY;
   }
   for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit)) {
-    circuit->priority[TRILL_ISIS_LEVEL - 1] = priority;
+    circuit->priority[TRILL_ISIS_LEVEL - 1] = area->trill->nick.priority;
   }
 }
 
