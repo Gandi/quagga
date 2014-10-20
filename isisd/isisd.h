@@ -80,6 +80,7 @@ struct isis
 #ifdef HAVE_TRILL_MONITORING
   int mport;
   int mfd;
+  struct isis_passwd mpass;
 #endif
 };
 

@@ -182,6 +182,8 @@ int monitor_sock(struct thread *thread)
 	char buffer[65000];
 
 	memset(&address, 0, sizeof(struct sockaddr_in));
+	memset(&buffer, 0, 65000);
+
 	area = THREAD_ARG(thread);
 	assert(area);
 	THREAD_TIMER_OFF(area->mon_tick);
@@ -189,7 +191,15 @@ int monitor_sock(struct thread *thread)
 	if (recvfrom(area->isis->mfd, buffer, 1000, 0,
 		     (struct sockaddr *)&address, &address_length) == -1)
 		die("recvfrom()");
+	if (area->isis->mpass.type)
+		if(memcmp(buffer, area->isis->mpass.passwd, area->isis->mpass.len ))
+		{
+			zlog_warn("password is not correct ");
+			sprintf(buffer,"{data:\"wrong password\"}");
+			goto skip_format;
+		}
 	format_msg(area, buffer, 65000);
+skip_format:
 	if (sendto(area->isis->mfd, buffer, sizeof(buffer), 0,
 		   (struct sockaddr *)&address, sizeof(address)) == -1)
 		die("sendto()");
@@ -3043,6 +3053,48 @@ DEFUN (topology_basedynh,
 
 #endif /* TOPOLOGY_GENERATE */
 
+#ifdef HAVE_TRILL_MONITORING
+DEFUN (isis_monitoring_password,
+       isis_monitoring_password_cmd,
+       "isis-monitoring-password WORD",
+        "passwd for isis monitoring")
+{
+  struct isis_area *area;
+  int len;
+
+  len = strlen (argv[0]);
+  if (len > 254)
+    {
+      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  isis->mpass.len = (u_char) len;
+  isis->mpass.type = ISIS_PASSWD_TYPE_HMAC_MD5;
+  strncpy ((char *)isis->mpass.passwd, argv[0], 255);
+  zlog_warn("added password %s ",argv[0]);
+  return CMD_SUCCESS;
+}
+DEFUN (no_isis_monitoring_password,
+       no_isis_monitoring_password_cmd,
+       "no isis-monitoring-password WORD",
+       NO_STR)
+{
+  struct isis_area *area;
+  int len;
+
+  area = vty->index;
+
+  if (!area)
+    {
+      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
+      return CMD_ERR_NO_MATCH;
+    }
+  memset (&area->isis->mpass, 0, sizeof (struct isis_passwd));
+  return CMD_SUCCESS;
+}
+
+#endif
 /* IS-IS configuration write function */
 int
 isis_config_write (struct vty *vty)
@@ -3497,4 +3549,8 @@ isis_init ()
   install_element (VIEW_NODE, &show_isis_generated_topology_cmd);
   install_element (ENABLE_NODE, &show_isis_generated_topology_cmd);
 #endif /* TOPOLOGY_GENERATE */
+#ifdef HAVE_TRILL_MONITORING
+  install_element (ISIS_NODE, &isis_monitoring_password_cmd);
+  install_element (ISIS_NODE, &no_isis_monitoring_password_cmd);
+#endif
 }
