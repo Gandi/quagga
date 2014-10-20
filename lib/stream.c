@@ -104,7 +104,7 @@ stream_new (size_t size)
   if (s == NULL)
     return s;
   
-  if ( (s->data = XMALLOC (MTYPE_STREAM_DATA, size)) == NULL)
+  if ( (s->data = XCALLOC (MTYPE_STREAM_DATA, size)) == NULL)
     {
       XFREE (MTYPE_STREAM, s);
       return NULL;

@@ -57,8 +57,8 @@ u_char ALL_ESS[6] = { 0x09, 0x00, 0x2B, 0x00, 0x00, 0x04 };
 u_char ALL_L1_RB[6] = { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x40 };
 #endif
 
-static char discard_buff[8192];
-static char sock_buff[8192];
+static char discard_buff[MAX_MTU];
+static char sock_buff[MAX_MTU];
 
 /*
  * if level is 0 we are joining p2p multicast

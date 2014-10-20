@@ -626,7 +626,7 @@ lsp_new (u_char * lsp_id, u_int16_t rem_lifetime, u_int32_t seq_num,
       return NULL;
     }
   /* FIXME: Should be minimal mtu? */
-  lsp->pdu = stream_new (4000);
+  lsp->pdu = stream_new (MAX_MTU);
   if (LSP_FRAGMENT (lsp_id) == 0)
     lsp->lspu.frags = list_new ();
   lsp->isis_header = (struct isis_fixed_hdr *) (STREAM_DATA (lsp->pdu));
@@ -2427,7 +2427,7 @@ lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
   lsp->level = ((lsp_hdr->lsp_bits & LSPBIT_IST) == IS_LEVEL_1) ?
     IS_LEVEL_1 : IS_LEVEL_2;
   /* FIXME: Should be minimal mtu? */
-  lsp->pdu = stream_new (4000);
+  lsp->pdu = stream_new (MAX_MTU);
   lsp->isis_header = (struct isis_fixed_hdr *) STREAM_DATA (lsp->pdu);
   fill_fixed_hdr (lsp->isis_header, (lsp->level == IS_LEVEL_1) ? L1_LINK_STATE
 		  : L2_LINK_STATE);
