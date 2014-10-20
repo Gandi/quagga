@@ -240,17 +240,16 @@ isis_delete_adj_commun (void *arg, int lost)
                                      adj->circuit->area->lspdb[adj->level - 1]
                                     );
     lsp_regenerate_now(adj->circuit->area, adj->level);
-    }
 #endif
   THREAD_TIMER_OFF (adj->t_expire);
 #ifdef HAVE_TRILL_MONITORING
   THREAD_TIMER_OFF (adj->t_lost_hello);
   THREAD_TIMER_OFF (adj->t_reset_lost_hello);
-  THREAD_TIMER_OFF (adj->t_check_expire);
-  THREAD_TIMER_OFF (adj->t_expire_lost);
-
+  }
+  if(lost)
+    THREAD_TIMER_OFF (adj->t_check_expire);
   /* remove from SPF trees */
-  if (!lost)
+  if (!lost) {
 #endif
    spftree_area_adj_del (adj->circuit->area, adj);
 
@@ -261,6 +260,7 @@ isis_delete_adj_commun (void *arg, int lost)
     list_delete (adj->area_addrs);
   }
 #ifdef HAVE_TRILL_MONITORING
+  }
   struct lan_neigh* lan_neigh;
 
   if (adj->lost_addrs) {
@@ -314,7 +314,7 @@ destroy_lost_adj_level1 (struct thread *thread)
 
  adj = THREAD_ARG (thread);
  assert (adj);
- adj->t_expire_lost = NULL;
+ THREAD_TIMER_OFF(adj->t_expire_lost);
  circuit = adj->circuit;
  assert (circuit);
 
@@ -330,7 +330,7 @@ destroy_lost_adj_level2 (struct thread *thread)
 
  adj = THREAD_ARG (thread);
  assert (adj);
- adj->t_expire_lost = NULL;
+ THREAD_TIMER_OFF(adj->t_expire_lost);
  circuit = adj->circuit;
  assert (circuit);
 
@@ -477,7 +477,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
           if(level == IS_LEVEL_1)
            THREAD_TIMER_ON(master, tmp->t_expire_lost, destroy_lost_adj_level1, tmp,
                           (long) (tmp->hold_time * 10));
-          if(level == IS_LEVEL_2)
+          else if(level == IS_LEVEL_2)
            THREAD_TIMER_ON(master, tmp->t_expire_lost, destroy_lost_adj_level2, tmp,
                            (long) (tmp->hold_time * 10));
 
