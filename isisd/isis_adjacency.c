@@ -348,9 +348,11 @@ switch_to_down (struct thread *thread)
  assert (adj);
  THREAD_OFF(adj->t_expire);
  adj->adj_state = ISIS_ADJ_DOWN;
+ adj->hold_time = adj->hold_time * 10;
  /* when marking adj as down reset the flap counter */
  adj->flaps = 0;
  adj->last_flap = time (NULL);
+ adj->last_upd = time (NULL);
  if (adj->circuit->u.bc.is_dr[adj->level - 1])
   zlog_warn("%s with mac@ %s is down !!!", print_sys_hostname(adj->sysid),
             sysid_print(adj->sysid));
