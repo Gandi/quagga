@@ -1,3 +1,10 @@
+quagga (0.99.22.4-47~gandi) unstable; urgency=medium
+
+  * [fix by Ahmed Amamou]
+    - trill: various bug fix (check git log)
+
+ -- Ahmed Amamou <ahmed@gandi.net>  Tue, 21 Oct 2014 17:45:59 +0200
+
 quagga (0.99.22.4-46~gandi) unstable; urgency=medium
 
   * [fix by Ahmed Amamou]
