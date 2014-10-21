@@ -112,12 +112,6 @@ isis_new (unsigned long process_id
 }
 
 #ifdef HAVE_TRILL_MONITORING
-void die(char *s)
-{
-    zlog_err(s);
-    exit(1);
-}
-
 void format_msg(struct isis_area *area, char *msg, int length)
 {
 	struct listnode *node, *cnode;
@@ -174,7 +168,7 @@ void format_msg(struct isis_area *area, char *msg, int length)
 
 
 
-int monitor_sock(struct thread *thread)
+void monitor_sock(struct thread *thread)
 {
 	struct isis_area *area;
 	socklen_t address_length;
@@ -190,7 +184,7 @@ int monitor_sock(struct thread *thread)
 	address_length = sizeof(address);
 	if (recvfrom(area->isis->mfd, buffer, 1000, 0,
 		     (struct sockaddr *)&address, &address_length) == -1)
-		die("recvfrom()");
+		zlog_err("monitor_sock: recvfrom failed!");
 	if (area->isis->mpass.type)
 		if(memcmp(buffer, area->isis->mpass.passwd, area->isis->mpass.len ))
 		{
@@ -202,7 +196,7 @@ int monitor_sock(struct thread *thread)
 skip_format:
 	if (sendto(area->isis->mfd, buffer, sizeof(buffer), 0,
 		   (struct sockaddr *)&address, sizeof(address)) == -1)
-		die("sendto()");
+		zlog_err("monitor_sock: sendto failed!");
 	THREAD_READ_ON(master, area->mon_tick, monitor_sock, area,
 		       area->isis->mfd);
 
@@ -215,10 +209,14 @@ int init_monitor_sock(struct isis_area *area)
 	int one = 1;
 
 	fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (fd < 0)
-		die("init_monitor_sock : socket() failed\n");
-	if(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) <0)
-		die("set socket options");
+	if (fd < 0) {
+		zlog_err("init_monitor_sock : socket() failed\n");
+		return -1;
+	}
+	if(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0) {
+		zlog_err("init_monitor_sock: set socket options failed!");
+		return -1;
+	}
 	memset(&address, 0, sizeof(struct sockaddr_in));
 
 	address.sin_family = AF_INET;
@@ -226,9 +224,11 @@ int init_monitor_sock(struct isis_area *area)
 	address.sin_port = htons(area->isis->mport);
 
 	if (bind(fd, (struct sockaddr *)&address, sizeof(address))
-	    != 0)
-		die("init_monitor_sock: bind() failed\n");
+	    != 0) {
 
+		zlog_err("init_monitor_sock: bind() failed");
+        return -1;
+    }
 	area->isis->mfd = fd;
 	THREAD_READ_ON(master, area->mon_tick, monitor_sock, area,
 		       area->isis->mfd);
