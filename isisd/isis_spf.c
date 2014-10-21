@@ -1407,7 +1407,7 @@ trill_complete_spf(struct isis_area *area)
    * a possible wrong tree root. Make sure we have
    * elected the correct tree root before computing spf
    */
-  area->trill->tree_root = get_root_nick(area);
+  area->trill->tree_root = get_root_nick(area, false);
   /*
    * For god's sake why computing all nickdb node SPF tree
    * you need it only for multicast. just compute it for the fucking

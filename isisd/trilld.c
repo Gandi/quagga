@@ -978,7 +978,7 @@ static void trill_publish_nick(struct isis_area *area, int fd,
     free(ni);
   }
 }
-uint16_t get_root_nick(struct isis_area *area)
+uint16_t get_root_nick(struct isis_area *area, int clean)
 {
   uint8_t lpriority;
   uint16_t root_nick;
@@ -997,7 +997,7 @@ uint16_t get_root_nick(struct isis_area *area)
   for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode))
   {
     i++;
-    if (listcount(area->trill->fwdtbl)){
+    if (listcount(area->trill->fwdtbl) && clean ){
       if (!trill_fwdtbl_lookup(area, tnode->info.nick.name)) {
 	     listnode_add(tmp,(void *)(u_long) tnode->info.nick.name);
 	      continue;
@@ -1015,11 +1015,15 @@ uint16_t get_root_nick(struct isis_area *area)
     root_nick = tnode->info.nick.name;
   }
 
-  for (ALL_LIST_ELEMENTS_RO (tmp, node, nick)) {
-	nicknode_t *n_node = trill_nicknode_lookup(area, nick);
-	adjacency_lsp_search_and_destroy(n_node->info.sysid, area->lspdb[0]);
+  if (clean) {
+	for (ALL_LIST_ELEMENTS_RO(tmp, node, nick)) {
+		nicknode_t *n_node = trill_nicknode_lookup(area, nick);
+		adjacency_lsp_search_and_destroy(n_node->info.sysid,
+						 area->lspdb[0]);
+	}
+	list_delete(tmp);
   }
-  list_delete(tmp);
+
   return root_nick;
 
 }
@@ -1074,7 +1078,7 @@ void trill_process_spf (struct isis_area *area)
 
   trill_create_nickfwdtable(area);
   trill_create_nickadjlist(area, NULL);
-  area->trill->tree_root = get_root_nick(area);
+  area->trill->tree_root = get_root_nick(area, true);
 
   if(area->trill->tree_root != RBRIDGE_NICKNAME_NONE) {
     dnode = dict_lookup (area->trill->nickdb,
@@ -1349,7 +1353,7 @@ static void trill_nick_recv(struct isis_area *area, nickinfo_t *other_nick)
   /* Update our nick database */
   trill_nickdb_update (area, other_nick);
   /* Update tree root based on new nick database */
-  area->trill->tree_root = get_root_nick(area);
+  area->trill->tree_root = get_root_nick(area, false);
 }
 void trill_nick_destroy(struct isis_lsp *lsp)
 {
