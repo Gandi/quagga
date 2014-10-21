@@ -1,4 +1,11 @@
-quagga (0.99.22.45-~gandi) unstable; urgency=medium
+quagga (0.99.22.4-46~gandi) unstable; urgency=medium
+
+  * [fix by Ahmed Amamou]
+    - trill: present quagga stop on monitor socket failure
+
+ -- Ahmed Amamou <ahmed@gandi.net>  Tue, 21 Oct 2014 10:20:39 +0200
+
+quagga (0.99.22.4-45~gandi) unstable; urgency=medium
 
   * [fix by Ahmed Amamou]
     - trill: add reset for lost hello counter
