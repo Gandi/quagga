@@ -234,17 +234,18 @@ isis_delete_adj_commun (void *arg, int lost)
   if (!adj)
     return;
 
+  THREAD_TIMER_OFF (adj->t_expire);
 #ifdef HAVE_TRILL_MONITORING
+  THREAD_TIMER_OFF (adj->t_lost_hello);
+  THREAD_TIMER_OFF (adj->t_reset_lost_hello);
+
   if(!lost) {
     adjacency_lsp_search_and_destroy(adj->sysid,
                                      adj->circuit->area->lspdb[adj->level - 1]
                                     );
     lsp_regenerate_now(adj->circuit->area, adj->level);
 #endif
-  THREAD_TIMER_OFF (adj->t_expire);
 #ifdef HAVE_TRILL_MONITORING
-  THREAD_TIMER_OFF (adj->t_lost_hello);
-  THREAD_TIMER_OFF (adj->t_reset_lost_hello);
   }
   if(lost)
     THREAD_TIMER_OFF (adj->t_check_expire);
@@ -345,6 +346,7 @@ switch_to_down (struct thread *thread)
 
  adj = THREAD_ARG (thread);
  assert (adj);
+ THREAD_OFF(adj->t_expire);
  adj->adj_state = ISIS_ADJ_DOWN;
  /* when marking adj as down reset the flap counter */
  adj->flaps = 0;
@@ -366,7 +368,7 @@ monitor_down_neighbor (struct thread *thread)
 
  adj = THREAD_ARG (thread);
  assert (adj);
- adj->t_check_expire = NULL;
+ THREAD_TIMER_OFF (adj->t_check_expire);
  circuit = adj->circuit;
  assert (circuit);
  total_neighbor = listcount(circuit->u.bc.adjdb[adj->level - 1]) - 1;
@@ -444,6 +446,8 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
           tmp = isis_adj_lookup_snpa(adj->snpa, circuit->u.bc.lost_adjdb[level - 1]);
           if (tmp) {
                int rem_lifetime;
+
+               THREAD_TIMER_OFF(tmp->t_expire_lost);
                rem_lifetime = tmp->last_upd + tmp->hold_time - time(NULL);
                adj->flaps += tmp->flaps;
                if (circuit->area->trill->passive &&

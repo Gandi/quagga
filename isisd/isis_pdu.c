@@ -361,9 +361,7 @@ tlvs_to_adj_lost_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
        struct lan_neigh *tmp;
        tmp = XMALLOC (MTYPE_ISIS_TMP, sizeof (struct lan_neigh));
        memcpy (tmp, adj->snpa, sizeof (struct lan_neigh));
-       if (tmp_lost_adj->t_check_expire)
-        THREAD_TIMER_OFF(tmp_lost_adj->t_check_expire);
-       tmp_lost_adj->t_check_expire = NULL;
+       THREAD_TIMER_OFF(tmp_lost_adj->t_check_expire);
        listnode_add (tmp_lost_adj->lost_addrs, tmp);
        THREAD_TIMER_ON(master, tmp_lost_adj->t_check_expire,
                        monitor_down_neighbor,
