@@ -1,3 +1,18 @@
+quagga (0.99.22.45-~gandi) unstable; urgency=medium
+
+  * [fix by Ahmed Amamou]
+    - trill: add reset for lost hello counter
+             clear trill neighbor lost_hello <neighbor ID>
+             and default reset after 24 h
+    - trill: configure lost hello reset timer
+    - trill: add multiple tree subtlv (TODO)
+    - trill: clean log entry
+    - trill: remove lost node lsp for non direct adjacency
+    - trill: fix mtu grather than 4000
+    - trill: add json response for monitoring
+    - trill: add passphrase for monitoring
+ -- Ahmed amamou <ahmed@gandi.net>  Mon, 20 Oct 2014 19:10:41 +0200
+
 quagga (0.99.22.4-37~gandi) unstable; urgency=medium
 
   * [fix by Ahmed Amamou]
