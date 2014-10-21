@@ -2894,7 +2894,7 @@ DEFUN (no_log_adj_changes,
 #ifdef HAVE_TRILL_MONITORING
 DEFUN (trill_lost_hello_timer,
        trill_lost_hello_timer_cmd,
-       "trill lost_hello timer <1-86400>",
+       "trill lost_hello timer <0-86400>",
        NO_STR
        "timout to reset hello timer\n")
 {
