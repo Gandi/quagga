@@ -253,7 +253,7 @@ isis_delete_adj_commun (void *arg, int lost)
   if (!lost) {
 #endif
    spftree_area_adj_del (adj->circuit->area, adj);
-
+  }
   if (adj->area_addrs) {
    for (ALL_LIST_ELEMENTS_RO (adj->area_addrs, node, area_addr)) {
     XFREE (MTYPE_ISIS_TMP, area_addr);
@@ -261,7 +261,7 @@ isis_delete_adj_commun (void *arg, int lost)
     list_delete (adj->area_addrs);
   }
 #ifdef HAVE_TRILL_MONITORING
-  }
+
   struct lan_neigh* lan_neigh;
 
   if (adj->lost_addrs) {
@@ -624,7 +624,7 @@ int isis_adj_lost_hello_reset(struct thread  *thread)
  struct isis_adjacency *adj;
  adj = THREAD_ARG (thread);
  assert(adj);
- adj->t_reset_lost_hello = NULL;
+ THREAD_TIMER_OFF (adj->t_reset_lost_hello);
  if (adj->adj_state == ISIS_ADJ_UP)
   adj->lost_hello = 0;
 
@@ -643,6 +643,7 @@ int isis_adj_lost_hello (struct thread *thread)
   * reset lost hello counter when connection has been
   * stable for 24h (not a single hello lost)
   */
+  THREAD_TIMER_OFF (adj->t_lost_hello);
  if(area->lost_hello_reset_timer > 0 ) {
   THREAD_TIMER_OFF (adj->t_reset_lost_hello);
   THREAD_TIMER_ON (master, adj->t_reset_lost_hello, isis_adj_lost_hello_reset,

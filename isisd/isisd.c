@@ -784,6 +784,9 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail
             }
         }
     }
+    /* do not remove list nodes as they are still used elsewhere */
+    if (temp_cache)
+      list_free(temp_cache);
 
   return CMD_SUCCESS;
 }

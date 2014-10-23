@@ -1021,8 +1021,8 @@ uint16_t get_root_nick(struct isis_area *area, int clean)
 		adjacency_lsp_search_and_destroy(n_node->info.sysid,
 						 area->lspdb[0]);
 	}
-	list_delete(tmp);
   }
+  list_delete(tmp);
 
   return root_nick;
 

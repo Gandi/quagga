@@ -224,8 +224,12 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 	    THREAD_TIMER_MSEC_ON (master, circuit->u.bc.t_send_lan_hello[0],
 			     send_lan_l1_hello, circuit,
 		      timer);
+	  if (circuit->u.bc.lan_neighs[0])
+		  list_delete(circuit->u.bc.lan_neighs[0]);
 	  circuit->u.bc.lan_neighs[0] = list_new ();
 #ifdef HAVE_TRILL_MONITORING
+      if(circuit->u.bc.lost_lan_neighs[0])
+          list_delete(circuit->u.bc.lost_lan_neighs[0]);
 	  circuit->u.bc.lost_lan_neighs[0] = list_new ();
 #endif
 	}
@@ -256,8 +260,12 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 	    THREAD_TIMER_MSEC_ON (master, circuit->u.bc.t_send_lan_hello[1],
 			     send_lan_l2_hello, circuit, timer);
 
+      if(circuit->u.bc.lan_neighs[1])
+          list_delete(circuit->u.bc.lan_neighs[1]);
 	  circuit->u.bc.lan_neighs[1] = list_new ();
 #ifdef HAVE_TRILL_MONITORING
+      if(circuit->u.bc.lost_lan_neighs[1])
+          list_delete(circuit->u.bc.lost_lan_neighs[1]);
 	  circuit->u.bc.lost_lan_neighs[1] = list_new ();
 #endif
 	}
