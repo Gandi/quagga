@@ -1,3 +1,10 @@
+quagga (0.99.22.4-48~gandi) unstable; urgency=medium
+
+  * [fix by Ahmed Amamou]
+    - trill: remove several memory leak
+
+ -- Ahmed Amamou <ahmed.gandi.net>  Mon, 27 Oct 2014 13:16:17 +0100
+
 quagga (0.99.22.4-47~gandi) unstable; urgency=medium
 
   * [fix by Ahmed Amamou]
