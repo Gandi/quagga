@@ -1515,6 +1515,8 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area, int detail,
   if(area->trill->tree_root && !id)
     vty_out (vty,"  TREE_ROOT: %8d%s",
 	     ntohs (area->trill->tree_root),VTY_NEWLINE);
+   /* list nodes are used elsewhere do not free them */
+  list_free(temp_cache);
 }
 
 void
@@ -1710,6 +1712,8 @@ int reset_trill_lost_hello_counter(struct vty *vty, const char *id)
         }
     }
 
+   /* list nodes are used elsewhere do not free them */
+   list_free(temp_cache);
   return CMD_SUCCESS;
 }
 #endif
