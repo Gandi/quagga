@@ -1602,6 +1602,7 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
                        ISIS_FIXED_HDR_LEN - ISIS_LSP_HDR_LEN,
                        &expected, &found, &tlv_data, NULL);
   assert (retval == ISIS_OK);
+  free_tlvs (&tlv_data);
 
   return;
 }
