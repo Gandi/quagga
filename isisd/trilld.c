@@ -1915,8 +1915,6 @@ DEFUN (show_trill_circuits,
   if (isis->area_list->count == 0)
     return CMD_SUCCESS;
 
-  assert (isis->area_list->count == 1);
-
   for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
     {
       vty_out (vty, "IS-IS TRILL circuits:%s%s",
@@ -1937,13 +1935,14 @@ DEFUN (show_trill_fwdtable,
 
   if (isis->area_list->count == 0)
     return CMD_SUCCESS;
-  assert (isis->area_list->count == 1);
 
   for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area)) {
-    vty_out (vty, "IS-IS TRILL forwarding table:%s", VTY_NEWLINE);
+    vty_out (vty, "IS-IS TRILL forwarding table for Area %s:%s",
+        area->area_tag ? area->area_tag : "null",
+        VTY_NEWLINE);
     trill_fwdtbl_print (vty, area);
+    vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
   }
-  vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
   return CMD_SUCCESS;
 }
 
@@ -1970,12 +1969,13 @@ DEFUN (show_trill_adjtable,
   if (isis->area_list->count == 0)
     return CMD_SUCCESS;
 
-  area = listgetdata(listhead (isis->area_list));
-
-  vty_out (vty, "IS-IS TRILL adjacencies in all distribution trees:%s%s",
-	     VTY_NEWLINE, VTY_NEWLINE);
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area)) {
+  vty_out (vty, "IS-IS TRILL adjacencies in all distribution trees(Area %s):%s",
+             area->area_tag ? area->area_tag : "null",
+             VTY_NEWLINE);
   trill_adjtbl_print_all (vty, area);
   vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
+  }
   return CMD_SUCCESS;
 }
 
