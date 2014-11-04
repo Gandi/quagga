@@ -79,6 +79,7 @@ int parse_cb(struct nl_msg *msg, void *data)
   struct isis_area *area = (struct isis_area *) data;
   /* Validate message and parse attributes */
   genlh = nlmsg_data(nlh);
+  uint32_t bridge_id;
   tnlh = (struct trill_nl_header *)genlmsg_data(genlh);
   if(tnlh->ifindex != KERNL_RESPONSE_INTERFACE)
     return 0;
@@ -163,11 +164,16 @@ int parse_cb(struct nl_msg *msg, void *data)
       genlmsg_parse(nlh, sizeof(struct trill_nl_header), attrs,
 		    TRILL_ATTR_MAX, TRILL_VNI_POLICY);
       vni_nb = nla_get_u16(attrs[TRILL_ATTR_U16]);
+      if (attrs[TRILL_ATTR_U32]) {
+           bridge_id = nla_get_u32(attrs[TRILL_ATTR_U32]);
+           if (area->bridge_id != bridge_id)
+               return 0;
+	   }
       nla_memcpy(vnis,attrs[TRILL_ATTR_BIN], sizeof(uint32_t)*vni_nb);
       list_delete(area->trill->configured_vni);
       area->trill->configured_vni = list_new();
       for (i=0; i< vni_nb; i++)
-	listnode_add(area->trill->configured_vni, (void *)(u_long)vnis[i]);
+     listnode_add(area->trill->configured_vni, (void *)(u_long)vnis[i]);
       if (generate_supported_vni(area))
 	lsp_regenerate_now(area, TRILL_ISIS_LEVEL);
       break;

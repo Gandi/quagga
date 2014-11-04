@@ -105,6 +105,11 @@ struct isis_area
 #ifdef HAVE_TRILL_MONITORING
   struct thread *mon_tick; /* monitoring tick */
 #endif
+  struct nl_sock *sock_genl;
+  int genl_family;
+  int group_number;
+  /* used to specify bridge when using multiple one */
+  uint32_t bridge_id;
 #endif
   struct thread *t_lsp_refresh[ISIS_LEVELS];
   int lsp_regenerate_pending[ISIS_LEVELS];

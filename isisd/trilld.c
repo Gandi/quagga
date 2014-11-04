@@ -58,9 +58,6 @@
 
 /* Global variables needed for netlink genl socket*/
 extern struct zebra_privs_t isisd_privs;
-static struct nl_sock *sock_genl;
-int genl_family;
-int group_number;
 
 static void trill_dict_delete_nodes (dict_t *dict1, dict_t *dict2,
 				     void *key1, int key2isnick);
@@ -87,34 +84,35 @@ int receiv_nl(struct thread *thread)
 {
   struct isis_area *area;
   area = THREAD_ARG (thread);
+
   assert (area);
-  nl_recvmsgs_default(sock_genl);
+  nl_recvmsgs_default(area->sock_genl);
   area->nl_tick = NULL;
   THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
-                    nl_socket_get_fd(sock_genl));
+                    nl_socket_get_fd(area->sock_genl));
   return ISIS_OK;
 }
 void netlink_init(struct isis_area *area)
 {
   isisd_privs.change(ZPRIVS_RAISE);
-  sock_genl = nl_socket_alloc();
-  genl_connect(sock_genl);
-  genl_family = genl_ctrl_resolve(sock_genl, TRILL_NL_FAMILY);
-  group_number = genl_ctrl_resolve_grp(sock_genl, TRILL_NL_FAMILY,
+  area->sock_genl = nl_socket_alloc();
+  genl_connect(area->sock_genl);
+  area->genl_family = genl_ctrl_resolve(area->sock_genl, TRILL_NL_FAMILY);
+  area->group_number = genl_ctrl_resolve_grp(area->sock_genl, TRILL_NL_FAMILY,
 				       TRILL_MCAST_NAME);
-  nl_socket_disable_seq_check(sock_genl);
-  if(!genl_family){
+  nl_socket_disable_seq_check(area->sock_genl);
+  if(!area->genl_family){
     zlog_err("unable to find generic netlink family id");
     abort();
   }
 
-  if(nl_socket_modify_cb(sock_genl, NL_CB_MSG_IN, NL_CB_CUSTOM,
+  if(nl_socket_modify_cb(area->sock_genl, NL_CB_MSG_IN, NL_CB_CUSTOM,
     parse_cb, (void *)area))
     zlog_warn("unable to modify netlink callback");
-  if(nl_socket_add_membership(sock_genl, group_number))
+  if(nl_socket_add_membership(area->sock_genl, area->group_number))
     zlog_warn("unable to join multicast group\n");
   THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
-			nl_socket_get_fd(sock_genl));
+			nl_socket_get_fd(area->sock_genl));
 }
 static int trill_nickname_nickbitmap_op(u_int16_t nick, int update, int val)
 {
@@ -268,7 +266,7 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
     struct trill_nl_header *trnlhdr;
     struct isis_circuit *circuit = listgetdata(listhead(area->circuit_list));
     msg = nlmsg_alloc();
-    trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
+    trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
 			sizeof(struct trill_nl_header), NLM_F_REQUEST,
 			TRILL_CMD_SET_BRIDGE, TRILL_NL_VERSION);
     if(!trnlhdr)
@@ -277,7 +275,7 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
     trnlhdr->ifindex = circuit->interface->ifindex;
     trnlhdr->total_length = sizeof(msg);
     trnlhdr->msg_number = 1;
-    nl_send_auto_complete(sock_genl, msg);
+    nl_send_auto_complete(area->sock_genl, msg);
     nlmsg_free(msg);
   }
   return true;
@@ -956,7 +954,7 @@ static void trill_publish_nick(struct isis_area *area, int fd,
        * (asynchronous threads)*/
       if (area->trill->nick.name == nick) {
 	msg = nlmsg_alloc();
-	trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
+	trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
 			    sizeof(struct trill_nl_header), NLM_F_REQUEST,
 			    TRILL_CMD_SET_NICKS_INFO, TRILL_NL_VERSION);
       } else {
@@ -965,7 +963,7 @@ static void trill_publish_nick(struct isis_area *area, int fd,
       }
     } else {
       msg = nlmsg_alloc();
-      trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
+      trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
 			    sizeof(struct trill_nl_header), NLM_F_REQUEST,
 			    TRILL_CMD_ADD_NICKS_INFO, TRILL_NL_VERSION);
     }
@@ -973,7 +971,7 @@ static void trill_publish_nick(struct isis_area *area, int fd,
     trnlhdr->ifindex = port_id;
     trnlhdr->total_length = sizeof(msg);
     trnlhdr->msg_number = 1;
-    nl_send_auto_complete(sock_genl, msg);
+    nl_send_auto_complete(area->sock_genl, msg);
     nlmsg_free(msg);
     free(ni);
   }
@@ -1048,7 +1046,7 @@ static void trill_publish (struct isis_area *area)
 		     NULL, circuit->interface->ifindex);
 
   msg = nlmsg_alloc();
-  trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
+  trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
 			sizeof(struct trill_nl_header), NLM_F_REQUEST,
 			TRILL_CMD_SET_TREEROOT_ID, TRILL_NL_VERSION);
   if(!trnlhdr)
@@ -1057,7 +1055,7 @@ static void trill_publish (struct isis_area *area)
   trnlhdr->total_length = sizeof(msg);
   trnlhdr->msg_number = 1;
   nla_put_u16(msg, TRILL_ATTR_U16, ntohs(area->trill->tree_root));
-  nl_send_auto_complete(sock_genl, msg);
+  nl_send_auto_complete(area->sock_genl, msg);
   nlmsg_free(msg);
 }
 /*
@@ -1093,7 +1091,7 @@ void trill_process_spf (struct isis_area *area)
    return;
 #endif
   msg = nlmsg_alloc();
-  trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family,
+  trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
 		      sizeof(struct trill_nl_header), NLM_F_REQUEST,
 		      TRILL_CMD_GET_VNIS, TRILL_NL_VERSION);
   if(trnlhdr) {
@@ -1105,7 +1103,7 @@ void trill_process_spf (struct isis_area *area)
     trnlhdr->total_length = sizeof(msg);
     trnlhdr->msg_number = 1;
     nla_put_u16(msg, TRILL_ATTR_U16, RBRIDGE_NICKNAME_NONE);
-    nl_send_auto_complete(sock_genl, msg);
+    nl_send_auto_complete(area->sock_genl, msg);
     nlmsg_free(msg);
   }
   trill_publish(area);
@@ -1805,11 +1803,13 @@ DEFUN (trill_instance, trill_instance_cmd,
        "instance name\n")
 {
   struct isis_area *area;
+  struct interface *ifp;
 
   area = vty->index;
   assert (area);
   assert (area->isis);
   area->trill->name = strdup(argv[0]);
+  area->bridge_id = if_nametoindex(argv[0]);
   return CMD_SUCCESS;
 }
 
@@ -1831,8 +1831,8 @@ DEFUN (show_trill_nickdatabase,
     return CMD_SUCCESS;
 
   for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area)) {
-    vty_out (vty, "Area %s nickname:%d priority:%d %s",
-	     area->area_tag ? area->area_tag : "null",
+    vty_out (vty, "%sArea %s nickname:%d priority:%d %s",
+	     VTY_NEWLINE, area->area_tag ? area->area_tag : "null",
 	     ntohs(area->trill->nick.name),
 	     area->trill->nick.priority,VTY_NEWLINE);
 
@@ -1844,8 +1844,8 @@ DEFUN (show_trill_nickdatabase,
     vty_out (vty, "%s", VTY_NEWLINE);
     vty_out (vty, "IS-IS TRILL nickname database:%s", VTY_NEWLINE);
     trill_nickdb_print (vty, area, false, NULL);
+    vty_out (vty, "%s", VTY_NEWLINE);
   }
-  vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
   return CMD_SUCCESS;
 }
 DEFUN (show_trill_nickdatabase_detail,
@@ -1866,8 +1866,8 @@ DEFUN (show_trill_nickdatabase_detail,
   return CMD_SUCCESS;
 
  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area)) {
-  vty_out (vty, "Area %s nickname:%d priority:%d %s",
-           area->area_tag ? area->area_tag : "null",
+  vty_out (vty, "%sArea %s nickname:%d priority:%d %s",
+           VTY_NEWLINE, area->area_tag ? area->area_tag : "null",
            ntohs(area->trill->nick.name),
            area->trill->nick.priority,VTY_NEWLINE);
 
@@ -1879,8 +1879,9 @@ DEFUN (show_trill_nickdatabase_detail,
       vty_out (vty, "%s", VTY_NEWLINE);
       vty_out (vty, "IS-IS TRILL nickname database:%s", VTY_NEWLINE);
       trill_nickdb_print (vty, area, true, NULL);
+      vty_out (vty, "%s", VTY_NEWLINE);
+
  }
-   vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
    return CMD_SUCCESS;
 }
 
