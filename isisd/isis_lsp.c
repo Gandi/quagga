@@ -112,7 +112,9 @@ lsp_clear_data (struct isis_lsp *lsp)
   if (!lsp)
     return;
 
-  if (lsp->tlv_data.hostname)
+
+  /* keep hostname cache for monitor */
+  if (lsp->tlv_data.hostname &&  !lsp->area->trill->passive)
     isis_dynhn_remove (lsp->lsp_header->lsp_id);
 
   if (lsp->own_lsp)

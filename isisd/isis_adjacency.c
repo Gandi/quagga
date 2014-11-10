@@ -142,15 +142,6 @@ isis_new_lost_adj (u_char * id, u_char * snpa, int level,
   adj->circuit_t = level;
   adj->lost_addrs = list_new ();
   if (circuit->area->trill->passive)
-   if(!still_alive)
-    zlog_warn("monitor: %s with mac@ %s is unreachable, "
-              "waiting for neighbors confirmation",
-               print_sys_hostname(id), sysid_print(id));
-   else
-    zlog_warn("monitor: %s with mac@ %s has lost connectivity "
-              "with a neighbor or more",
-              print_sys_hostname(id), sysid_print(id));
-
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
      tmp = isis_adj_lookup_snpa(snpa, circuit->u.bc.lost_adjdb[level - 1]);
@@ -376,19 +367,16 @@ monitor_down_neighbor (struct thread *thread)
  total_neighbor = listcount(circuit->u.bc.adjdb[adj->level - 1]) - 1;
  if (listcount(adj->lost_addrs) >= total_neighbor) {
   adj->adj_state = ISIS_ADJ_DOWN;
-  zlog_warn("monitor: %s with mac@ %s is down !!!",
+  zlog_info("monitor: %s (mac@ %s) is unreachable by all",
             print_sys_hostname(adj->sysid),
             sysid_print(adj->sysid));
  } else {
-  zlog_warn("monitor: %s with mac@ %s is down for"
-            " a subset of nodes !!!",
+  for (ALL_LIST_ELEMENTS_RO (adj->lost_addrs, node, lan_neigh))
+   zlog_info ("monitor: %s (mac@ %s) unable to reach %s (mac@ %s)",
+            print_sys_hostname(lan_neigh->LAN_addr),
+            snpa_print (lan_neigh->LAN_addr),
             print_sys_hostname(adj->sysid),
             sysid_print(adj->sysid));
-  zlog_warn("monitor: nodes that have lost %s are : ",
-            print_sys_hostname(adj->sysid));
-  for (ALL_LIST_ELEMENTS_RO (adj->lost_addrs, node, lan_neigh))
-   zlog_warn ("monitor: %s (%s)", snpa_print (lan_neigh->LAN_addr),
-              print_sys_hostname(lan_neigh->LAN_addr));
  }
  return ISIS_OK;
 
@@ -456,15 +444,12 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                    rem_lifetime < tmp->hold_time
                   )
                {
-                zlog_warn("monitor: %s with mac@ %s alive again was a flap.",
+                zlog_info("monitor: %s (mac@ %s) alive after a flap,"
+                          " total flap: %i",
                           print_sys_hostname(tmp->sysid),
-                          sysid_print(tmp->sysid)
-                         );
-                zlog_warn("monitor: total flap count for %s : %i",
-                          print_sys_hostname(tmp->sysid),
+                          sysid_print(tmp->sysid),
                           tmp->flaps
-                );
-
+                         );
                }
                listnode_delete(circuit->u.bc.lost_adjdb[level - 1], tmp);
                isis_delete_adj_lost(tmp);
