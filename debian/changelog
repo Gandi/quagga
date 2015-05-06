@@ -1,3 +1,9 @@
+quagga (0.99.22.4-51~gandi) unstable; urgency=medium
+
+  * update package to have bgpd
+
+ -- Ahmed Amamou <ahmed@gandi.net>  Wed, 06 May 2015 11:09:20 +0200
+
 quagga (0.99.22.4-50~gandi) unstable; urgency=medium
 
   * [fix by Ahmed Amamou]
