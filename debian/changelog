@@ -1,3 +1,10 @@
+quagga (0.99.22.4-52~gandi) unstable; urgency=medium
+
+  * make sure to destroy all pending nickname info
+  * on *all* aera when lsp is destroyed
+
+ -- Ahmed Amamou <ahmed@gandi.net>  Wed, 13 May 2015 15:09:42 +0200
+
 quagga (0.99.22.4-51~gandi) unstable; urgency=medium
 
   * update package to have bgpd
