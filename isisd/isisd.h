@@ -29,6 +29,17 @@
 /* #define EXTREME_DEBUG  */
 /* #define EXTREME_TLV_DEBUG */
 
+struct rtnl_handle
+{
+        int                     fd;
+        struct sockaddr_nl      local;
+        struct sockaddr_nl      peer;
+        __u32                   seq;
+        __u32                   dump;
+        int                     proto;
+        FILE                   *dump_fp;
+};
+
 struct rmap
 {
   char *name;
@@ -102,10 +113,12 @@ struct isis_area
   struct thread *t_tick;	/* LSP walker */
 #ifdef HAVE_TRILL
   struct thread *nl_tick; /*netlink recev tick*/
+  int old_api;
 #ifdef HAVE_TRILL_MONITORING
   struct thread *mon_tick; /* monitoring tick */
 #endif
   struct nl_sock *sock_genl;
+  struct rtnl_handle *rth;
   int genl_family;
   int group_number;
   /* used to specify bridge when using multiple one */

@@ -56,6 +56,14 @@
 #include "isisd/isis_dynhn.h"
 
 
+static inline __u32 nl_mgrp(__u32 group)
+{
+        if (group > 31 ) {
+                fprintf(stderr, "Use setsockopt for this group %d\n", group);
+                exit(-1);
+        }
+        return group ? (1 << (group - 1)) : 0;
+}
 /* Global variables needed for netlink genl socket*/
 extern struct zebra_privs_t isisd_privs;
 
@@ -92,9 +100,23 @@ int receiv_nl(struct thread *thread)
                     nl_socket_get_fd(area->sock_genl));
   return ISIS_OK;
 }
+int receive_rtnl(struct thread *thread)
+{
+  struct isis_area *area;
+  area = THREAD_ARG (thread);
+  assert (area);
+
+  rtnl_listen(area->rth, area);
+  area->nl_tick = NULL;
+
+  THREAD_READ_ON(master, area->nl_tick, receive_rtnl, area,
+                        area->rth->fd);
+
+}
 void netlink_init(struct isis_area *area)
 {
   isisd_privs.change(ZPRIVS_RAISE);
+  /* old netlink*/
   area->sock_genl = nl_socket_alloc();
   genl_connect(area->sock_genl);
   area->genl_family = genl_ctrl_resolve(area->sock_genl, TRILL_NL_FAMILY);
@@ -109,10 +131,24 @@ void netlink_init(struct isis_area *area)
   if(nl_socket_modify_cb(area->sock_genl, NL_CB_MSG_IN, NL_CB_CUSTOM,
     parse_cb, (void *)area))
     zlog_warn("unable to modify netlink callback");
-  if(nl_socket_add_membership(area->sock_genl, area->group_number))
-    zlog_warn("unable to join multicast group\n");
-  THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
+  if(nl_socket_add_membership(area->sock_genl, area->group_number)) {
+    zlog_warn("unable to join multicast group");
+    nl_close(area->sock_genl);
+  } else {
+    THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
 			nl_socket_get_fd(area->sock_genl));
+    return;
+  }
+
+  /* new rtnetlink */
+  unsigned groups = 0;
+  area->rth = calloc(1, sizeof(struct rtnl_handle));
+  groups |= nl_mgrp(RTNLGRP_TRILL);
+  if (rtnl_open(area->rth, groups) < 0) {
+	zlog_warn("rtnetlink: failed to join trill group\n");
+  }
+  THREAD_READ_ON(master, area->nl_tick, receive_rtnl, area,
+			area->rth->fd);
 }
 static int trill_nickname_nickbitmap_op(u_int16_t nick, int update, int val)
 {

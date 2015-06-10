@@ -186,3 +186,189 @@ int parse_cb(struct nl_msg *msg, void *data)
   }
   return 0;
 }
+
+int rcvbuf = 1024 * 1024;
+void rtnl_close(struct rtnl_handle *rth)
+{
+	if (rth->fd >= 0) {
+		close(rth->fd);
+		rth->fd = -1;
+	}
+}
+
+int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions)
+{
+	socklen_t addr_len;
+	int sndbuf = 32768;
+
+	memset(rth, 0, sizeof(*rth));
+
+	rth->proto = NETLINK_ROUTE;
+	rth->fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
+	if (rth->fd < 0) {
+		zlog_warn("rtnetlink: Cannot open netlink socket");
+		return -1;
+	}
+	if (setsockopt(rth->fd,SOL_SOCKET,SO_SNDBUF,&sndbuf,sizeof(sndbuf)) < 0) {
+		zlog_warn("rtnetlink: SO_SNDBUF");
+		return -1;
+	}
+
+	if (setsockopt(rth->fd,SOL_SOCKET,SO_RCVBUF,&rcvbuf,sizeof(rcvbuf)) < 0) {
+		zlog_warn("rtnetlink: SO_RCVBUF");
+		return -1;
+	}
+
+	memset(&rth->local, 0, sizeof(rth->local));
+	rth->local.nl_family = AF_NETLINK;
+	rth->local.nl_groups = subscriptions;
+
+	if (bind(rth->fd, (struct sockaddr*)&rth->local, sizeof(rth->local)) < 0) {
+		zlog_warn("rtnetlink: Cannot bind netlink socket");
+		return -1;
+	}
+	addr_len = sizeof(rth->local);
+	if (getsockname(rth->fd, (struct sockaddr*)&rth->local, &addr_len) < 0) {
+		zlog_warn("rtnetlink: Cannot getsockname");
+		return -1;
+	}
+	if (addr_len != sizeof(rth->local)) {
+		zlog_warn("rtnetlink: Wrong address length %d\n", addr_len);
+		return -1;
+	}
+	if (rth->local.nl_family != AF_NETLINK) {
+		zlog_warn("rtnelink: Wrong address family %d\n", rth->local.nl_family);
+		return -1;
+	}
+	rth->seq = time(NULL);
+	return 0;
+
+}
+
+int accept_msg(const struct sockaddr_nl *who,
+                      struct nlmsghdr *n, void *arg)
+{
+	struct rtattr * RTVNIS;
+	struct rtattr * tb[IFLA_MAX+1];
+	struct rtattr *rta;
+	struct ifinfomsg *ifi;
+	int len = n->nlmsg_len;
+	uint32_t *vnis;
+	int nb;
+	int i;
+	unsigned short type;
+	struct isis_area *area = (struct isis_area *) arg;
+
+	if (n->nlmsg_type != RTM_NEWLINK)
+		return 0;
+	ifi = NLMSG_DATA(n);
+	if (ifi->ifi_family != AF_BRIDGE)
+		return 0;
+	if (ifi->ifi_index != area->bridge_id)
+		return 0;
+	len -= NLMSG_LENGTH(sizeof(*ifi));
+
+	if (len < 0) {
+		zlog_warn("rtnetlink: message is too short!\n");
+		return -1;
+	}
+
+	rta = IFLA_RTA(ifi);
+	memset(tb, 0, sizeof(struct rtattr *) * (IFLA_MAX + 1));
+	while (RTA_OK(rta, len)) {
+		type = rta->rta_type;
+		if ((type == IFLA_TRILL_VNI && !tb[type]))
+			tb[type] = rta;
+		else if (type == IFLA_TRILL_VNI && !tb[type])
+			zlog_warn("rtnetlink: duplicated VNI entry!\n");
+		rta = RTA_NEXT(rta,len);
+        }
+
+	if(tb[IFLA_TRILL_VNI]) {
+		RTVNIS = tb[IFLA_TRILL_VNI];
+		len = RTA_PAYLOAD(RTVNIS);
+		vnis = calloc(len, 1);
+		memcpy(vnis, RTA_DATA(RTVNIS), len);
+		nb = len / sizeof(uint32_t);
+		if (area->trill->configured_vni)
+		list_delete(area->trill->configured_vni);
+		area->trill->configured_vni = list_new();
+		for (i=0; i< nb; i++)
+			listnode_add(area->trill->configured_vni, (void *)(u_long)vnis[i]);
+		if (generate_supported_vni(area))
+			lsp_regenerate_now(area, TRILL_ISIS_LEVEL);
+
+	} else {
+		zlog_warn("rtnetlink: no VNI attribute found\n");
+	}
+	return;
+}
+
+int rtnl_listen(struct rtnl_handle *rtnl, void *arg)
+{
+	int status;
+	struct nlmsghdr *h;
+	struct sockaddr_nl nladdr;
+	struct iovec iov;
+	struct msghdr msg = {
+		.msg_name = &nladdr,
+		.msg_namelen = sizeof(nladdr),
+		.msg_iov = &iov,
+		.msg_iovlen = 1,
+	};
+	char   buf[16384];
+
+	memset(&nladdr, 0, sizeof(nladdr));
+	nladdr.nl_family = AF_NETLINK;
+	nladdr.nl_pid = 0;
+	nladdr.nl_groups = 0;
+
+	iov.iov_base = buf;
+	iov.iov_len = sizeof(buf);
+	status = recvmsg(rtnl->fd, &msg, 0);
+
+	if (status < 0) {
+		if (errno == EINTR || errno == EAGAIN)
+			return 0;
+		/* zlog_warn("rtnetlink: receive error %s (%d)\n",
+			strerror(errno), errno);*/
+		if (errno == ENOBUFS)
+			return 0;
+		return -1;
+	}
+	if (status == 0) {
+		zlog_warn("rtnetlink: EOF on netlink\n");
+		return -1;
+	}
+	if (msg.msg_namelen != sizeof(nladdr)) {
+		zlog_warn("rtnetlink: Sender address length == %d\n", msg.msg_namelen);
+		return -1;
+	}
+	for (h = (struct nlmsghdr*)buf; status >= sizeof(*h); ) {
+		int err;
+		int len = h->nlmsg_len;
+		int l = len - sizeof(*h);
+		if (l<0 || len>status) {
+			if (msg.msg_flags & MSG_TRUNC) {
+				zlog_warn("rtnetlink: Truncated message\n");
+				return -1;
+			}
+			zlog_warn("rtnetlink: !!!malformed message: len=%d\n", len);
+			return -1;
+		}
+		err = accept_msg(&nladdr, h, arg);
+		if (err < 0)
+			return err;
+		status -= NLMSG_ALIGN(len);
+		h = (struct nlmsghdr*)((char*)h + NLMSG_ALIGN(len));
+	}
+	if (msg.msg_flags & MSG_TRUNC) {
+		zlog_warn("rtnetlink: Message truncated\n");
+		return 0;
+	}
+	if (status) {
+		zlog_warn("rtnetlink: !!!Remnant of size %d\n", status);
+		return -1;
+	}
+
+}

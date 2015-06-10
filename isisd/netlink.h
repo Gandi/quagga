@@ -76,4 +76,8 @@ enum{
 int init_netlink(struct nl_sock *,struct isis_area *);
 int close_netlink(struct nl_sock *);
 int parse_cb(struct nl_msg *msg, void *data);
+
+int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions);
+void rtnl_close(struct rtnl_handle *rth);
+int rtnl_listen(struct rtnl_handle *rtnl, void *arg);
 #endif
