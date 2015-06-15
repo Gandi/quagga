@@ -1232,24 +1232,64 @@ void trill_process_spf (struct isis_area *area)
   if(area->trill->passive)
    return;
 #endif
-  msg = nlmsg_alloc();
-  trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
-		      sizeof(struct trill_nl_header), NLM_F_REQUEST,
-		      TRILL_CMD_GET_VNIS, TRILL_NL_VERSION);
-  if(trnlhdr) {
-    if (area->circuit_list && listhead(area->circuit_list))
-      circuit = listgetdata(listhead(area->circuit_list));
-    if (circuit == NULL)
-      return;
-    trnlhdr->ifindex = circuit->interface->ifindex;
-    trnlhdr->total_length = sizeof(msg);
-    trnlhdr->msg_number = 1;
-    nla_put_u16(msg, TRILL_ATTR_U16, RBRIDGE_NICKNAME_NONE);
-    nl_send_auto_complete(area->sock_genl, msg);
-    nlmsg_free(msg);
-  }
-  trill_publish(area);
-  SET_FLAG(area->trill->status, TRILL_SPF_COMPUTED);
+	if (area->old_api) {
+		msg = nlmsg_alloc();
+		trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ,
+					area->genl_family,
+					sizeof(struct trill_nl_header),
+					NLM_F_REQUEST, TRILL_CMD_GET_VNIS,
+					TRILL_NL_VERSION);
+		if(trnlhdr) {
+			if (area->circuit_list && listhead(area->circuit_list))
+				circuit = listgetdata(listhead(
+							area->circuit_list));
+			if (circuit == NULL)
+				return;
+			trnlhdr->ifindex = circuit->interface->ifindex;
+			trnlhdr->total_length = sizeof(msg);
+			trnlhdr->msg_number = 1;
+			nla_put_u16(msg, TRILL_ATTR_U16,
+					RBRIDGE_NICKNAME_NONE);
+			nl_send_auto_complete(area->sock_genl, msg);
+			nlmsg_free(msg);
+		}
+	} else {
+		struct nl_req req;
+		struct nlmsghdr *n;
+		__u16 nick = htons(area->trill->nick.name);
+		char* type = "bridge";
+		if (!area->rth2) {
+			area->rth2 = calloc(1, sizeof(struct rtnl_handle));
+			if (rtnl_open(area->rth2, 0) < 0 ) {
+				zlog_warn("failed to open rtnelink socket");
+				return;
+			}
+		}
+		memset(&req, 0, sizeof(req));
+		n = &req.n;
+		n->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+		n->nlmsg_flags = NLM_F_REQUEST;
+		n->nlmsg_type = RTM_NEWLINK;
+		req.ifm.ifi_family = AF_UNSPEC;
+		req.ifm.ifi_index = area->bridge_id;
+		if (req.ifm.ifi_index == 0) {
+			zlog_warn("unable to find bridge device");
+			return;
+		}
+		struct rtattr *linkinfo;
+		linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
+		addattr_l(n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
+		struct rtattr *data = addattr_nest(n, sizeof(req), IFLA_INFO_DATA);
+		addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
+		addattr_nest_end(n, data);
+		addattr_nest_end(n, linkinfo);
+		if (rtnl_talk(area->rth2, n, NULL, sizeof(req))  < 0) {
+			zlog_warn("rtnetlink failed to send nickname");
+			return;
+		}
+	}
+	trill_publish(area);
+	SET_FLAG(area->trill->status, TRILL_SPF_COMPUTED);
 }
 static int trill_nick_conflict(nickinfo_t *nick1, nickinfo_t *nick2)
 {
