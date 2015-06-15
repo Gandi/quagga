@@ -73,6 +73,34 @@ enum{
 };
 #define TRILL_CMD_MAX (__TRILL_CMD_MAX-1)
 
+struct nl_req	{
+	struct nlmsghdr		n;
+	struct ifinfomsg	ifm;
+	char			buf[1024];
+	};
+
+#define NLMSG_TAIL(nmsg) \
+	((struct rtattr *) (((void *) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+
+#ifndef RTNLGRP_TRILL
+ /*
+  * We need to be really care full here in case
+  * this group change in kernel side
+  */
+#define RTNLGRP_TRILL 27
+#endif
+#ifndef IFLA_TRILL_MAX
+enum {
+	IFLA_TRILL_UNSPEC,
+	IFLA_TRILL_NICKNAME,
+	IFLA_TRILL_ROOT,
+	IFLA_TRILL_INFO,
+	IFLA_TRILL_VNI,
+	__IFLA_TRILL_MAX,
+};
+#define IFLA_TRILL_MAX (__IFLA_TRILL_MAX)
+#endif
+
 int init_netlink(struct nl_sock *,struct isis_area *);
 int close_netlink(struct nl_sock *);
 int parse_cb(struct nl_msg *msg, void *data);
@@ -80,4 +108,10 @@ int parse_cb(struct nl_msg *msg, void *data);
 int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions);
 void rtnl_close(struct rtnl_handle *rth);
 int rtnl_listen(struct rtnl_handle *rtnl, void *arg);
+int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
+		int alen);
+struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type);
+int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest);
+int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+		struct nlmsghdr *answer, size_t len);
 #endif

@@ -298,21 +298,59 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
    return true;
 #endif
   if (listcount(area->circuit_list) > 0) {
-    struct nl_msg *msg;
-    struct trill_nl_header *trnlhdr;
-    struct isis_circuit *circuit = listgetdata(listhead(area->circuit_list));
-    msg = nlmsg_alloc();
-    trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
+    if (area->old_api) {
+      struct nl_msg *msg;
+      struct trill_nl_header *trnlhdr;
+      struct isis_circuit *circuit = listgetdata(listhead(area->circuit_list));
+      msg = nlmsg_alloc();
+      trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
 			sizeof(struct trill_nl_header), NLM_F_REQUEST,
 			TRILL_CMD_SET_BRIDGE, TRILL_NL_VERSION);
-    if(!trnlhdr)
-      abort();
-    nla_put_u16(msg, TRILL_ATTR_U16, htons(nickname));
-    trnlhdr->ifindex = circuit->interface->ifindex;
-    trnlhdr->total_length = sizeof(msg);
-    trnlhdr->msg_number = 1;
-    nl_send_auto_complete(area->sock_genl, msg);
-    nlmsg_free(msg);
+      if(!trnlhdr)
+        abort();
+      nla_put_u16(msg, TRILL_ATTR_U16, htons(nickname));
+      trnlhdr->ifindex = circuit->interface->ifindex;
+      trnlhdr->total_length = sizeof(msg);
+      trnlhdr->msg_number = 1;
+      nl_send_auto_complete(area->sock_genl, msg);
+      nlmsg_free(msg);
+  } else {
+	struct nl_req req;
+	struct nlmsghdr *n;
+	__u16 nick = htons(nickname);
+	char* type = "bridge";
+	if (!area->rth2) {
+		area->rth2 = calloc(1, sizeof(struct rtnl_handle));
+		if (rtnl_open(area->rth2, 0) < 0 ) {
+			zlog_warn("failed to open rtnelink socket");
+			return false;
+		}
+	}
+	memset(&req, 0, sizeof(req));
+	n = &req.n;
+	n->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	n->nlmsg_flags = NLM_F_REQUEST;
+	n->nlmsg_type = RTM_NEWLINK;
+	req.ifm.ifi_family = AF_UNSPEC;
+	req.ifm.ifi_index = area->bridge_id;
+	if (req.ifm.ifi_index == 0) {
+		zlog_warn("unable to find bridge device");
+		return false;
+	}
+	struct rtattr *linkinfo;
+	linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
+	addattr_l(n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
+	struct rtattr *data = addattr_nest(n, sizeof(req), IFLA_INFO_DATA);
+	addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
+	addattr_nest_end(n, data);
+	addattr_nest_end(n, linkinfo);
+	if (rtnl_talk(area->rth2, n, NULL, sizeof(req))  < 0) {
+		zlog_warn("rtnetlink failed to send nickname");
+		return false;
+	}
+
+  }
+
   }
   return true;
 }

@@ -372,3 +372,154 @@ int rtnl_listen(struct rtnl_handle *rtnl, void *arg)
 	}
 
 }
+
+
+int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
+		int alen)
+{
+	int len = RTA_LENGTH(alen);
+	struct rtattr *rta;
+
+	if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > maxlen) {
+		zlog_warn("addattr_l ERROR: message exceeded bound of %d\n",maxlen);
+		return -1;
+        }
+	rta = NLMSG_TAIL(n);
+	rta->rta_type = type;
+	rta->rta_len = len;
+	memcpy(RTA_DATA(rta), data, alen);
+	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len);
+	return 0;
+}
+
+struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type)
+{
+	struct rtattr *nest = NLMSG_TAIL(n);
+
+	addattr_l(n, maxlen, type, NULL, 0);
+	return nest;
+}
+
+int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest)
+{
+	nest->rta_len = (void *)NLMSG_TAIL(n) - (void *)nest;
+	return n->nlmsg_len;
+}
+
+int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+	      struct nlmsghdr *answer, size_t len)
+{
+	int status;
+	unsigned seq;
+	struct nlmsghdr *h;
+	struct sockaddr_nl nladdr;
+	struct iovec iov = {
+		.iov_base = (void*) n,
+		.iov_len = n->nlmsg_len
+	};
+	struct msghdr msg = {
+		.msg_name = &nladdr,
+		.msg_namelen = sizeof(nladdr),
+		.msg_iov = &iov,
+		.msg_iovlen = 1,
+	};
+	char   buf[32768];
+
+	memset(&nladdr, 0, sizeof(nladdr));
+	nladdr.nl_family = AF_NETLINK;
+
+	n->nlmsg_seq = seq = ++rtnl->seq;
+
+	if (answer == NULL)
+		n->nlmsg_flags |= NLM_F_ACK;
+
+	status = sendmsg(rtnl->fd, &msg, 0);
+	if (status < 0) {
+		zlog_warn("Cannot talk to rtnetlink");
+		return -1;
+	}
+
+	memset(buf,0,sizeof(buf));
+
+	iov.iov_base = buf;
+	while (1) {
+		iov.iov_len = sizeof(buf);
+		status = recvmsg(rtnl->fd, &msg, 0);
+
+		if (status < 0) {
+			if (errno == EINTR || errno == EAGAIN)
+				continue;
+			zlog_warn("netlink receive error %s (%d)",
+				strerror(errno), errno);
+			return -1;
+		}
+		if (status == 0) {
+			zlog_warn("EOF on netlink");
+			return -1;
+		}
+		if (msg.msg_namelen != sizeof(nladdr)) {
+			zlog_warn("sender address length == %d", msg.msg_namelen);
+			return -1;
+		}
+		for (h = (struct nlmsghdr*)buf; status >= sizeof(*h); ) {
+			int len = h->nlmsg_len;
+			int l = len - sizeof(*h);
+
+			if (l < 0 || len>status) {
+				if (msg.msg_flags & MSG_TRUNC) {
+					zlog_warn("Truncated message");
+					return -1;
+				}
+				zlog_warn("!!!malformed message: len=%d", len);
+				return -1;
+			}
+
+			if (nladdr.nl_pid != 0 ||
+			    h->nlmsg_pid != rtnl->local.nl_pid ||
+			    h->nlmsg_seq != seq) {
+				/* Don't forget to skip that message. */
+				status -= NLMSG_ALIGN(len);
+				h = (struct nlmsghdr*)((char*)h + NLMSG_ALIGN(len));
+				continue;
+			}
+
+			if (h->nlmsg_type == NLMSG_ERROR) {
+				struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
+				if (l < sizeof(struct nlmsgerr)) {
+					zlog_warn("ERROR truncated");
+				} else if (!err->error) {
+					if (answer)
+						memcpy(answer, h,
+						       MIN(len, h->nlmsg_len));
+					return 0;
+				}
+
+				zlog_warn("RTNETLINK answers: %s",
+					strerror(-err->error));
+				errno = -err->error;
+				return errno;
+			}
+
+			if (answer) {
+				memcpy(answer, h,
+				       MIN(len, h->nlmsg_len));
+				return 0;
+			}
+
+			zlog_warn("Unexpected reply!!!");
+
+			status -= NLMSG_ALIGN(len);
+			h = (struct nlmsghdr*)((char*)h + NLMSG_ALIGN(len));
+		}
+
+		if (msg.msg_flags & MSG_TRUNC) {
+			zlog_warn("Message truncated\n");
+			continue;
+		}
+
+		if (status) {
+			zlog_warn("!!!Remnant of size %d", status);
+			return -1;
+		}
+	}
+}
