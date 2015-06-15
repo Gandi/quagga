@@ -1119,18 +1119,54 @@ static void trill_publish (struct isis_area *area)
   trill_publish_nick(area, circuit->fd, area->trill->nick.name,
 		     NULL, circuit->interface->ifindex);
 
-  msg = nlmsg_alloc();
-  trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
+	if (area->old_api) {
+		msg = nlmsg_alloc();
+		trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
 			sizeof(struct trill_nl_header), NLM_F_REQUEST,
 			TRILL_CMD_SET_TREEROOT_ID, TRILL_NL_VERSION);
-  if(!trnlhdr)
-    abort();
-  trnlhdr->ifindex = circuit->interface->ifindex;
-  trnlhdr->total_length = sizeof(msg);
-  trnlhdr->msg_number = 1;
-  nla_put_u16(msg, TRILL_ATTR_U16, ntohs(area->trill->tree_root));
-  nl_send_auto_complete(area->sock_genl, msg);
-  nlmsg_free(msg);
+		if(!trnlhdr)
+			abort();
+		trnlhdr->ifindex = circuit->interface->ifindex;
+		trnlhdr->total_length = sizeof(msg);
+		trnlhdr->msg_number = 1;
+		nla_put_u16(msg, TRILL_ATTR_U16, ntohs(area->trill->tree_root));
+		nl_send_auto_complete(area->sock_genl, msg);
+		nlmsg_free(msg);
+	} else {
+		struct nl_req req;
+		struct nlmsghdr *n;
+		__u16 nick = htons(area->trill->tree_root);
+		char* type = "bridge";
+		if (!area->rth2) {
+			area->rth2 = calloc(1, sizeof(struct rtnl_handle));
+			if (rtnl_open(area->rth2, 0) < 0 ) {
+				zlog_warn("failed to open rtnelink socket");
+				return false;
+			}
+		}
+		memset(&req, 0, sizeof(req));
+		n = &req.n;
+		n->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+		n->nlmsg_flags = NLM_F_REQUEST;
+		n->nlmsg_type = RTM_NEWLINK;
+		req.ifm.ifi_family = AF_UNSPEC;
+		req.ifm.ifi_index = area->bridge_id;
+		if (req.ifm.ifi_index == 0) {
+			zlog_warn("unable to find bridge device");
+			return false;
+		}
+		struct rtattr *linkinfo;
+		linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
+		addattr_l(n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
+		struct rtattr *data = addattr_nest(n, sizeof(req), IFLA_INFO_DATA);
+		addattr_l(n, sizeof(req), IFLA_TRILL_ROOT, &nick, sizeof(__u16) );
+		addattr_nest_end(n, data);
+		addattr_nest_end(n, linkinfo);
+		if (rtnl_talk(area->rth2, n, NULL, sizeof(req))  < 0) {
+			zlog_warn("rtnetlink failed to send nickname");
+			return false;
+		}
+	}
 }
 /*
  * Called upon computing the SPF trees to create the forwarding
