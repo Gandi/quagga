@@ -115,40 +115,88 @@ int receive_rtnl(struct thread *thread)
 }
 void netlink_init(struct isis_area *area)
 {
-  isisd_privs.change(ZPRIVS_RAISE);
-  /* old netlink*/
-  area->sock_genl = nl_socket_alloc();
-  genl_connect(area->sock_genl);
-  area->genl_family = genl_ctrl_resolve(area->sock_genl, TRILL_NL_FAMILY);
-  area->group_number = genl_ctrl_resolve_grp(area->sock_genl, TRILL_NL_FAMILY,
-				       TRILL_MCAST_NAME);
-  nl_socket_disable_seq_check(area->sock_genl);
-  if(!area->genl_family){
-    zlog_err("unable to find generic netlink family id");
-    abort();
-  }
+	isisd_privs.change(ZPRIVS_RAISE);
 
-  if(nl_socket_modify_cb(area->sock_genl, NL_CB_MSG_IN, NL_CB_CUSTOM,
-    parse_cb, (void *)area))
-    zlog_warn("unable to modify netlink callback");
-  if(nl_socket_add_membership(area->sock_genl, area->group_number)) {
-    zlog_warn("unable to join multicast group");
-    nl_close(area->sock_genl);
-  } else {
-    THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
-			nl_socket_get_fd(area->sock_genl));
-    return;
-  }
+	/* test rtnl compatibility with a first call */
+	struct nl_req req;
+	struct nlmsghdr *n;
+	int ret;
+	__u16 nick = htons(RBRIDGE_NICKNAME_NONE);
+	char* type = "bridge";
+	if (!area->rth2) {
+		area->rth2 = calloc(1, sizeof(struct rtnl_handle));
+		if (rtnl_open(area->rth2, 0) < 0 ) {
+			zlog_warn("failed to open rtnelink socket");
+			return false;
+		}
+	}
+	memset(&req, 0, sizeof(req));
+	n = &req.n;
+	n->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	n->nlmsg_flags = NLM_F_REQUEST;
+	n->nlmsg_type = RTM_NEWLINK;
+	req.ifm.ifi_family = AF_UNSPEC;
+	req.ifm.ifi_index = area->bridge_id;
+	if (req.ifm.ifi_index == 0) {
+		zlog_warn("unable to find bridge device");
+		return false;
+	}
+	struct rtattr *linkinfo;
+	linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
+	addattr_l(n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
+	struct rtattr *data = addattr_nest(n, sizeof(req), IFLA_INFO_DATA);
+	addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
+	addattr_nest_end(n, data);
+	addattr_nest_end(n, linkinfo);
+	ret = rtnl_talk(area->rth2, n, NULL, sizeof(req));
+	if(ret == EOPNOTSUPP ) {
+		zlog_warn("rtnetlink is not supported fallback to old api");
+		area->old_api = 1;
+	} else if (ret ==  0) {
+		area->old_api = 0;
+		zlog_warn("rtnetlink is supported: using new api ");
+	} else {
+		zlog_warn("netlink error %i", ret);
+		exit(1);
+	}
+	if (area->old_api) {
+	/* old netlink*/
+		area->sock_genl = nl_socket_alloc();
+		genl_connect(area->sock_genl);
+		area->genl_family = genl_ctrl_resolve(area->sock_genl,
+							TRILL_NL_FAMILY);
+		area->group_number = genl_ctrl_resolve_grp(area->sock_genl,
+						TRILL_NL_FAMILY,
+						TRILL_MCAST_NAME);
+		nl_socket_disable_seq_check(area->sock_genl);
+		if(!area->genl_family){
+			zlog_err("unable to find generic netlink family id");
+			abort();
+		}
 
-  /* new rtnetlink */
-  unsigned groups = 0;
-  area->rth = calloc(1, sizeof(struct rtnl_handle));
-  groups |= nl_mgrp(RTNLGRP_TRILL);
-  if (rtnl_open(area->rth, groups) < 0) {
-	zlog_warn("rtnetlink: failed to join trill group\n");
-  }
-  THREAD_READ_ON(master, area->nl_tick, receive_rtnl, area,
-			area->rth->fd);
+		if(nl_socket_modify_cb(area->sock_genl, NL_CB_MSG_IN,
+					NL_CB_CUSTOM, parse_cb, (void *)area))
+			zlog_warn("unable to modify netlink callback");
+		if(nl_socket_add_membership(area->sock_genl,
+						area->group_number)) {
+			zlog_warn("unable to join multicast group");
+			nl_close(area->sock_genl);
+		} else {
+			THREAD_READ_ON(master, area->nl_tick, receiv_nl, area,
+					nl_socket_get_fd(area->sock_genl));
+			return;
+		}
+	} else {
+		/* new rtnetlink */
+		unsigned groups = 0;
+		area->rth = calloc(1, sizeof(struct rtnl_handle));
+		groups |= nl_mgrp(RTNLGRP_TRILL);
+		if (rtnl_open(area->rth, groups) < 0) {
+			zlog_warn("rtnetlink: failed to join trill group\n");
+		}
+		THREAD_READ_ON(master, area->nl_tick, receive_rtnl, area,
+				area->rth->fd);
+	}
 }
 static int trill_nickname_nickbitmap_op(u_int16_t nick, int update, int val)
 {
@@ -417,7 +465,6 @@ void trill_area_init(struct isis_area *area)
 #ifdef HAVE_TRILL_MONITORING
   if(!area->trill->passive)
 #endif
-   netlink_init(area);
   if (!area->trill->root_count)
 	  area->trill->root_count = MIN_ROOT_COUNT;
   nickname_init();
@@ -1994,6 +2041,7 @@ DEFUN (trill_instance, trill_instance_cmd,
   assert (area->isis);
   area->trill->name = strdup(argv[0]);
   area->bridge_id = if_nametoindex(argv[0]);
+  netlink_init(area);
   return CMD_SUCCESS;
 }
 
