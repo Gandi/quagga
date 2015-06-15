@@ -1019,36 +1019,31 @@ static void trill_publish_nick(struct isis_area *area, int fd,
       idx++;
     }
   }
+	if (ni) {
+		if (fwdnode == NULL) {
+		/*
+		 * check if it's really self in case we remove fwdnode from
+		 * fwdtbl before finishing executing this function
+		 * (asynchronous threads) */
 
-  if (ni) {
-    if (fwdnode == NULL) {
-      /*
-       * check if it's really self in case we remove fwdnode from
-       * fwdtbl before finishing executing this function
-       * (asynchronous threads)*/
-      if (area->trill->nick.name == nick) {
-	msg = nlmsg_alloc();
-	trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
-			    sizeof(struct trill_nl_header), NLM_F_REQUEST,
-			    TRILL_CMD_SET_NICKS_INFO, TRILL_NL_VERSION);
-      } else {
-	free(ni);
-	return;
-      }
-    } else {
-      msg = nlmsg_alloc();
-      trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
-			    sizeof(struct trill_nl_header), NLM_F_REQUEST,
-			    TRILL_CMD_ADD_NICKS_INFO, TRILL_NL_VERSION);
-    }
-    nla_put(msg,TRILL_ATTR_BIN, new_ni_size, ni);
-    trnlhdr->ifindex = port_id;
-    trnlhdr->total_length = sizeof(msg);
-    trnlhdr->msg_number = 1;
-    nl_send_auto_complete(area->sock_genl, msg);
-    nlmsg_free(msg);
-    free(ni);
-  }
+			if (area->trill->nick.name != nick) {
+				free(ni);
+				return;
+			}
+		}
+		msg = nlmsg_alloc();
+		trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
+				sizeof(struct trill_nl_header), NLM_F_REQUEST,
+				TRILL_CMD_SET_NICKS_INFO, TRILL_NL_VERSION);
+
+		nla_put(msg,TRILL_ATTR_BIN, new_ni_size, ni);
+		trnlhdr->ifindex = port_id;
+		trnlhdr->total_length = sizeof(msg);
+		trnlhdr->msg_number = 1;
+		nl_send_auto_complete(area->sock_genl, msg);
+		nlmsg_free(msg);
+		free(ni);
+	}
 }
 uint16_t get_root_nick(struct isis_area *area, int clean)
 {
