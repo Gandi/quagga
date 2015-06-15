@@ -1,3 +1,9 @@
+quagga (0.99.22.4-60~gandi) unstable; urgency=medium
+
+  * add rtnetlink support
+
+ -- Ahmed Amamou <ahmed@gandi.net>  Mon, 15 Jun 2015 16:43:06 +0200
+
 quagga (0.99.22.4-52~gandi) unstable; urgency=medium
 
   * make sure to destroy all pending nickname info
