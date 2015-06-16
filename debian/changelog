@@ -1,3 +1,9 @@
+quagga (0.99.22.4-61~gandi) unstable; urgency=medium
+
+  * fix rtnetlink
+
+ -- Ahmed Amamou <ahmed@gandi.net>  Tue, 16 Jun 2015 15:26:35 +0200
+
 quagga (0.99.22.4-60~gandi) unstable; urgency=medium
 
   * add rtnetlink support

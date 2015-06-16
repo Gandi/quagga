@@ -123,12 +123,10 @@ void netlink_init(struct isis_area *area)
 	int ret;
 	__u16 nick = htons(RBRIDGE_NICKNAME_NONE);
 	char* type = "bridge";
-	if (!area->rth2) {
-		area->rth2 = calloc(1, sizeof(struct rtnl_handle));
-		if (rtnl_open(area->rth2, 0) < 0 ) {
-			zlog_warn("failed to open rtnelink socket");
-			return false;
-		}
+	struct rtnl_handle rth;
+	if (rtnl_open(&rth, 0) < 0 ) {
+		zlog_warn("failed to open rtnelink socket");
+		return false;
 	}
 	memset(&req, 0, sizeof(req));
 	n = &req.n;
@@ -148,7 +146,8 @@ void netlink_init(struct isis_area *area)
 	addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
 	addattr_nest_end(n, data);
 	addattr_nest_end(n, linkinfo);
-	ret = rtnl_talk(area->rth2, n, NULL, sizeof(req));
+	ret = rtnl_talk(&rth, n, NULL, sizeof(req));
+	rtnl_close(&rth);
 	if(ret == -EOPNOTSUPP ) {
 		zlog_warn("rtnetlink is not supported fallback to old api");
 		area->old_api = 1;
@@ -368,12 +367,10 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
 	__u16 nick = htons(nickname);
 	char* type = "bridge";
 	isisd_privs.change(ZPRIVS_RAISE);
-	if (!area->rth2) {
-		area->rth2 = calloc(1, sizeof(struct rtnl_handle));
-		if (rtnl_open(area->rth2, 0) < 0 ) {
-			zlog_warn("failed to open rtnelink socket");
-			return false;
-		}
+	struct rtnl_handle rth;
+	if (rtnl_open(&rth, 0) < 0 ) {
+		zlog_warn("failed to open rtnelink socket");
+		return false;
 	}
 	memset(&req, 0, sizeof(req));
 	n = &req.n;
@@ -393,10 +390,11 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
 	addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
 	addattr_nest_end(n, data);
 	addattr_nest_end(n, linkinfo);
-	if (rtnl_talk(area->rth2, n, NULL, sizeof(req))  < 0) {
+	if (rtnl_talk(&rth, n, NULL, sizeof(req))  < 0) {
 		zlog_warn("rtnetlink failed to send nickname");
 		return false;
 	}
+	rtnl_close(&rth);
 
   }
 
@@ -1078,6 +1076,7 @@ static void trill_publish_nick(struct isis_area *area, int fd,
 				free(ni);
 				return;
 			}
+			zlog_warn("(fwdnode == NULL)");
 		}
 		if(area->old_api) {
 			msg = nlmsg_alloc();
@@ -1098,12 +1097,10 @@ static void trill_publish_nick(struct isis_area *area, int fd,
 			struct nlmsghdr *n;
 			char* type = "bridge";
 			isisd_privs.change(ZPRIVS_RAISE);
-			if (!area->rth2) {
-				area->rth2 = calloc(1, sizeof(struct rtnl_handle));
-				if (rtnl_open(area->rth2, 0) < 0 ) {
-					zlog_warn("failed to open rtnelink socket");
-					return;
-				}
+			struct rtnl_handle rth;
+			if (rtnl_open(&rth, 0) < 0 ) {
+				zlog_warn("failed to open rtnelink socket");
+				return;
 			}
 			memset(&req, 0, sizeof(req));
 			n = &req.n;
@@ -1123,10 +1120,11 @@ static void trill_publish_nick(struct isis_area *area, int fd,
 			addattr_l(n, sizeof(req), IFLA_TRILL_INFO, ni, new_ni_size);
 			addattr_nest_end(n, data);
 			addattr_nest_end(n, linkinfo);
-			if (rtnl_talk(area->rth2, n, NULL, sizeof(req))  < 0) {
+			if (rtnl_talk(&rth, n, NULL, sizeof(req))  < 0) {
 				zlog_warn("rtnetlink failed to send nickname");
 				return;
 			}
+			rtnl_close(&rth);
 		}
 		free(ni);
 	}
@@ -1219,12 +1217,10 @@ static void trill_publish (struct isis_area *area)
 		__u16 nick = htons(area->trill->tree_root);
 		char* type = "bridge";
 		isisd_privs.change(ZPRIVS_RAISE);
-		if (!area->rth2) {
-			area->rth2 = calloc(1, sizeof(struct rtnl_handle));
-			if (rtnl_open(area->rth2, 0) < 0 ) {
-				zlog_warn("failed to open rtnelink socket");
-				return false;
-			}
+		struct rtnl_handle rth;
+		if (rtnl_open(&rth, 0) < 0 ) {
+			zlog_warn("failed to open rtnelink socket");
+			return false;
 		}
 		memset(&req, 0, sizeof(req));
 		n = &req.n;
@@ -1244,10 +1240,11 @@ static void trill_publish (struct isis_area *area)
 		addattr_l(n, sizeof(req), IFLA_TRILL_ROOT, &nick, sizeof(__u16) );
 		addattr_nest_end(n, data);
 		addattr_nest_end(n, linkinfo);
-		if (rtnl_talk(area->rth2, n, NULL, sizeof(req))  < 0) {
+		if (rtnl_talk(&rth, n, NULL, sizeof(req))  < 0) {
 			zlog_warn("rtnetlink failed to send nickname");
 			return false;
 		}
+		rtnl_close(&rth);
 	}
 }
 /*
@@ -1309,12 +1306,10 @@ void trill_process_spf (struct isis_area *area)
 		__u16 nick = htons(area->trill->nick.name);
 		char* type = "bridge";
 		isisd_privs.change(ZPRIVS_RAISE);
-		if (!area->rth2) {
-			area->rth2 = calloc(1, sizeof(struct rtnl_handle));
-			if (rtnl_open(area->rth2, 0) < 0 ) {
-				zlog_warn("failed to open rtnelink socket");
-				return;
-			}
+		struct rtnl_handle rth;
+		if (rtnl_open(&rth, 0) < 0 ) {
+			zlog_warn("failed to open rtnelink socket");
+			return;
 		}
 		memset(&req, 0, sizeof(req));
 		n = &req.n;
@@ -1334,10 +1329,11 @@ void trill_process_spf (struct isis_area *area)
 		addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
 		addattr_nest_end(n, data);
 		addattr_nest_end(n, linkinfo);
-		if (rtnl_talk(area->rth2, n, NULL, sizeof(req))  < 0) {
+		if (rtnl_talk(&rth, n, NULL, sizeof(req))  < 0) {
 			zlog_warn("rtnetlink failed to send nickname");
 			return;
 		}
+		rtnl_close(&rth);
 	}
 	trill_publish(area);
 	SET_FLAG(area->trill->status, TRILL_SPF_COMPUTED);

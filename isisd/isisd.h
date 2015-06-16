@@ -119,7 +119,6 @@ struct isis_area
 #endif
   struct nl_sock *sock_genl;
   struct rtnl_handle *rth;
-  struct rtnl_handle *rth2;
   int genl_family;
   int group_number;
   /* used to specify bridge when using multiple one */
