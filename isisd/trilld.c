@@ -367,6 +367,7 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
 	struct nlmsghdr *n;
 	__u16 nick = htons(nickname);
 	char* type = "bridge";
+	isisd_privs.change(ZPRIVS_RAISE);
 	if (!area->rth2) {
 		area->rth2 = calloc(1, sizeof(struct rtnl_handle));
 		if (rtnl_open(area->rth2, 0) < 0 ) {
@@ -1096,6 +1097,7 @@ static void trill_publish_nick(struct isis_area *area, int fd,
 			struct nl_req req;
 			struct nlmsghdr *n;
 			char* type = "bridge";
+			isisd_privs.change(ZPRIVS_RAISE);
 			if (!area->rth2) {
 				area->rth2 = calloc(1, sizeof(struct rtnl_handle));
 				if (rtnl_open(area->rth2, 0) < 0 ) {
@@ -1216,6 +1218,7 @@ static void trill_publish (struct isis_area *area)
 		struct nlmsghdr *n;
 		__u16 nick = htons(area->trill->tree_root);
 		char* type = "bridge";
+		isisd_privs.change(ZPRIVS_RAISE);
 		if (!area->rth2) {
 			area->rth2 = calloc(1, sizeof(struct rtnl_handle));
 			if (rtnl_open(area->rth2, 0) < 0 ) {
@@ -1305,6 +1308,7 @@ void trill_process_spf (struct isis_area *area)
 		struct nlmsghdr *n;
 		__u16 nick = htons(area->trill->nick.name);
 		char* type = "bridge";
+		isisd_privs.change(ZPRIVS_RAISE);
 		if (!area->rth2) {
 			area->rth2 = calloc(1, sizeof(struct rtnl_handle));
 			if (rtnl_open(area->rth2, 0) < 0 ) {
