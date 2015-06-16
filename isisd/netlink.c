@@ -496,7 +496,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 
 				zlog_warn("RTNETLINK answers: %s",
 					strerror(-err->error));
-				errno = -err->error;
+				errno = err->error;
 				return errno;
 			}
 

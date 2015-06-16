@@ -149,7 +149,7 @@ void netlink_init(struct isis_area *area)
 	addattr_nest_end(n, data);
 	addattr_nest_end(n, linkinfo);
 	ret = rtnl_talk(area->rth2, n, NULL, sizeof(req));
-	if(ret == EOPNOTSUPP ) {
+	if(ret == -EOPNOTSUPP ) {
 		zlog_warn("rtnetlink is not supported fallback to old api");
 		area->old_api = 1;
 	} else if (ret ==  0) {
