@@ -10,7 +10,7 @@ Build-Depends: debhelper (>= 7.0.50~),
  libcap-dev, texinfo (>= 4.7), imagemagick, ghostscript, groff, po-debconf,
  autotools-dev, hardening-wrapper, libpcre3-dev, gawk, chrpath,
  libsnmp15,
- libsnmp-dev,
+ libsnmp-dev,automake, autoconf, autotools-dev,
  libtool,
  libnl3-dev | libnl-genl-3-dev | libnl-3-dev
 Standards-Version: 3.9.4

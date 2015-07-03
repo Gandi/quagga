@@ -76,6 +76,7 @@ override_dh_auto_configure:
 		echo; \
 		if [ "`hostname`" = "james" ]; then exit 1; fi; \
 	fi
+	autoreconf -fi
 
 override_dh_auto_build:
 	dh_auto_build

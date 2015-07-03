@@ -1,4 +1,4 @@
-quagga (0.99.22.4-61~gandi) unstable; urgency=medium
+quagga (0.99.22.4.61~gandi) unstable; urgency=medium
 
   * fix rtnetlink
 
