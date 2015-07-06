@@ -11,7 +11,7 @@ Build-Depends: debhelper (>= 7.0.50~),
  autotools-dev, hardening-wrapper, libpcre3-dev, gawk, chrpath,
  libsnmp15,
  libsnmp-dev,automake, autoconf, autotools-dev,
- libtool,
+ libtool, pkg-config,
  libnl3-dev | libnl-genl-3-dev, libnl3-dev | libnl-3-dev
 Standards-Version: 3.9.4
 Homepage: http://www.quagga.net/
