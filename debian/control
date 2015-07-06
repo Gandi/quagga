@@ -12,7 +12,7 @@ Build-Depends: debhelper (>= 7.0.50~),
  libsnmp15,
  libsnmp-dev,automake, autoconf, autotools-dev,
  libtool,
- libnl3-dev | libnl-genl-3-dev | libnl-3-dev
+ libnl3-dev | libnl-genl-3-dev, libnl3-dev | libnl-3-dev
 Standards-Version: 3.9.4
 Homepage: http://www.quagga.net/
 XS-Testsuite: autopkgtest
