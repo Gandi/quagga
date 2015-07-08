@@ -98,7 +98,7 @@ static void intersect_list(struct list* list, struct list **lists, int count)
 }
 int generate_supported_vni(struct isis_area *area)
 {
-  int old_count, changed;
+  uint32_t old_count, changed;
   struct listnode *node, *tnode;
   struct list * old_list;
   struct list * new_list;

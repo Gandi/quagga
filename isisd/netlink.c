@@ -79,7 +79,7 @@ int parse_cb(struct nl_msg *msg, void *data)
   struct isis_area *area = (struct isis_area *) data;
   /* Validate message and parse attributes */
   genlh = nlmsg_data(nlh);
-  uint32_t bridge_id;
+  int  bridge_id;
   tnlh = (struct trill_nl_header *)genlmsg_data(genlh);
   if(tnlh->ifindex != KERNL_RESPONSE_INTERFACE)
     return 0;
@@ -245,7 +245,7 @@ int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions)
 
 }
 
-int accept_msg(const struct sockaddr_nl *who,
+static int accept_msg(const struct sockaddr_nl *who,
                       struct nlmsghdr *n, void *arg)
 {
 	struct rtattr * RTVNIS;
@@ -301,12 +301,12 @@ int accept_msg(const struct sockaddr_nl *who,
 	} else {
 		zlog_warn("rtnetlink: no VNI attribute found\n");
 	}
-	return;
+	return 0;
 }
 
 int rtnl_listen(struct rtnl_handle *rtnl, void *arg)
 {
-	int status;
+	uint32_t status;
 	struct nlmsghdr *h;
 	struct sockaddr_nl nladdr;
 	struct iovec iov;
@@ -346,14 +346,14 @@ int rtnl_listen(struct rtnl_handle *rtnl, void *arg)
 	}
 	for (h = (struct nlmsghdr*)buf; status >= sizeof(*h); ) {
 		int err;
-		int len = h->nlmsg_len;
-		int l = len - sizeof(*h);
-		if (l<0 || len>status) {
+		size_t len = h->nlmsg_len;
+		size_t l = len - sizeof(*h);
+		if (l<0 || len > (size_t) status) {
 			if (msg.msg_flags & MSG_TRUNC) {
 				zlog_warn("rtnetlink: Truncated message\n");
 				return -1;
 			}
-			zlog_warn("rtnetlink: !!!malformed message: len=%d\n", len);
+			zlog_warn("rtnetlink: !!!malformed message: len=%zu\n", len);
 			return -1;
 		}
 		err = accept_msg(&nladdr, h, arg);
@@ -370,11 +370,12 @@ int rtnl_listen(struct rtnl_handle *rtnl, void *arg)
 		zlog_warn("rtnetlink: !!!Remnant of size %d\n", status);
 		return -1;
 	}
+	return 0;
 
 }
 
 
-int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
+int addattr_l(struct nlmsghdr *n, uint32_t maxlen, int type, const void *data,
 		int alen)
 {
 	int len = RTA_LENGTH(alen);
@@ -392,7 +393,7 @@ int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
 	return 0;
 }
 
-struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type)
+struct rtattr *addattr_nest(struct nlmsghdr *n, uint32_t maxlen, int type)
 {
 	struct rtattr *nest = NLMSG_TAIL(n);
 
@@ -409,7 +410,7 @@ int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest)
 int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 	      struct nlmsghdr *answer, size_t len)
 {
-	int status;
+	uint32_t status;
 	unsigned seq;
 	struct nlmsghdr *h;
 	struct sockaddr_nl nladdr;
@@ -462,15 +463,15 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 			return -1;
 		}
 		for (h = (struct nlmsghdr*)buf; status >= sizeof(*h); ) {
-			int len = h->nlmsg_len;
-			int l = len - sizeof(*h);
+			size_t len = h->nlmsg_len;
+			size_t l = len - sizeof(*h);
 
-			if (l < 0 || len>status) {
+			if (l < 0 || len > (size_t) status) {
 				if (msg.msg_flags & MSG_TRUNC) {
 					zlog_warn("Truncated message");
 					return -1;
 				}
-				zlog_warn("!!!malformed message: len=%d", len);
+				zlog_warn("!!!malformed message: len=%zu", len);
 				return -1;
 			}
 

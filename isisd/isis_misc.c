@@ -258,11 +258,11 @@ nlpid2string (struct nlpids *nlpids)
 int
 speaks (struct nlpids *nlpids, int family)
 {
-  int i, speaks = 0;
-
 #ifdef HAVE_TRILL
   return 1;
 #else
+  int i, speaks = 0;
+
   if (nlpids == (struct nlpids *) NULL)
     return speaks;
   for (i = 0; i < nlpids->count; i++)

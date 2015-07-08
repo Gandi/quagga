@@ -47,6 +47,13 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
+#include "isisd/isis_flags.h"
+#include "isisd/isis_tlv.h"
+#include "isisd/isis_lsp.h"
+#include "isisd/isis_pdu.h"
+#ifdef HAVE_TRILL
+#include "isisd/trilld.h"
+#endif
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"

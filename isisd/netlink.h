@@ -80,7 +80,7 @@ struct nl_req	{
 	};
 
 #define NLMSG_TAIL(nmsg) \
-	((struct rtattr *) (((void *) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+	((struct rtattr *) (((nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
 
 #ifndef RTNLGRP_TRILL
  /*
@@ -108,9 +108,9 @@ int parse_cb(struct nl_msg *msg, void *data);
 int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions);
 void rtnl_close(struct rtnl_handle *rth);
 int rtnl_listen(struct rtnl_handle *rtnl, void *arg);
-int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
+int addattr_l(struct nlmsghdr *n, uint32_t maxlen, int type, const void *data,
 		int alen);
-struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type);
+struct rtattr *addattr_nest(struct nlmsghdr *n, uint32_t maxlen, int type);
 int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest);
 int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 		struct nlmsghdr *answer, size_t len);

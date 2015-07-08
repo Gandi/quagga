@@ -1245,11 +1245,12 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid
   start_time = (start_time * 1000000) + time_now.tv_usec;
 
 #ifdef HAVE_TRILL
-  if (family == AF_TRILL)
+  if (family == AF_TRILL) {
     if(calc_spftree)
       spftree = calc_spftree;
     else
       spftree = area->spftree[level - 1];
+  }
 #endif
   if (family == AF_INET)
     spftree = area->spftree[level - 1];
@@ -1550,10 +1551,12 @@ isis_spf_schedule (struct isis_area *area, int level)
      * If trill enabled we need to call trill_complete_spf in order to pulish
      * nickname information. calling isis_run_spf will be wrong.
      */
+  { 
     if( level == TRILL_ISIS_LEVEL)
       trill_complete_spf(area);
     else
       return isis_run_spf (area, level, AF_TRILL, isis->sysid, NULL);
+  }
 #else
       return isis_run_spf (area, level, AF_TRILL, isis->sysid);
 #endif

@@ -203,6 +203,9 @@ isis_adj_lookup_snpa (u_char * ssnpa, struct list *adjdb)
   return NULL;
 }
 
+#ifdef HAVE_TRILL_MONITORING
+void isis_delete_adj_commun (void *arg, int lost);
+#endif
 void
 isis_delete_adj (void *arg)
 {
@@ -210,7 +213,7 @@ isis_delete_adj (void *arg)
  isis_delete_adj_commun(arg, false);
 }
 
-void isis_delete_adj_lost(void *arg)
+static void isis_delete_adj_lost(void *arg)
 {
  isis_delete_adj_commun(arg, true);
 }
@@ -298,7 +301,7 @@ adj_state2string (int state)
 }
 
 #ifdef HAVE_TRILL_MONITORING
-int
+static int
 destroy_lost_adj_level1 (struct thread *thread)
 {
  struct isis_adjacency *adj;
@@ -314,7 +317,7 @@ destroy_lost_adj_level1 (struct thread *thread)
  isis_delete_adj_lost(adj);
  return ISIS_OK;
 }
-int
+static int
 destroy_lost_adj_level2 (struct thread *thread)
 {
  struct isis_adjacency *adj;
@@ -330,7 +333,7 @@ destroy_lost_adj_level2 (struct thread *thread)
  isis_delete_adj_lost(adj);
  return ISIS_OK;
 }
-int
+static int
 switch_to_down (struct thread *thread)
 {
  struct isis_adjacency *adj;
@@ -604,7 +607,7 @@ isis_adj_expire (struct thread *thread)
   return 0;
 }
 #ifdef HAVE_TRILL_MONITORING
-int isis_adj_lost_hello_reset(struct thread  *thread)
+static int isis_adj_lost_hello_reset(struct thread  *thread)
 {
  struct isis_adjacency *adj;
  adj = THREAD_ARG (thread);
@@ -612,6 +615,7 @@ int isis_adj_lost_hello_reset(struct thread  *thread)
  THREAD_TIMER_OFF (adj->t_reset_lost_hello);
  if (adj->adj_state == ISIS_ADJ_UP)
   adj->lost_hello = 0;
+ return 0;
 
 }
 int isis_adj_lost_hello (struct thread *thread)
@@ -638,6 +642,7 @@ int isis_adj_lost_hello (struct thread *thread)
   adj->lost_hello ++;
  THREAD_TIMER_MSEC_ON (master, adj->t_lost_hello, isis_adj_lost_hello, adj,
                   (long) ((adj->hello_time * 1000) + 300));
+ return 0;
 }
 #endif
 
@@ -687,7 +692,7 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
       vty_out (vty, "%-3u", adj->level);	/* level */
       vty_out (vty, "%-13s", adj_state2string (adj->adj_state));
 #ifdef HAVE_TRILL_MONITORING
-      vty_out (vty, "%-11lu", adj->lost_hello);
+      vty_out (vty, "%-11i", adj->lost_hello);
 #endif
       now = time (NULL);
       if (adj->last_upd)

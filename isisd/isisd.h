@@ -122,7 +122,7 @@ struct isis_area
   int genl_family;
   int group_number;
   /* used to specify bridge when using multiple one */
-  uint32_t bridge_id;
+  int bridge_id;
 #endif
   struct thread *t_lsp_refresh[ISIS_LEVELS];
   int lsp_regenerate_pending[ISIS_LEVELS];

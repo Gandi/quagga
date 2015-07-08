@@ -118,9 +118,9 @@ typedef struct nickfwdtable_node
 #define CLEAR_BITARRAY_ENTRYLEN 4         /* stores nicks available per 32 nicks in nick bitarray */
 #define CLEAR_BITARRAY_ENTRYLENBITS (4*8)  /* 32 nicks tracked in each entry */
 #define CLEAR_BITARRAY_SIZE (MAX_RBRIDGE_NODES / CLEAR_BITARRAY_ENTRYLENBITS)
-static u_char clear_bit_count[CLEAR_BITARRAY_SIZE];
+u_char clear_bit_count[CLEAR_BITARRAY_SIZE];
 /* nickname routines */
-static u_char nickbitvector[NICKNAMES_BITARRAY_SIZE];
+u_char nickbitvector[NICKNAMES_BITARRAY_SIZE];
 #define NICK_IS_USED(n)		(nickbitvector[(n)/8] & (1<<((n)%8)))
 #define NICK_SET_USED(n)	(nickbitvector[(n)/8] |= (1<<((n)%8)))
 #define NICK_CLR_USED(n)	(nickbitvector[(n)/8] &= ~(1<<((n)%8)))
@@ -192,6 +192,7 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname);
 void trill_init();
 uint16_t get_root_nick(struct isis_area *area, int clean);
 void trill_nick_destroy(struct isis_lsp *lsp);
+void trill_init (void);
 /* trill_vni.c */
 extern int generate_supported_vni(struct isis_area *area);
 

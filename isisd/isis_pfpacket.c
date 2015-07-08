@@ -28,6 +28,8 @@
 #include "log.h"
 #include "stream.h"
 #include "if.h"
+#include "vty.h"
+
 
 #include "isisd/dict.h"
 #include "isisd/include-netbsd/iso.h"

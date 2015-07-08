@@ -75,7 +75,7 @@ static nickdb_search_result trill_search_rbridge ( struct isis_area *area,
 static int trill_nick_conflict(nickinfo_t *nick1, nickinfo_t *nick2);
 int nickavailcnt = RBRIDGE_NICKNAME_MINRES - RBRIDGE_NICKNAME_NONE - 1;
 
-void nickname_init()
+static void nickname_init()
 {
   u_int i;
   memset(nickbitvector, 0, sizeof(nickbitvector));
@@ -88,7 +88,7 @@ void nickname_init()
   clear_bit_count[RBRIDGE_NICKNAME_UNUSED / CLEAR_BITARRAY_ENTRYLENBITS]--;
 }
 
-int receiv_nl(struct thread *thread)
+static int receiv_nl(struct thread *thread)
 {
   struct isis_area *area;
   area = THREAD_ARG (thread);
@@ -100,7 +100,8 @@ int receiv_nl(struct thread *thread)
                     nl_socket_get_fd(area->sock_genl));
   return ISIS_OK;
 }
-int receive_rtnl(struct thread *thread)
+
+static int receive_rtnl(struct thread *thread)
 {
   struct isis_area *area;
   area = THREAD_ARG (thread);
@@ -111,9 +112,10 @@ int receive_rtnl(struct thread *thread)
 
   THREAD_READ_ON(master, area->nl_tick, receive_rtnl, area,
                         area->rth->fd);
-
+  return 0;
 }
-void netlink_init(struct isis_area *area)
+
+static void netlink_init(struct isis_area *area)
 {
 	isisd_privs.change(ZPRIVS_RAISE);
 
@@ -122,11 +124,11 @@ void netlink_init(struct isis_area *area)
 	struct nlmsghdr *n;
 	int ret;
 	__u16 nick = htons(RBRIDGE_NICKNAME_NONE);
-	char* type = "bridge";
+	const char* type = "bridge";
 	struct rtnl_handle rth;
 	if (rtnl_open(&rth, 0) < 0 ) {
 		zlog_warn("failed to open rtnelink socket");
-		return false;
+		return;
 	}
 	memset(&req, 0, sizeof(req));
 	n = &req.n;
@@ -137,7 +139,7 @@ void netlink_init(struct isis_area *area)
 	req.ifm.ifi_index = area->bridge_id;
 	if (req.ifm.ifi_index == 0) {
 		zlog_warn("unable to find bridge device");
-		return false;
+		return;
 	}
 	struct rtattr *linkinfo;
 	linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
@@ -222,7 +224,7 @@ static int trill_nickname_nickbitmap_op(u_int16_t nick, int update, int val)
   }
   return false;
 }
-int is_nickname_used(uint16_t nick_nbo)
+static int is_nickname_used(uint16_t nick_nbo)
 {
   return trill_nickname_nickbitmap_op(ntohs(nick_nbo), false, true);
 }
@@ -365,12 +367,12 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
 	struct nl_req req;
 	struct nlmsghdr *n;
 	__u16 nick = htons(nickname);
-	char* type = "bridge";
+	const char* type = "bridge";
 	isisd_privs.change(ZPRIVS_RAISE);
 	struct rtnl_handle rth;
 	if (rtnl_open(&rth, 0) < 0 ) {
 		zlog_warn("failed to open rtnelink socket");
-		return false;
+		return -1;
 	}
 	memset(&req, 0, sizeof(req));
 	n = &req.n;
@@ -381,7 +383,7 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
 	req.ifm.ifi_index = area->bridge_id;
 	if (req.ifm.ifi_index == 0) {
 		zlog_warn("unable to find bridge device");
-		return false;
+		return -1;
 	}
 	struct rtattr *linkinfo;
 	linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
@@ -545,7 +547,8 @@ int tlv_add_trill_nickname(struct trill_nickname *nick_info,
   u_char tflags;
   struct trill_nickname_subtlv tn;
   struct trill_vni_subtlv *vni_subtlv;
-  int vni_count, tlv_number, last_tlv, size, i;
+  int vni_count, tlv_number, last_tlv, size;
+  int i = 0;
   uint32_t *pnt;
   void * vni;
   int rc;
@@ -678,8 +681,8 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
   struct router_capability *rtr_cap;
   uint8_t subtlvs_len;
   uint8_t subtlv;
-  uint8_t subtlv_len;
-  uint8_t stlvlen;
+  uint8_t subtlv_len = 0;
+  uint8_t stlvlen = 0;
   int nick_recvd = false;
   int flags_recvd = false;
   int vni_recvd = false;
@@ -757,11 +760,11 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
 	  case RCSTLV_TRILL_VLAN_GROUP:
 	    if (!vni_recvd && subtlv_len >= TRILL_VNI_SUBTLV_MIN_LEN) {
 	      recvd_nick->vni_count = *(uint8_t*)pnt;
-	      pnt = (uint32_t *) ((uint8_t *) pnt + 1);
+	      pnt = (u_char *) ((uint8_t *) pnt + 1);
 	      for (vni_count = 0; vni_count < recvd_nick->vni_count; vni_count++) {
 		listnode_add (recvd_nick->supported_vni,
 			      (void *) (u_long) *(uint32_t *)pnt);
-		pnt = (uint32_t *)pnt + 1;
+		pnt = (u_char *)((uint32_t *)pnt + 1);
 	      }
 	      vni_recvd = true;
 	    } else {
@@ -771,11 +774,11 @@ static int trill_parse_lsp (struct isis_lsp *lsp, nickinfo_t *recvd_nick)
 		  uint8_t sub_count;
 		  sub_count = *(u_int8_t*)pnt;
 		  recvd_nick->vni_count += sub_count;
-		  pnt = (uint32_t *) ((uint8_t *) pnt + 1);
+		  pnt = (u_char *) ((uint8_t *) pnt + 1);
 		  for (vni_count = 0;vni_count < sub_count; vni_count++) {
 		    listnode_add (recvd_nick->supported_vni,
 				  (void *) (u_long) *(uint32_t *)pnt);
-		    pnt = (uint32_t *)pnt+1;
+		    pnt = (u_char *)((uint32_t *)pnt+1);
 		  }
 		}
 	      } else
@@ -1095,7 +1098,7 @@ static void trill_publish_nick(struct isis_area *area, int fd,
 		} else {
 			struct nl_req req;
 			struct nlmsghdr *n;
-			char* type = "bridge";
+			const char* type = "bridge";
 			isisd_privs.change(ZPRIVS_RAISE);
 			struct rtnl_handle rth;
 			if (rtnl_open(&rth, 0) < 0 ) {
@@ -1136,6 +1139,7 @@ uint16_t get_root_nick(struct isis_area *area, int clean)
   u_char *lsysid;
   dnode_t *dnode;
   nicknode_t *tnode;
+  uint16_t *elem;
   uint16_t nick;
   struct listnode *node;
   struct list *tmp = list_new();
@@ -1167,7 +1171,8 @@ uint16_t get_root_nick(struct isis_area *area, int clean)
   }
 
   if (clean) {
-	for (ALL_LIST_ELEMENTS_RO(tmp, node, nick)) {
+	for (ALL_LIST_ELEMENTS_RO(tmp, node, elem)) {
+		nick = (uint16_t) elem;
 		nicknode_t *n_node = trill_nicknode_lookup(area, nick);
 		adjacency_lsp_search_and_destroy(n_node->info.sysid,
 						 area->lspdb[0]);
@@ -1184,7 +1189,7 @@ static void trill_publish (struct isis_area *area)
   nickfwdtblnode_t *fwdnode;
   struct nl_msg *msg;
   struct trill_nl_header *trnlhdr;
-  struct isis_circuit *circuit;
+  struct isis_circuit *circuit = NULL;
   if (area->circuit_list && listhead(area->circuit_list))
     circuit = listgetdata(listhead(area->circuit_list));
   if (circuit == NULL)
@@ -1215,12 +1220,12 @@ static void trill_publish (struct isis_area *area)
 		struct nl_req req;
 		struct nlmsghdr *n;
 		__u16 nick = htons(area->trill->tree_root);
-		char* type = "bridge";
+		const char* type = "bridge";
 		isisd_privs.change(ZPRIVS_RAISE);
 		struct rtnl_handle rth;
 		if (rtnl_open(&rth, 0) < 0 ) {
 			zlog_warn("failed to open rtnelink socket");
-			return false;
+			return;
 		}
 		memset(&req, 0, sizeof(req));
 		n = &req.n;
@@ -1231,7 +1236,7 @@ static void trill_publish (struct isis_area *area)
 		req.ifm.ifi_index = area->bridge_id;
 		if (req.ifm.ifi_index == 0) {
 			zlog_warn("unable to find bridge device");
-			return false;
+			return ;
 		}
 		struct rtattr *linkinfo;
 		linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
@@ -1242,7 +1247,7 @@ static void trill_publish (struct isis_area *area)
 		addattr_nest_end(n, linkinfo);
 		if (rtnl_talk(&rth, n, NULL, sizeof(req))  < 0) {
 			zlog_warn("rtnetlink failed to send nickname");
-			return false;
+			return ;
 		}
 		rtnl_close(&rth);
 	}
@@ -1257,7 +1262,7 @@ void trill_process_spf (struct isis_area *area)
   nicknode_t *tnode;
   struct nl_msg *msg;
   struct trill_nl_header *trnlhdr;
-  struct isis_circuit *circuit;
+  struct isis_circuit *circuit = NULL;
 
   /* Nothing to do if we don't have a nick yet */
   if (area->trill->nick.name == RBRIDGE_NICKNAME_NONE)
@@ -1304,7 +1309,7 @@ void trill_process_spf (struct isis_area *area)
 		struct nl_req req;
 		struct nlmsghdr *n;
 		__u16 nick = htons(area->trill->nick.name);
-		char* type = "bridge";
+		const char* type = "bridge";
 		isisd_privs.change(ZPRIVS_RAISE);
 		struct rtnl_handle rth;
 		if (rtnl_open(&rth, 0) < 0 ) {
@@ -1670,8 +1675,8 @@ void trill_parse_router_capability_tlvs (struct isis_area *area,
     }
     trill_nickinfo_del (&recvd_nick);
 }
-void trill_nickdb_print (struct vty *vty, struct isis_area *area, int detail,
-                         char* id)
+static void trill_nickdb_print (struct vty *vty, struct isis_area *area, int detail,
+                         const char* id)
 {
   dnode_t *dnode;
   nicknode_t *tnode;
@@ -1685,9 +1690,6 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area, int detail,
   struct isis_dynhn *dynhn;
   u_char tmpsysid[ISIS_SYS_ID_LEN];
 
-  u_char *lsysid;
-  u_int16_t lpriority;
-
   memset (tmpsysid, 0, ISIS_SYS_ID_LEN);
   if (id)
     {
@@ -1697,15 +1699,13 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area, int detail,
           if (temp_cache == NULL)
             {
               vty_out (vty, "Invalid system id %s%s", id, VTY_NEWLINE);
-              return CMD_SUCCESS;
+              return;
             }
         }
     }
   vty_out(vty, "  Hostname                       System ID             "
                "Nickname   Priority  %s",
 	  VTY_NEWLINE);
-  lpriority = area->trill->nick.priority;
-  lsysid = area->isis->sysid;
 
 
   for (ALL_DICT_NODES_RO(area->trill->nickdb, dnode, tnode)) {
@@ -1722,7 +1722,7 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area, int detail,
     }
     if (!found)
      continue;
-    vty_out (vty, "  %-30s %-21s %-9d  %3d",
+    vty_out (vty, "  %-30s %-21s %-9d  %3d %s",
 	     print_sys_hostname (tnode->info.sysid), sysid,
 	     ntohs (tnode->info.nick.name),
 	     tnode->info.nick.priority,VTY_NEWLINE);
@@ -1748,7 +1748,7 @@ void trill_nickdb_print (struct vty *vty, struct isis_area *area, int detail,
   list_free(temp_cache);
 }
 
-void
+static void
 trill_circuits_print_all (struct vty *vty, struct isis_area *area)
 {
   struct listnode *node;
@@ -1829,7 +1829,6 @@ static void trill_adjtbl_print (struct vty *vty, struct isis_area *area,
   nickfwdtblnode_t *fwdnode;
   void *listdata;
   uint16_t nick;
-  int idx = 0;
   struct list *adjnodes;
   if (nicknode != NULL) {
     adjnodes = nicknode->adjnodes;
@@ -1869,7 +1868,7 @@ static void trill_adjtbl_print_all (struct vty *vty, struct isis_area *area)
 }
 
 #ifdef HAVE_TRILL_MONITORING
-int reset_trill_lost_hello_counter(struct vty *vty, const char *id)
+static int reset_trill_lost_hello_counter(struct vty *vty, const char *id)
 {
   struct listnode *anode, *cnode, *node, *idnode;
   struct isis_area *area;
@@ -2034,7 +2033,6 @@ DEFUN (trill_instance, trill_instance_cmd,
        "instance name\n")
 {
   struct isis_area *area;
-  struct interface *ifp;
 
   area = vty->index;
   assert (area);
@@ -2055,7 +2053,6 @@ DEFUN (show_trill_nickdatabase,
   struct listnode *node;
   struct listnode *vninode;
   struct isis_area *area;
-  dnode_t *dnode;
   void *data;
   uint32_t vni;
 
@@ -2090,7 +2087,6 @@ DEFUN (show_trill_nickdatabase_detail,
  struct listnode *node;
  struct listnode *vninode;
  struct isis_area *area;
- dnode_t *dnode;
  void *data;
  uint32_t vni;
 
@@ -2131,7 +2127,7 @@ DEFUN (show_trill_nickdatabase_arg,
   return CMD_SUCCESS;
 
  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area)) {
-        trill_nickdb_print (vty, area, true, argv[0]);
+        trill_nickdb_print (vty, area, true, (const char *) argv[0]);
  }
     vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
     return CMD_SUCCESS;
@@ -2189,6 +2185,7 @@ DEFUN (show_trill_topology,
   area = listgetdata(listhead (isis->area_list));
   vty_out (vty, "IS-IS paths to RBridges that speak TRILL%s", VTY_NEWLINE);
   trill_print_paths (vty, area);
+  return CMD_SUCCESS;
 }
 DEFUN (show_trill_adjtable,
        show_trill_adjtable_cmd,

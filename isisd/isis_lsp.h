@@ -115,12 +115,13 @@ const char *lsp_bits2string (u_char *);
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags (struct isis_lsp *lsp);
 
+int lsp_regenerate_now(struct isis_area *area, int level);
+
 #ifdef TOPOLOGY_GENERATE
 void generate_topology_lsps (struct isis_area *area);
 void remove_topology_lsps (struct isis_area *area);
 void build_topology_lsp_data (struct isis_lsp *lsp,
 			      struct isis_area *area, int lsp_top_num);
-int lsp_regenerate_now(struct isis_area *area, int level);
 
 #endif /* TOPOLOGY_GENERATE */
 

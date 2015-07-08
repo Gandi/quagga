@@ -652,6 +652,10 @@ void free_tlv (void *val);
 int tlv_add_area_addrs (struct list *area_addrs, struct stream *stream);
 int tlv_add_is_neighs (struct list *is_neighs, struct stream *stream);
 int tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream);
+#ifdef HAVE_TRILL_MONITORING
+int
+tlv_add_lost_lan_neighs (struct list *lost_lan_neighs, struct stream *stream);
+#endif
 int tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream);
 int tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream);
 int tlv_add_checksum (struct checksum *checksum, struct stream *stream);

@@ -248,7 +248,6 @@ void
 adjacency_lsp_search_and_destroy (u_char * id, dict_t * lspdb)
 {
   dnode_t *node;
-  struct listnode *lnode;
   struct isis_lsp *lsp;
 
   int length = sizeof(char[ISIS_SYS_ID_LEN]);

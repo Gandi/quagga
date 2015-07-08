@@ -54,7 +54,9 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_events.h"
-
+#ifdef HAVE_TRILL
+#include "isisd/trilld.h"
+#endif
 #ifdef TOPOLOGY_GENERATE
 #include "spgrid.h"
 u_char DEFAULT_TOPOLOGY_BASEIS[6] = { 0xFE, 0xED, 0xFE, 0xED, 0x00, 0x00 };
@@ -112,7 +114,7 @@ isis_new (unsigned long process_id
 }
 
 #ifdef HAVE_TRILL_MONITORING
-void format_msg(struct isis_area *area, char *msg, int length)
+static void format_msg(struct isis_area *area, char *msg, int length)
 {
 	struct listnode *node, *cnode;
 	struct isis_circuit *circuit;
@@ -168,7 +170,7 @@ void format_msg(struct isis_area *area, char *msg, int length)
 
 
 
-void monitor_sock(struct thread *thread)
+static int monitor_sock(struct thread *thread)
 {
 	struct isis_area *area;
 	socklen_t address_length;
@@ -199,10 +201,10 @@ skip_format:
 		zlog_err("monitor_sock: sendto failed!");
 	THREAD_READ_ON(master, area->mon_tick, monitor_sock, area,
 		       area->isis->mfd);
-
+	return 0;
 }
 
-int init_monitor_sock(struct isis_area *area)
+static int init_monitor_sock(struct isis_area *area)
 {
 	struct sockaddr_in address;
 	int fd;
@@ -232,7 +234,7 @@ int init_monitor_sock(struct isis_area *area)
 	area->isis->mfd = fd;
 	THREAD_READ_ON(master, area->mon_tick, monitor_sock, area,
 		       area->isis->mfd);
-
+	return 0;
 }
 #endif
 
@@ -3062,7 +3064,6 @@ DEFUN (isis_monitoring_password,
        "isis-monitoring-password WORD",
         "passwd for isis monitoring")
 {
-  struct isis_area *area;
   int len;
 
   len = strlen (argv[0]);
@@ -3083,17 +3084,7 @@ DEFUN (no_isis_monitoring_password,
        "no isis-monitoring-password WORD",
        NO_STR)
 {
-  struct isis_area *area;
-  int len;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-  memset (&area->isis->mpass, 0, sizeof (struct isis_passwd));
+  memset (&isis->mpass, 0, sizeof (struct isis_passwd));
   return CMD_SUCCESS;
 }
 
