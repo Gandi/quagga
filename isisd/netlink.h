@@ -80,7 +80,7 @@ struct nl_req	{
 	};
 
 #define NLMSG_TAIL(nmsg) \
-	((struct rtattr *) (((nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+	((struct rtattr *) (((char *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
 
 #ifndef RTNLGRP_TRILL
  /*

@@ -1,3 +1,9 @@
+quagga (0.99.22.4.63~gandi) unstable; urgency=medium
+
+  * fix some remaining warning
+
+ -- Ahmed Amamou <ahmed@gandi.net>  Thu, 09 Jul 2015 12:47:46 +0200
+
 quagga (0.99.22.4.62~gandi) unstable; urgency=medium
 
   * Fix some critical warning messages

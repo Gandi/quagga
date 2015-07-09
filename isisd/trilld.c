@@ -1172,7 +1172,7 @@ uint16_t get_root_nick(struct isis_area *area, int clean)
 
   if (clean) {
 	for (ALL_LIST_ELEMENTS_RO(tmp, node, elem)) {
-		nick = (uint16_t) elem;
+		nick = (intptr_t) elem;
 		nicknode_t *n_node = trill_nicknode_lookup(area, nick);
 		adjacency_lsp_search_and_destroy(n_node->info.sysid,
 						 area->lspdb[0]);
