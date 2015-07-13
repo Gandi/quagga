@@ -1,3 +1,9 @@
+quagga (0.99.22.4.64~gandi) unstable; urgency=medium
+
+  * fix jessie Build
+
+ -- Ahmed Amamou <ahmed@gandi.net>  Mon, 13 Jul 2015 11:09:01 +0200
+
 quagga (0.99.22.4.63~gandi) unstable; urgency=medium
 
   * fix some remaining warning
