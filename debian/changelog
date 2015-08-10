@@ -1,3 +1,9 @@
+quagga (0.99.22.4.65~gandi) unstable; urgency=medium
+
+  * temporarly fix rtnetlink error 
+
+ -- Ahmed Amamou <ahmed@gandi.net>  Mon, 10 Aug 2015 14:48:22 +0200
+
 quagga (0.99.22.4.64~gandi) unstable; urgency=medium
 
   * fix jessie Build
