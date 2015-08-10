@@ -157,8 +157,8 @@ static void netlink_init(struct isis_area *area)
 		area->old_api = 0;
 		zlog_warn("rtnetlink is supported: using new api ");
 	} else {
-		zlog_warn("netlink error %i", ret);
-		exit(1);
+		zlog_warn("netlink error %i assuming old api", ret);
+		area->old_api = 1;
 	}
 	if (area->old_api) {
 	/* old netlink*/
