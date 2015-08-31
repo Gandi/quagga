@@ -113,7 +113,7 @@ struct isis_area
   struct thread *t_tick;	/* LSP walker */
 #ifdef HAVE_TRILL
   struct thread *nl_tick; /*netlink recev tick*/
-  int old_api;
+  int api_version;
 #ifdef HAVE_TRILL_MONITORING
   struct thread *mon_tick; /* monitoring tick */
 #endif

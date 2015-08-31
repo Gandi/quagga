@@ -145,22 +145,35 @@ static void netlink_init(struct isis_area *area)
 	linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
 	addattr_l(n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
 	struct rtattr *data = addattr_nest(n, sizeof(req), IFLA_INFO_DATA);
-	addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
+	addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME_NEW, &nick, sizeof(__u16) );
 	addattr_nest_end(n, data);
 	addattr_nest_end(n, linkinfo);
 	ret = rtnl_talk(&rth, n, NULL, sizeof(req));
 	rtnl_close(&rth);
 	if(ret == -EOPNOTSUPP ) {
 		zlog_warn("rtnetlink is not supported fallback to old api");
-		area->old_api = 1;
+		area->api_version = 0;
 	} else if (ret ==  0) {
-		area->old_api = 0;
+		area->api_version = 2;
 		zlog_warn("rtnetlink is supported: using new api ");
 	} else {
-		zlog_warn("netlink error %i assuming old api", ret);
-		area->old_api = 1;
+		struct rtattr *linkinfo;
+		linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
+		addattr_l(n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
+		struct rtattr *data = addattr_nest(n, sizeof(req), IFLA_INFO_DATA);
+		addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
+		addattr_nest_end(n, data);
+		addattr_nest_end(n, linkinfo);
+		ret = rtnl_talk(&rth, n, NULL, sizeof(req));
+		rtnl_close(&rth);
+		if(ret == 0) {
+			area->api_version = 1;
+		} else {
+			zlog_warn("error: unable to detect netlink version ");
+			exit (ret);
+		}
 	}
-	if (area->old_api) {
+	if (area->api_version == 0) {
 	/* old netlink*/
 		area->sock_genl = nl_socket_alloc();
 		genl_connect(area->sock_genl);
@@ -347,7 +360,7 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
    return true;
 #endif
   if (listcount(area->circuit_list) > 0) {
-    if (area->old_api) {
+    if (area->api_version == 0) {
       struct nl_msg *msg;
       struct trill_nl_header *trnlhdr;
       struct isis_circuit *circuit = listgetdata(listhead(area->circuit_list));
@@ -389,7 +402,10 @@ int trill_area_nickname(struct isis_area *area, u_int16_t nickname)
 	linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
 	addattr_l(n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
 	struct rtattr *data = addattr_nest(n, sizeof(req), IFLA_INFO_DATA);
-	addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
+	if (area->api_version == 1)
+		addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
+	else
+		addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME_NEW, &nick, sizeof(__u16) );
 	addattr_nest_end(n, data);
 	addattr_nest_end(n, linkinfo);
 	if (rtnl_talk(&rth, n, NULL, sizeof(req))  < 0) {
@@ -1081,7 +1097,7 @@ static void trill_publish_nick(struct isis_area *area, int fd,
 			}
 			zlog_warn("(fwdnode == NULL)");
 		}
-		if(area->old_api) {
+		if(area->api_version == 0) {
 			msg = nlmsg_alloc();
 			trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ,
 						area->genl_family,
@@ -1120,7 +1136,10 @@ static void trill_publish_nick(struct isis_area *area, int fd,
 			linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
 			addattr_l(n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
 			struct rtattr *data = addattr_nest(n, sizeof(req), IFLA_INFO_DATA);
-			addattr_l(n, sizeof(req), IFLA_TRILL_INFO, ni, new_ni_size);
+			if (area->api_version == 1)
+				addattr_l(n, sizeof(req), IFLA_TRILL_INFO, ni, new_ni_size);
+			else
+				addattr_l(n, sizeof(req), IFLA_TRILL_INFO_NEW, ni, new_ni_size);
 			addattr_nest_end(n, data);
 			addattr_nest_end(n, linkinfo);
 			if (rtnl_talk(&rth, n, NULL, sizeof(req))  < 0) {
@@ -1203,7 +1222,7 @@ static void trill_publish (struct isis_area *area)
   trill_publish_nick(area, circuit->fd, area->trill->nick.name,
 		     NULL, circuit->interface->ifindex);
 
-	if (area->old_api) {
+	if (area->api_version == 0) {
 		msg = nlmsg_alloc();
 		trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, area->genl_family,
 			sizeof(struct trill_nl_header), NLM_F_REQUEST,
@@ -1242,7 +1261,10 @@ static void trill_publish (struct isis_area *area)
 		linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
 		addattr_l(n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
 		struct rtattr *data = addattr_nest(n, sizeof(req), IFLA_INFO_DATA);
-		addattr_l(n, sizeof(req), IFLA_TRILL_ROOT, &nick, sizeof(__u16) );
+		if(area->api_version == 1)
+			addattr_l(n, sizeof(req), IFLA_TRILL_ROOT, &nick, sizeof(__u16) );
+		else
+			addattr_l(n, sizeof(req), IFLA_TRILL_ROOT, &nick, sizeof(__u16) );
 		addattr_nest_end(n, data);
 		addattr_nest_end(n, linkinfo);
 		if (rtnl_talk(&rth, n, NULL, sizeof(req))  < 0) {
@@ -1284,7 +1306,7 @@ void trill_process_spf (struct isis_area *area)
   if(area->trill->passive)
    return;
 #endif
-	if (area->old_api) {
+	if (area->api_version == 0) {
 		msg = nlmsg_alloc();
 		trnlhdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ,
 					area->genl_family,
@@ -1331,7 +1353,10 @@ void trill_process_spf (struct isis_area *area)
 		linkinfo = addattr_nest(n, sizeof(req), IFLA_LINKINFO);
 		addattr_l(n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
 		struct rtattr *data = addattr_nest(n, sizeof(req), IFLA_INFO_DATA);
-		addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
+		if (area->api_version == 1)
+			addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME, &nick, sizeof(__u16) );
+		else
+			addattr_l(n, sizeof(req), IFLA_TRILL_NICKNAME_NEW, &nick, sizeof(__u16) );
 		addattr_nest_end(n, data);
 		addattr_nest_end(n, linkinfo);
 		if (rtnl_talk(&rth, n, NULL, sizeof(req))  < 0) {
