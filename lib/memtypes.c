@@ -253,8 +253,8 @@ struct memory_list memory_list_isis[] =
   { MTYPE_ISIS_DICT,          "ISIS dictionary"			},
   { MTYPE_ISIS_DICT_NODE,     "ISIS dictionary node"		},
   { MTYPE_ISIS_TRILLAREA,     "ISIS TRILL area information"	},
-  { MTYPE_ISIS_TRILL_NICKDB_NODE,	"ISIS TRILL nickdb node"       },
-  { MTYPE_ISIS_TRILL_FWDTBL_NODE,	"ISIS TRILL forwarding table node"},
+  { MTYPE_ISIS_TRILL_NICKDB_NODE,    "ISIS TRILL nickdb node"	},
+  { MTYPE_ISIS_TRILL_FWDTBL_NODE,    "ISIS TRILL forwarding table node"	},
   { -1, NULL },
 };
 
